@@ -4,6 +4,8 @@ import multer, { type FileFilterCallback } from 'multer';
 import type { Request } from 'express';
 import { env } from '../config/env';
 import { EXTENSION_TO_MIME, ALLOWED_MIME_TYPES } from '../config/constants';
+import { assertSafeFilename } from '../utils/filenameSafety';
+import { AppError } from '../utils/AppError';
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -16,12 +18,30 @@ const storage = multer.diskStorage({
   },
 });
 
+/**
+ * NOTE on partial-failure behavior: multer/busboy parses one multipart stream, so a
+ * fileFilter rejection (or a `limits` violation, e.g. LIMIT_FILE_SIZE) aborts the whole
+ * request, not just the offending file. That's a property of streaming multipart parsing
+ * itself, not something a fileFilter can opt out of. It's not a gap in practice here: the
+ * frontend uploads exactly one file per HTTP request (see lib/api/media.ts), which is also
+ * what gives each file its own progress bar — so one bad file only ever fails its own
+ * request, never anyone else's. A request with several files (e.g. a future API client)
+ * still gets correct itemized uploaded/failed results for anything that fails *after*
+ * multer accepts the files (see mediaController.uploadMedia's per-file loop).
+ */
 function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void {
+  try {
+    assertSafeFilename(file.originalname);
+  } catch (err) {
+    cb(AppError.badRequest(err instanceof Error ? err.message : 'Invalid filename'));
+    return;
+  }
+
   const ext = path.extname(file.originalname).toLowerCase();
   const expectedMime = EXTENSION_TO_MIME[ext];
 
   if (!expectedMime) {
-    cb(new Error(`Unsupported file extension: ${ext || '(none)'}`));
+    cb(AppError.badRequest(`Unsupported file extension: ${ext || '(none)'}`));
     return;
   }
 
@@ -30,7 +50,7 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
   // but reject anything whose reported mimetype is a clearly different, disallowed type.
   const reportedIsKnown = (ALLOWED_MIME_TYPES as readonly string[]).includes(file.mimetype);
   if (!reportedIsKnown && file.mimetype !== 'application/octet-stream') {
-    cb(new Error(`File type mismatch for ${file.originalname}`));
+    cb(AppError.badRequest(`File type mismatch for ${file.originalname}`));
     return;
   }
 

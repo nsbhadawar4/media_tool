@@ -25,17 +25,32 @@ export const mediaApi = {
   restore: (id: string) => api.post<Media>(`/api/media/${id}/restore`),
 };
 
+/** Thrown when a caller aborts an in-progress upload via its AbortSignal — distinct from a real failure. */
+export class UploadCancelledError extends Error {
+  constructor() {
+    super('Upload cancelled');
+    this.name = 'UploadCancelledError';
+  }
+}
+
 /**
- * Uploads files with per-file progress via XHR (fetch has no upload progress event).
- * Uploads sequentially, one request per file, so a single failure never blocks the rest
- * and the caller gets a clean per-file progress callback.
+ * Uploads a single file with progress via XHR (fetch has no upload progress event).
+ * The caller sends one file per request (see useUploadQueue), so a single failure never
+ * blocks the rest and each file gets its own progress bar. Pass `signal` to allow
+ * cancelling a specific in-flight upload from the UI.
  */
 export function uploadFile(
   file: File,
   folderId: string | null,
   onProgress: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<Media> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new UploadCancelledError());
+      return;
+    }
+
     const formData = new FormData();
     formData.append('files', file);
     if (folderId) formData.append('folderId', folderId);
@@ -44,13 +59,23 @@ export function uploadFile(
     xhr.open('POST', `${API_BASE_URL}/api/media/upload`);
     xhr.withCredentials = true;
 
+    const handleAbort = () => xhr.abort();
+    signal?.addEventListener('abort', handleAbort);
+    const cleanup = () => signal?.removeEventListener('abort', handleAbort);
+
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
 
+    xhr.onabort = () => {
+      cleanup();
+      reject(new UploadCancelledError());
+    };
+
     xhr.onload = () => {
+      cleanup();
       let payload: { success: boolean; data?: UploadResult; error?: { message: string } } | null = null;
       try {
         payload = JSON.parse(xhr.responseText);
@@ -71,7 +96,11 @@ export function uploadFile(
       }
     };
 
-    xhr.onerror = () => reject(new ApiError('Network error during upload', 0));
+    xhr.onerror = () => {
+      cleanup();
+      reject(new ApiError('Network error during upload', 0));
+    };
+
     xhr.send(formData);
   });
 }

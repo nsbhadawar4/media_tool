@@ -45,7 +45,7 @@ media_tool/
 │   │   ├── models/            # Admin, Folder, Media, ActivityLog
 │   │   ├── middleware/        # auth, mediaAccess, upload, validate, rateLimit, sanitize, errors
 │   │   ├── services/          # storage abstraction, folder/media/activity/token logic
-│   │   │   └── storage/       # IStorageProvider + Local/S3(R2) implementations + factory
+│   │   │   └── storage/       # StorageService + Local/S3(R2) implementations + factory
 │   │   ├── controllers/, routes/, validators/, utils/, types/
 │   │   ├── scripts/           # create-admin.ts, hash-password.ts
 │   │   ├── app.ts, server.ts
@@ -126,10 +126,21 @@ No manual schema setup is needed — Mongoose creates collections/indexes on fir
 ## 5. Storage setup
 
 The backend never stores files inside MongoDB — only metadata (`storageKey`, `size`,
-`mimeType`, etc). The actual bytes live behind a swappable `IStorageProvider`
-(`backend/src/services/storage/`):
+`mimeType`, etc). The actual bytes live behind a swappable `StorageService`
+(`backend/src/services/storage/`), with exactly five methods: `upload()`, `delete()`,
+`exists()`, `getUrl()` and `getSignedUrl()` (plus `getObjectStream()`, needed to actually
+serve private files with HTTP Range support — see the design note below).
 
-- **`local`** (default, for development) — files are written under `backend/uploads/`.
+- **`local`** (default, for development) — files are written under `backend/uploads/`,
+  organized by type first, then by folder:
+  ```
+  backend/uploads/
+  ├── photos/<folderId or "unfiled">/<generated-name>.jpg
+  ├── videos/<folderId or "unfiled">/<generated-name>.mp4
+  └── documents/<folderId or "unfiled">/<generated-name>.pdf
+  ```
+  The folder segment is the folder's stable database id, not its display name, so
+  renaming or moving a folder in the UI never touches any already-uploaded file's path.
   Nothing else to configure.
 - **`r2`** (Cloudflare R2) — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
   `R2_BUCKET_NAME` (and optionally `R2_PUBLIC_BASE_URL` if the bucket is bound to a custom domain).
@@ -290,3 +301,16 @@ All responses use the envelope `{ success: true, data, meta? }` or
   video preview modal uses the native HTML5 `<video>` element with full controls.
 - **"Media" vs "Documents"** in the sidebar: Media shows everything (with Images/Videos/
   Documents filter chips), Documents is a pre-filtered shortcut to documents only.
+- **One HTTP request per file on upload**: the upload queue sends each file as its own
+  request (see `frontend/lib/api/media.ts`), not one batch request for the whole
+  selection. That's what gives each file an independent progress bar, an independent
+  cancel/retry, and a hard guarantee that one bad file can never affect another's
+  already-completed upload — multipart parsers (busboy, used by `multer`) abort the
+  *entire* request on a single malformed/oversized part, so true per-file isolation only
+  exists if each file *is* its own request. `POST /api/media/upload` still accepts a real
+  multi-file batch (and returns itemized `uploaded`/`failed` arrays) for any other API
+  client that doesn't need per-file progress.
+- **`getSignedUrl()`** only returns a real presigned URL for `r2`/`s3` (via
+  `@aws-sdk/s3-request-presigner`); for `local` it returns `null`, same as `getUrl()` —
+  local dev storage has no directly-addressable URL of any kind, signed or otherwise, so
+  every private file is always streamed through the API's own token-guarded routes.

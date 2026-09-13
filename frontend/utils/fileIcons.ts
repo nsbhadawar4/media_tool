@@ -27,3 +27,30 @@ export function extensionOf(fileName: string): string {
   const idx = fileName.lastIndexOf('.');
   return idx >= 0 ? fileName.slice(idx + 1).toUpperCase() : '';
 }
+
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif']);
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'mkv']);
+
+/**
+ * Best-effort local classification of a not-yet-uploaded File, used only to pick an icon
+ * for the upload queue before the server has confirmed anything. Some browsers report an
+ * empty or generic `type` for formats like HEIC, so this falls back to the extension.
+ */
+export function guessFileTypeFromFile(file: { name: string; type: string }): FileType {
+  if (file.type.startsWith('image/')) return 'image';
+  if (file.type.startsWith('video/')) return 'video';
+  if (
+    file.type === 'application/pdf' ||
+    file.type.includes('word') ||
+    file.type.includes('excel') ||
+    file.type.includes('spreadsheet') ||
+    file.type === 'text/plain'
+  ) {
+    return 'document';
+  }
+
+  const ext = extensionOf(file.name).toLowerCase();
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image';
+  if (VIDEO_EXTENSIONS.has(ext)) return 'video';
+  return 'document';
+}

@@ -2,13 +2,13 @@ import { env } from '../../config/env';
 import { AppError } from '../../utils/AppError';
 import { LocalStorageProvider } from './LocalStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
-import type { IStorageProvider } from './StorageProvider';
+import type { StorageService } from './StorageProvider';
 
-export type { IStorageProvider, PutObjectInput, StoredObjectMeta, StreamRange, StreamResult } from './StorageProvider';
+export type { StorageService, UploadInput, StoredObjectMeta, StreamRange, StreamResult } from './StorageProvider';
 
-let cachedProvider: IStorageProvider | null = null;
+let cachedProvider: StorageService | null = null;
 
-function buildProvider(): IStorageProvider {
+function buildProvider(): StorageService {
   switch (env.STORAGE_PROVIDER) {
     case 'local':
       return new LocalStorageProvider();
@@ -57,7 +57,7 @@ function buildProvider(): IStorageProvider {
 }
 
 /** Lazily built, memoized singleton — call sites never need to know which provider is active. */
-export function getStorageProvider(): IStorageProvider {
+export function getStorageProvider(): StorageService {
   if (!cachedProvider) {
     cachedProvider = buildProvider();
   }

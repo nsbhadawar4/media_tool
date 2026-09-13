@@ -6,8 +6,9 @@ import sharp from 'sharp';
 import { Media, type IMedia } from '../models/Media';
 import { Folder } from '../models/Folder';
 import { getStorageProvider } from './storage';
-import { fileTypeFromMime, type FileType } from '../config/constants';
+import { fileTypeFromMime, STORAGE_DIR_BY_FILE_TYPE, type FileType } from '../config/constants';
 import { AppError } from '../utils/AppError';
+import { assertSafeFilename } from '../utils/filenameSafety';
 import { recalculateItemCount } from './folderService';
 
 export interface UploadedFileInput {
@@ -17,13 +18,23 @@ export interface UploadedFileInput {
   size: number;
 }
 
-/** Builds a collision-proof storage key, namespaced by folder so a bucket stays browsable. */
-function buildStorageKey(folderId: string | null, originalName: string): { key: string; storedName: string } {
-  const ext = path.extname(originalName).toLowerCase();
+/**
+ * Builds a collision-proof storage key. Keys are organized type-first
+ * (photos/videos/documents — mirroring backend/uploads/{photos,videos,documents}),
+ * then by folder so a bucket stays browsable. The folder segment is the folder's
+ * stable _id, not its name, so renaming or moving a folder never requires touching
+ * any already-uploaded file's storage key.
+ */
+function buildStorageKey(
+  fileType: FileType,
+  folderId: string | null,
+  safeOriginalName: string,
+): { key: string; storedName: string } {
+  const ext = path.extname(safeOriginalName).toLowerCase();
   const unique = crypto.randomBytes(8).toString('hex');
   const storedName = `${Date.now()}-${unique}${ext}`;
   const folderSegment = folderId ?? 'unfiled';
-  return { key: `media/${folderSegment}/${storedName}`, storedName };
+  return { key: `${STORAGE_DIR_BY_FILE_TYPE[fileType]}/${folderSegment}/${storedName}`, storedName };
 }
 
 async function readImageDimensions(filePath: string): Promise<{ width: number | null; height: number | null }> {
@@ -51,6 +62,14 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
     throw AppError.badRequest(`Unsupported file type for ${file.originalname}`);
   }
 
+  let safeName: string;
+  try {
+    safeName = assertSafeFilename(file.originalname);
+  } catch (err) {
+    await fsp.unlink(file.path).catch(() => undefined);
+    throw AppError.badRequest(err instanceof Error ? err.message : 'Invalid filename');
+  }
+
   if (folderId) {
     const folder = await Folder.findOne({ _id: folderId, isDeleted: false });
     if (!folder) {
@@ -59,7 +78,7 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
     }
   }
 
-  const { key, storedName } = buildStorageKey(folderId, file.originalname);
+  const { key, storedName } = buildStorageKey(fileType, folderId, safeName);
 
   let dimensions: { width: number | null; height: number | null } = { width: null, height: null };
   if (fileType === 'image') {
@@ -67,15 +86,15 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
   }
 
   const provider = getStorageProvider();
-  const stored = await provider.putObject({ key, sourcePath: file.path, contentType: file.mimetype });
+  const stored = await provider.upload({ key, sourcePath: file.path, contentType: file.mimetype });
 
   const media = await Media.create({
     folderId: folderId ?? null,
-    originalName: file.originalname,
+    originalName: safeName,
     storedName,
     storageKey: stored.key,
     storageProvider: provider.name,
-    url: provider.getPublicUrl(stored.key),
+    url: provider.getUrl(stored.key),
     mimeType: file.mimetype,
     fileType,
     size: stored.size,
@@ -152,8 +171,8 @@ export async function permanentlyDeleteMedia(id: string): Promise<void> {
   if (!media) throw AppError.notFound('Deleted file not found');
 
   const provider = getStorageProvider();
-  await provider.deleteObject(media.storageKey);
-  if (media.thumbnailKey) await provider.deleteObject(media.thumbnailKey).catch(() => undefined);
+  await provider.delete(media.storageKey);
+  if (media.thumbnailKey) await provider.delete(media.thumbnailKey).catch(() => undefined);
 
   await Media.deleteOne({ _id: id });
 }

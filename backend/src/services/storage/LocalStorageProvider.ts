@@ -4,15 +4,15 @@ import path from 'node:path';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/AppError';
 import type {
-  IStorageProvider,
-  PutObjectInput,
+  StorageService,
+  UploadInput,
   StoredObjectMeta,
   StreamRange,
   StreamResult,
 } from './StorageProvider';
 
 /** Storage provider for local development: writes/reads files under LOCAL_STORAGE_DIR. */
-export class LocalStorageProvider implements IStorageProvider {
+export class LocalStorageProvider implements StorageService {
   readonly name = 'local' as const;
   private readonly root: string;
 
@@ -30,7 +30,7 @@ export class LocalStorageProvider implements IStorageProvider {
     return full;
   }
 
-  async putObject({ key, sourcePath }: PutObjectInput): Promise<StoredObjectMeta> {
+  async upload({ key, sourcePath }: UploadInput): Promise<StoredObjectMeta> {
     const destination = this.resolveKey(key);
     await fsp.mkdir(path.dirname(destination), { recursive: true });
     await fsp.rename(sourcePath, destination).catch(async (err) => {
@@ -46,11 +46,20 @@ export class LocalStorageProvider implements IStorageProvider {
     return { key, size: stat.size };
   }
 
-  async deleteObject(key: string): Promise<void> {
+  async delete(key: string): Promise<void> {
     const full = this.resolveKey(key);
     await fsp.unlink(full).catch((err) => {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     });
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await fsp.access(this.resolveKey(key), fs.constants.F_OK);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async getObjectStream(key: string, range?: StreamRange): Promise<StreamResult> {
@@ -80,8 +89,14 @@ export class LocalStorageProvider implements IStorageProvider {
     return { stream, contentLength: totalSize, contentType: 'application/octet-stream', totalSize };
   }
 
-  getPublicUrl(): string | null {
+  getUrl(): string | null {
     // Local files have no direct URL — always streamed through the authenticated API.
+    return null;
+  }
+
+  async getSignedUrl(): Promise<string | null> {
+    // No standalone file server for local dev storage, so there's nothing to sign.
+    // Private files are served exclusively through the API's own token-guarded routes.
     return null;
   }
 }

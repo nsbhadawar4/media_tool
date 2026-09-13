@@ -4,12 +4,14 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
+import { getSignedUrl as presignS3Url } from '@aws-sdk/s3-request-presigner';
 import { AppError } from '../../utils/AppError';
 import type {
-  IStorageProvider,
-  PutObjectInput,
+  StorageService,
+  UploadInput,
   StoredObjectMeta,
   StreamRange,
   StreamResult,
@@ -27,7 +29,7 @@ export interface S3ProviderOptions {
  * Works for both Amazon S3 and Cloudflare R2 — R2 exposes an S3-compatible API,
  * so only the client configuration (endpoint/credentials) differs between the two.
  */
-export class S3StorageProvider implements IStorageProvider {
+export class S3StorageProvider implements StorageService {
   readonly name: 's3' | 'r2';
   private readonly client: S3Client;
   private readonly bucket: string;
@@ -40,7 +42,7 @@ export class S3StorageProvider implements IStorageProvider {
     this.client = new S3Client(opts.clientConfig);
   }
 
-  async putObject({ key, sourcePath, contentType }: PutObjectInput): Promise<StoredObjectMeta> {
+  async upload({ key, sourcePath, contentType }: UploadInput): Promise<StoredObjectMeta> {
     const body = fs.createReadStream(sourcePath);
     const stat = fs.statSync(sourcePath);
     await this.client.send(
@@ -56,11 +58,22 @@ export class S3StorageProvider implements IStorageProvider {
     return { key, size: stat.size };
   }
 
-  async deleteObject(key: string): Promise<void> {
+  async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key })).catch((err) => {
       const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
       if (status !== 404) throw err;
     });
+  }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return true;
+    } catch (err) {
+      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      if (status === 404) return false;
+      throw err;
+    }
   }
 
   async getObjectStream(key: string, range?: StreamRange): Promise<StreamResult> {
@@ -87,10 +100,16 @@ export class S3StorageProvider implements IStorageProvider {
     }
   }
 
-  getPublicUrl(key: string): string | null {
+  getUrl(key: string): string | null {
     if (!this.publicBaseUrl) return null;
     const base = this.publicBaseUrl.replace(/\/$/, '');
     return `${base}/${key}`;
+  }
+
+  /** Presigned GET URL — grants temporary direct access to an otherwise-private object. */
+  async getSignedUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return presignS3Url(this.client, command, { expiresIn: expiresInSeconds });
   }
 }
 
