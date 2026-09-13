@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { Breadcrumb, Folder } from '@/types/api';
+import type { Breadcrumb, Folder, FolderSortOption } from '@/types/api';
 
 export interface ListFoldersResult {
   folders: Folder[];
@@ -14,11 +14,17 @@ export interface FolderDetailResult {
 }
 
 export const foldersApi = {
-  list: (params?: { parentFolder?: string | null; search?: string; includeDeleted?: boolean }) =>
+  list: (params?: {
+    parentFolder?: string | null;
+    search?: string;
+    includeDeleted?: boolean;
+    sort?: FolderSortOption;
+  }) =>
     api.get<ListFoldersResult>('/api/folders', {
       parentFolder: params?.parentFolder ?? undefined,
       search: params?.search,
       includeDeleted: params?.includeDeleted,
+      sort: params?.sort,
     }),
   get: (id: string) => api.get<FolderDetailResult>(`/api/folders/${id}`),
   create: (input: { name: string; description?: string; parentFolder?: string | null }) =>

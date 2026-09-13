@@ -7,7 +7,7 @@ export function Breadcrumbs({ items, currentName }: { items: Breadcrumb[]; curre
     <nav className="mb-4 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap text-sm text-muted">
       <Link href="/admin/folders" className="flex items-center gap-1 rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground">
         <Home className="h-3.5 w-3.5" />
-        Folders
+        Home
       </Link>
       {items.map((item) => (
         <span key={item.id} className="flex items-center gap-1.5">

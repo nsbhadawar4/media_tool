@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FolderPlus, MoreHorizontal, PencilLine, FolderInput, Trash2 } from 'lucide-react';
@@ -13,12 +13,21 @@ import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Breadcrumbs } from '@/components/folders/Breadcrumbs';
 import { FolderGrid } from '@/components/folders/FolderGrid';
+import { FolderToolbar } from '@/components/folders/FolderToolbar';
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { MediaLibraryView } from '@/components/media/MediaLibraryView';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useToast } from '@/lib/toast/ToastContext';
 import { foldersApi } from '@/lib/api/folders';
 import { ApiError } from '@/lib/api/client';
+import type { FolderSortOption } from '@/types/api';
+
+const FOLDER_COMPARATORS: Record<FolderSortOption, (a: { name: string; createdAt: string }, b: { name: string; createdAt: string }) => number> = {
+  name_asc: (a, b) => a.name.localeCompare(b.name),
+  name_desc: (a, b) => b.name.localeCompare(a.name),
+  newest: (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  oldest: (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+};
 
 export default function FolderDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,18 +40,27 @@ export default function FolderDetailPage() {
   const [isMoveOpen, setIsMoveOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [subfolderSearch, setSubfolderSearch] = useState('');
+  const [subfolderSort, setSubfolderSort] = useState<FolderSortOption>('name_asc');
 
   const { data, isLoading } = useQuery({
     queryKey: ['folder', id],
     queryFn: () => foldersApi.get(id),
   });
 
+  const subfolders = useMemo(() => data?.data.subfolders ?? [], [data]);
+  const visibleSubfolders = useMemo(() => {
+    const term = subfolderSearch.trim().toLowerCase();
+    const filtered = term ? subfolders.filter((f) => f.name.toLowerCase().includes(term)) : subfolders;
+    return [...filtered].sort(FOLDER_COMPARATORS[subfolderSort]);
+  }, [subfolders, subfolderSearch, subfolderSort]);
+
   if (isLoading) return <FullPageSpinner />;
   if (!data) {
     return <p className="text-sm text-muted">Folder not found.</p>;
   }
 
-  const { folder, subfolders, breadcrumbs } = data.data;
+  const { folder, breadcrumbs } = data.data;
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['folder'] });
@@ -118,11 +136,20 @@ export default function FolderDetailPage() {
       {subfolders.length > 0 && (
         <div className="mb-8">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Subfolders</h2>
+          <FolderToolbar
+            search={subfolderSearch}
+            onSearchChange={setSubfolderSearch}
+            sort={subfolderSort}
+            onSortChange={setSubfolderSort}
+            count={visibleSubfolders.length}
+            searchPlaceholder="Search subfolders…"
+          />
           <FolderGrid
-            folders={subfolders}
+            folders={visibleSubfolders}
             onRename={subfolderCrud.setFolderToRename}
             onMove={subfolderCrud.setFolderToMove}
             onDelete={subfolderCrud.setFolderToDelete}
+            emptyMessage={subfolderSearch ? `No subfolders match "${subfolderSearch}".` : undefined}
           />
         </div>
       )}

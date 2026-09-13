@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
+/** Query strings sometimes arrive as `?parentFolder=` (empty) rather than omitted entirely — treat that as absent. */
+const optionalObjectIdQuery = z
+  .union([objectId, z.literal('')])
+  .optional()
+  .transform((v) => (v === '' ? undefined : v));
+
 export const createFolderSchema = z.object({
   name: z.string().trim().min(1, 'Folder name is required').max(255),
   description: z.string().trim().max(2000).optional(),
@@ -17,8 +23,11 @@ export const updateFolderSchema = z.object({
 
 export const folderIdParamSchema = z.object({ id: objectId });
 
+export const folderSortOptions = ['name_asc', 'name_desc', 'newest', 'oldest'] as const;
+
 export const listFoldersQuerySchema = z.object({
-  parentFolder: objectId.optional(),
+  parentFolder: optionalObjectIdQuery,
   includeDeleted: z.coerce.boolean().optional().default(false),
   search: z.string().trim().optional(),
+  sort: z.enum(folderSortOptions).optional().default('name_asc'),
 });

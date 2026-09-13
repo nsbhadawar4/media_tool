@@ -7,11 +7,19 @@ import { logActivity } from '../services/activityService';
 import { serializeFolder } from '../utils/serializeFolder';
 import * as folderService from '../services/folderService';
 
+const FOLDER_SORT_MAP: Record<string, Record<string, 1 | -1>> = {
+  name_asc: { name: 1 },
+  name_desc: { name: -1 },
+  newest: { createdAt: -1 },
+  oldest: { createdAt: 1 },
+};
+
 export const listFolders = asyncHandler(async (req: Request, res: Response) => {
-  const { parentFolder, includeDeleted, search } = req.query as unknown as {
+  const { parentFolder, includeDeleted, search, sort } = req.query as unknown as {
     parentFolder?: string;
     includeDeleted?: boolean;
     search?: string;
+    sort: string;
   };
 
   const filter: Record<string, unknown> = { isDeleted: includeDeleted ?? false };
@@ -22,7 +30,9 @@ export const listFolders = asyncHandler(async (req: Request, res: Response) => {
     filter.parentFolder = parentFolder ?? null;
   }
 
-  const folders = await Folder.find(filter).sort({ name: 1 }).populate('coverImage');
+  const folders = await Folder.find(filter)
+    .sort(FOLDER_SORT_MAP[sort] ?? FOLDER_SORT_MAP.name_asc)
+    .populate('coverImage');
 
   let breadcrumbs: Array<{ id: string; name: string }> = [];
   let parent: IFolder | null = null;

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UploadCloud } from 'lucide-react';
 import { mediaApi } from '@/lib/api/media';
+import { foldersApi } from '@/lib/api/folders';
 import { useToast } from '@/lib/toast/ToastContext';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useUploadQueue } from '@/hooks/useUploadQueue';
@@ -88,6 +89,18 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
     }
   };
 
+  const handleSetCover = async (media: Media) => {
+    if (!folderId) return;
+    try {
+      await foldersApi.update(folderId, { coverImage: media.id });
+      toast.success('Folder cover updated');
+      queryClient.invalidateQueries({ queryKey: ['folder'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Failed to set folder cover');
+    }
+  };
+
   const handleDelete = async () => {
     if (!mediaToDelete) return;
     setIsDeleting(true);
@@ -146,6 +159,7 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
           onRename={setMediaToRename}
           onMove={setMediaToMove}
           onDelete={setMediaToDelete}
+          onSetCover={folderId ? handleSetCover : undefined}
           emptyMessage={emptyMessage}
         />
       )}

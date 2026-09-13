@@ -2,6 +2,8 @@ export type FileType = 'image' | 'video' | 'document';
 
 export type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'size_desc' | 'size_asc';
 
+export type FolderSortOption = 'name_asc' | 'name_desc' | 'newest' | 'oldest';
+
 export interface AdminProfile {
   id: string;
   email: string;

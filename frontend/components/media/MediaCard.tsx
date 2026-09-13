@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, FolderInput, PencilLine, Play, Trash2 } from 'lucide-react';
+import { Download, FolderInput, ImagePlus, PencilLine, Play, Trash2 } from 'lucide-react';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Badge } from '@/components/ui/Badge';
 import { iconForDocument } from '@/utils/fileIcons';
@@ -13,6 +13,8 @@ interface MediaCardProps {
   onRename: (media: Media) => void;
   onMove: (media: Media) => void;
   onDelete: (media: Media) => void;
+  /** Only passed when browsing a specific folder — lets an image be set as that folder's cover. */
+  onSetCover?: (media: Media) => void;
 }
 
 const TYPE_BADGE_VARIANT = {
@@ -21,7 +23,7 @@ const TYPE_BADGE_VARIANT = {
   document: 'default',
 } as const;
 
-export function MediaCard({ media, onPreview, onRename, onMove, onDelete }: MediaCardProps) {
+export function MediaCard({ media, onPreview, onRename, onMove, onDelete, onSetCover }: MediaCardProps) {
   const DocIcon = iconForDocument(media.mimeType);
 
   return (
@@ -65,6 +67,9 @@ export function MediaCard({ media, onPreview, onRename, onMove, onDelete }: Medi
                 },
                 { label: 'Rename', icon: <PencilLine className="h-4 w-4" />, onClick: () => onRename(media) },
                 { label: 'Move', icon: <FolderInput className="h-4 w-4" />, onClick: () => onMove(media) },
+                ...(onSetCover && media.fileType === 'image'
+                  ? [{ label: 'Set as folder cover', icon: <ImagePlus className="h-4 w-4" />, onClick: () => onSetCover(media) }]
+                  : []),
                 {
                   label: 'Delete',
                   icon: <Trash2 className="h-4 w-4" />,

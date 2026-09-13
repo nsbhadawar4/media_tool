@@ -11,10 +11,11 @@ interface MediaGridProps {
   onRename: (media: Media) => void;
   onMove: (media: Media) => void;
   onDelete: (media: Media) => void;
+  onSetCover?: (media: Media) => void;
   emptyMessage?: string;
 }
 
-export function MediaGrid({ media, onPreview, onRename, onMove, onDelete, emptyMessage }: MediaGridProps) {
+export function MediaGrid({ media, onPreview, onRename, onMove, onDelete, onSetCover, emptyMessage }: MediaGridProps) {
   if (media.length === 0) {
     return (
       <EmptyState
@@ -35,6 +36,7 @@ export function MediaGrid({ media, onPreview, onRename, onMove, onDelete, emptyM
           onRename={onRename}
           onMove={onMove}
           onDelete={onDelete}
+          onSetCover={onSetCover}
         />
       ))}
     </div>

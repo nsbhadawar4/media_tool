@@ -54,7 +54,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, title = 'Move toâ
           className="flex items-center gap-1 rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground"
         >
           <Home className="h-3.5 w-3.5" />
-          Root
+          Home
         </button>
         {breadcrumbs.map((crumb) => (
           <span key={crumb.id} className="flex items-center gap-1">
