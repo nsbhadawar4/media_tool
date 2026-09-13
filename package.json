@@ -1,26 +1,19 @@
 {
-  "name": "my-app",
-  "version": "0.1.0",
+  "name": "media-tool",
+  "version": "1.0.0",
   "private": true,
+  "description": "Private personal media management app — Next.js frontend + Express/MongoDB backend.",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.3.5",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.5",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "dev:frontend": "npm run dev --workspace frontend",
+    "dev:backend": "npm run dev --workspace backend",
+    "build:frontend": "npm run build --workspace frontend",
+    "build:backend": "npm run build --workspace backend",
+    "typecheck:frontend": "npm run typecheck --workspace frontend",
+    "typecheck:backend": "npm run typecheck --workspace backend",
+    "create-admin": "npm run create-admin --workspace backend"
   }
 }

@@ -1,0 +1,158 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #f7f7f8;
+  --surface: #ffffff;
+  --surface-hover: #f1f1f3;
+  --border: #e5e5e9;
+  --foreground: #16161a;
+  --muted: #6b6b76;
+  --accent: #6d5ef8;
+  --accent-hover: #5b4ce8;
+  --accent-foreground: #ffffff;
+  --danger: #e5484d;
+  --danger-hover: #d43d42;
+  --success: #30a46c;
+  --warning: #f5a524;
+  --sidebar-bg: #121218;
+  --sidebar-foreground: #d8d8e0;
+  --sidebar-active: #ffffff;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --shadow-color: 220 30% 10%;
+}
+
+/* System preference applies only when the user hasn't made an explicit choice. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --background: #0b0b0d;
+    --surface: #17171b;
+    --surface-hover: #1f1f24;
+    --border: #2a2a31;
+    --foreground: #f0f0f3;
+    --muted: #9a9aa6;
+    --accent: #8b7bff;
+    --accent-hover: #a191ff;
+    --accent-foreground: #0b0b0d;
+    --danger: #ff6369;
+    --danger-hover: #ff7a7f;
+    --success: #4cc38a;
+    --warning: #ffb84d;
+    --sidebar-bg: #0b0b0e;
+    --sidebar-foreground: #c6c6d1;
+    --sidebar-active: #ffffff;
+    --sidebar-hover: rgba(255, 255, 255, 0.06);
+  }
+}
+
+:root[data-theme='dark'] {
+  --background: #0b0b0d;
+  --surface: #17171b;
+  --surface-hover: #1f1f24;
+  --border: #2a2a31;
+  --foreground: #f0f0f3;
+  --muted: #9a9aa6;
+  --accent: #8b7bff;
+  --accent-hover: #a191ff;
+  --accent-foreground: #0b0b0d;
+  --danger: #ff6369;
+  --danger-hover: #ff7a7f;
+  --success: #4cc38a;
+  --warning: #ffb84d;
+  --sidebar-bg: #0b0b0e;
+  --sidebar-foreground: #c6c6d1;
+  --sidebar-active: #ffffff;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Thin, unobtrusive scrollbars that still match the theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
+.animate-scale-in {
+  animation: scale-in 0.16s ease-out;
+}
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}
