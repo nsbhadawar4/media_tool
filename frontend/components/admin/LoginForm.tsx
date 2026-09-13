@@ -14,6 +14,7 @@ export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export function LoginForm() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       const redirectTo = searchParams.get('from') ?? '/admin/dashboard';
       router.replace(redirectTo);
     } catch (err) {
@@ -88,6 +89,16 @@ export function LoginForm() {
             </button>
           </div>
         </div>
+
+        <label className="flex select-none items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-border accent-accent"
+          />
+          Remember me on this device
+        </label>
 
         {error && (
           <div className="animate-fade-in rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">

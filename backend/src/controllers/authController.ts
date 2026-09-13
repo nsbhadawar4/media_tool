@@ -9,7 +9,7 @@ import { logActivity } from '../services/activityService';
 import type { LoginInput } from '../validators/authValidators';
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { email, password } = req.body as LoginInput;
+  const { email, password, rememberMe } = req.body as LoginInput;
 
   const admin = await Admin.findOne({ email }).select('+passwordHash');
   const passwordMatches = admin ? await admin.comparePassword(password) : false;
@@ -24,7 +24,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const token = signSessionToken({ sub: admin._id.toString(), email: admin.email, name: admin.name });
-  setSessionCookie(res, token);
+  setSessionCookie(res, token, rememberMe);
 
   admin.lastLoginAt = new Date();
   admin.lastLoginIp = req.ip;
