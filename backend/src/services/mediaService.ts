@@ -6,7 +6,12 @@ import sharp from 'sharp';
 import { Media, type IMedia } from '../models/Media';
 import { Folder } from '../models/Folder';
 import { getStorageProvider } from './storage';
-import { fileTypeFromMime, STORAGE_DIR_BY_FILE_TYPE, type FileType } from '../config/constants';
+import {
+  EXTENSION_TO_MIME,
+  fileTypeFromMime,
+  STORAGE_DIR_BY_FILE_TYPE,
+  type FileType,
+} from '../config/constants';
 import { AppError } from '../utils/AppError';
 import { assertSafeFilename } from '../utils/filenameSafety';
 import { recalculateItemCount, purgeMediaRecords } from './folderService';
@@ -73,18 +78,29 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
     if (posterPath) await fsp.unlink(posterPath).catch(() => undefined);
   };
 
-  const fileType = fileTypeFromMime(file.mimetype) as FileType | null;
-  if (!fileType) {
-    await discardTempFiles();
-    throw AppError.badRequest(`Unsupported file type for ${file.originalname}`);
-  }
-
   let safeName: string;
   try {
     safeName = assertSafeFilename(file.originalname);
   } catch (err) {
     await discardTempFiles();
     throw AppError.badRequest(err instanceof Error ? err.message : 'Invalid filename');
+  }
+
+  /**
+   * The browser's reported mimetype is not reliable for Office formats or .mkv — Windows
+   * and several browsers send `application/octet-stream` for a perfectly ordinary .xlsx.
+   * middleware/upload.ts already treats the extension as authoritative (it is what the
+   * allow-list is keyed on), so resolve the same way here instead of rejecting the file
+   * at the next step. Storing the extension's mimetype also matters downstream: served
+   * as octet-stream, a spreadsheet downloads as an unopenable blob.
+   */
+  const extension = path.extname(safeName).toLowerCase();
+  const resolvedMimeType = EXTENSION_TO_MIME[extension] ?? file.mimetype;
+
+  const fileType = fileTypeFromMime(resolvedMimeType) as FileType | null;
+  if (!fileType) {
+    await discardTempFiles();
+    throw AppError.badRequest(`Unsupported file type for ${file.originalname}`);
   }
 
   // Uploading into someone else's folder must be impossible, so the folder is looked up
@@ -118,7 +134,7 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
   const provider = getStorageProvider();
   let stored;
   try {
-    stored = await provider.upload({ key, sourcePath: file.path, contentType: file.mimetype });
+    stored = await provider.upload({ key, sourcePath: file.path, contentType: resolvedMimeType });
   } catch (err) {
     // A failed upload leaves multer's temp file behind; without this it accumulates in tmp/.
     await discardTempFiles();
@@ -133,7 +149,7 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
     storageKey: stored.key,
     storageProvider: provider.name,
     url: provider.getUrl(stored.key),
-    mimeType: file.mimetype,
+    mimeType: resolvedMimeType,
     fileType,
     size: stored.size,
     width: dimensions.width,

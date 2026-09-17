@@ -83,7 +83,7 @@ export function MediaCard({
         {/* Darkens the tile on hover so overlaid controls stay legible over any image. */}
         <span
           className={cn(
-            'pointer-events-none absolute inset-0 z-20 bg-gradient-to-b from-black/40 via-transparent to-black/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
+            'pointer-events-none absolute inset-0 z-20 bg-linear-to-b from-black/40 via-transparent to-black/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
             isSelected && 'opacity-100',
           )}
         />

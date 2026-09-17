@@ -31,7 +31,8 @@ import { dashboardApi } from '@/lib/api/dashboard';
 import { foldersApi } from '@/lib/api/folders';
 import { ApiError } from '@/lib/api/client';
 import { formatBytes, formatRelativeTime } from '@/utils/format';
-import { iconForFileType } from '@/utils/fileIcons';
+import { iconForFileType, toneForDocument } from '@/utils/fileIcons';
+import { cn } from '@/utils/cn';
 
 const RECENT_TILE_GRID = 'grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6';
 
@@ -137,6 +138,10 @@ export default function DashboardPage() {
               <div className={RECENT_TILE_GRID}>
                 {recentUploads.map((media) => {
                   const Icon = iconForFileType(media.fileType, media.mimeType);
+                  // Same colour language as the gallery tiles, minus the badge: these
+                  // tiles are too small for one to read as anything but clutter.
+                  const iconTone =
+                    media.fileType === 'document' ? toneForDocument(media.mimeType).icon : 'text-muted';
                   return (
                     <button
                       key={media.id}
@@ -156,7 +161,7 @@ export default function DashboardPage() {
                           className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                         />
                       ) : (
-                        <Icon className="h-7 w-7 text-muted" />
+                        <Icon className={cn('h-7 w-7', iconTone)} />
                       )}
                     </button>
                   );

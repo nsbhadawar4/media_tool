@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { FileWarning, Play } from 'lucide-react';
-import { extensionOf, iconForDocument } from '@/utils/fileIcons';
+import { extensionOf, iconForDocument, toneForDocument } from '@/utils/fileIcons';
 import { cn } from '@/utils/cn';
 import type { Media } from '@/types/api';
 
@@ -67,7 +67,7 @@ function ThumbnailPlaceholder({
     return (
       <div
         className={cn(
-          'flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-950',
+          'flex h-full w-full items-center justify-center bg-linear-to-br from-slate-700 to-slate-950',
           className,
         )}
       >
@@ -79,22 +79,25 @@ function ThumbnailPlaceholder({
   }
 
   const Icon = isBroken ? FileWarning : iconForDocument(media.mimeType);
+  const tone = isBroken ? 'bg-danger/10 text-danger' : toneForDocument(media.mimeType).badge;
 
   return (
-    <div
-      className={cn(
-        'flex h-full w-full flex-col items-center justify-center gap-2 bg-surface-hover text-muted',
-        className,
-      )}
-    >
-      {/* Icon comes from a fixed set of stable Lucide components, not created per render. */}
-      {/* eslint-disable-next-line react-hooks/static-components */}
-      <Icon className="h-10 w-10" strokeWidth={1.5} />
-      {extension && !isBroken && (
-        <span className="rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-semibold tracking-wide">
-          {extension}
-        </span>
-      )}
+    <div className={cn('flex h-full w-full items-center justify-center bg-surface-hover', className)}>
+      {/*
+        The icon and its extension label are one object, centred as a unit. Centring them
+        as two stacked children instead leaves the icon sitting visibly above the middle
+        of the tile, because the label below it takes up half the optical weight.
+      */}
+      <div className={cn('flex flex-col items-center gap-1.5 rounded-2xl px-4 py-3.5', tone)}>
+        {/* Icon comes from a fixed set of stable Lucide components, not created per render. */}
+        {/* eslint-disable-next-line react-hooks/static-components */}
+        <Icon className="h-9 w-9" strokeWidth={1.5} />
+        {extension && !isBroken && (
+          <span className="text-[10px] font-semibold uppercase leading-none tracking-wider">
+            {extension}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

@@ -17,6 +17,41 @@ export function iconForDocument(mimeType: string): LucideIcon {
   return FileGeneric;
 }
 
+export interface DocumentTone {
+  /** Background + text for a badge that encloses the icon. */
+  badge: string;
+  /** Text colour alone, for places too small to carry a badge. */
+  icon: string;
+}
+
+/**
+ * Colour for a document by type. Follows the convention people already recognise from
+ * every file manager — red for PDF, green for spreadsheets, blue for Word — so the kind
+ * of file reads at a glance. Colour is never the only signal: the extension is spelled
+ * out alongside it, since not everyone can tell these hues apart.
+ */
+export function toneForDocument(mimeType: string): DocumentTone {
+  if (mimeType === 'application/pdf') {
+    return { badge: 'bg-red-500/12 text-red-500 dark:text-red-400', icon: 'text-red-500 dark:text-red-400' };
+  }
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+    return {
+      badge: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+      icon: 'text-emerald-600 dark:text-emerald-400',
+    };
+  }
+  if (mimeType.includes('word')) {
+    return { badge: 'bg-blue-500/12 text-blue-500 dark:text-blue-400', icon: 'text-blue-500 dark:text-blue-400' };
+  }
+  if (mimeType === 'text/plain') {
+    return {
+      badge: 'bg-slate-500/12 text-slate-500 dark:text-slate-300',
+      icon: 'text-slate-500 dark:text-slate-300',
+    };
+  }
+  return { badge: 'bg-surface text-muted', icon: 'text-muted' };
+}
+
 export function iconForFileType(fileType: FileType, mimeType: string): LucideIcon {
   if (fileType === 'image') return ImageIcon;
   if (fileType === 'video') return Video;
