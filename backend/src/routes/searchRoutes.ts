@@ -34,10 +34,11 @@ const globalSearch = asyncHandler(async (req: Request, res: Response) => {
 
   const regex = q ? { $regex: escapeRegex(q), $options: 'i' } : undefined;
 
-  const folderFilter: Record<string, unknown> = { isDeleted: false };
+  const ownerId = req.user!.id;
+  const folderFilter: Record<string, unknown> = { ownerId, isDeleted: false };
   if (regex) folderFilter.name = regex;
 
-  const mediaFilter: Record<string, unknown> = { isDeleted: false };
+  const mediaFilter: Record<string, unknown> = { ownerId, isDeleted: false };
   if (regex) mediaFilter.originalName = regex;
   if (fileType) mediaFilter.fileType = fileType;
 
@@ -54,7 +55,7 @@ const globalSearch = asyncHandler(async (req: Request, res: Response) => {
     res,
     {
       folders,
-      media: mediaItems.map((m) => serializeMedia(m, req.admin!.id)),
+      media: mediaItems.map((m) => serializeMedia(m, req.user!.id)),
     },
     200,
     { page, limit, total: mediaTotal, totalPages: Math.max(1, Math.ceil(mediaTotal / limit)) },

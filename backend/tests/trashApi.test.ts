@@ -24,7 +24,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { env } from '../src/config/env';
 import { createApp } from '../src/app';
-import { Admin } from '../src/models/Admin';
+import { User } from '../src/models/User';
 import { Folder } from '../src/models/Folder';
 import { Media } from '../src/models/Media';
 import { signSessionToken } from '../src/services/tokenService';
@@ -34,6 +34,7 @@ let mongo: MongoMemoryServer;
 let server: Server;
 let baseUrl: string;
 let cookie: string;
+let ownerId: string;
 
 const storagePath = (key: string) => path.resolve(env.localStorageRoot, key);
 const fileExists = (key: string) => fs.existsSync(storagePath(key));
@@ -64,6 +65,7 @@ async function makeMedia(name: string, folderId: mongoose.Types.ObjectId | null,
   await fsp.writeFile(full, Buffer.alloc(bytes, 1));
 
   return Media.create({
+    ownerId,
     folderId,
     originalName: name,
     storedName: name,
@@ -79,12 +81,18 @@ before(async () => {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
 
-  const admin = await Admin.create({
+  const admin = await User.create({
     email: 'trash-test@example.com',
     name: 'Trash Test',
     passwordHash: 'not-used-by-these-tests',
   });
-  cookie = `${env.COOKIE_NAME}=${signSessionToken({ sub: admin._id.toString() })}`;
+  ownerId = admin._id.toString();
+  cookie = `${env.COOKIE_NAME}=${signSessionToken({
+    sub: ownerId,
+    role: 'admin',
+    email: admin.email,
+    name: admin.name,
+  })}`;
 
   server = createApp().listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
@@ -105,11 +113,12 @@ beforeEach(async () => {
 
 async function trashedFolderWithPhoto() {
   const folder = await folderService.createFolder({
+    ownerId,
     name: 'Album',
-    createdBy: new mongoose.Types.ObjectId().toString(),
+    createdBy: ownerId,
   });
   const photo = await makeMedia('keepsake.jpg', folder._id);
-  await folderService.softDeleteFolder(folder._id.toString());
+  await folderService.softDeleteFolder(ownerId, folder._id.toString());
   return { folder, photo };
 }
 
@@ -201,9 +210,7 @@ test('GET .../deletion-preview reports the blast radius without deleting anythin
 });
 
 test('a live item cannot be permanently deleted through the trash API', async () => {
-  const folder = await folderService.createFolder({
-    name: 'Live',
-    createdBy: new mongoose.Types.ObjectId().toString(),
+  const folder = await folderService.createFolder({ ownerId, createdBy: ownerId, name: 'Live',
   });
   const photo = await makeMedia('live.jpg', folder._id);
 
@@ -241,7 +248,7 @@ test('every deletion and restoration is written to the activity log', async () =
 
   const { folder } = await trashedFolderWithPhoto();
   await callApi('POST', `/api/trash/${folder._id}/restore`);
-  await folderService.softDeleteFolder(folder._id.toString());
+  await folderService.softDeleteFolder(ownerId, folder._id.toString());
   await callApi('DELETE', `/api/trash/${folder._id}/permanent`, { confirm: 'DELETE PERMANENTLY' });
 
   const actions = (await ActivityLog.find({}).sort({ createdAt: 1 })).map((entry) => entry.action);

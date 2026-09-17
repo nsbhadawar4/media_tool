@@ -17,7 +17,7 @@ import mongoose from 'mongoose';
 import { env } from '../config/env';
 import { startLocalMongo, stopLocalMongo } from '../config/localMongo';
 
-const COLLECTIONS = ['admins', 'folders', 'media', 'activitylogs'] as const;
+const COLLECTIONS = ['users', 'admins', 'folders', 'media', 'activitylogs'] as const;
 
 async function main(): Promise<void> {
   const target = env.MONGODB_URI.trim();
@@ -66,11 +66,11 @@ async function main(): Promise<void> {
   // Mongoose builds each model's indexes on first use, but doing it here means the very
   // first request against Atlas is not the one paying for it.
   console.log('\nBuilding indexes on the target...');
-  const { Admin } = await import('../models/Admin');
+  const { User } = await import('../models/User');
   const { Folder } = await import('../models/Folder');
   const { Media } = await import('../models/Media');
   const { ActivityLog } = await import('../models/ActivityLog');
-  for (const model of [Admin, Folder, Media, ActivityLog]) {
+  for (const model of [User, Folder, Media, ActivityLog]) {
     await to.model(model.modelName, model.schema).createIndexes();
   }
 

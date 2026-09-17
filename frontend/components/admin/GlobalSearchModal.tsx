@@ -113,7 +113,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
                   type="button"
                   onClick={() => {
                     onClose();
-                    router.push(`/admin/folders/${folder._id}`);
+                    router.push(`/folders/${folder._id}`);
                   }}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface-hover"
                 >
@@ -138,7 +138,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
                     type="button"
                     onClick={() => {
                       onClose();
-                      router.push(item.folderId ? `/admin/folders/${item.folderId}` : '/admin/media');
+                      router.push(item.folderId ? `/folders/${item.folderId}` : '/media');
                     }}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface-hover"
                   >

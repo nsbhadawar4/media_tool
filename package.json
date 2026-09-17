@@ -16,6 +16,7 @@
     "typecheck:frontend": "npm run typecheck --workspace frontend",
     "typecheck:backend": "npm run typecheck --workspace backend",
     "create-admin": "npm run create-admin --workspace backend",
+    "migrate-to-users": "npm run migrate-to-users --workspace backend",
     "migrate-to-atlas": "npm run migrate-to-atlas --workspace backend"
   }
 }

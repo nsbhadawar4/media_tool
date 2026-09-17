@@ -23,7 +23,7 @@ const activityLogSchema = new Schema<IActivityLog>(
     targetId: { type: Schema.Types.ObjectId, default: null },
     targetName: { type: String, default: null },
     message: { type: String, required: true },
-    performedBy: { type: Schema.Types.ObjectId, ref: 'Admin', default: null },
+    performedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     performedByEmail: { type: String, default: null },
     ip: { type: String, default: null },
     userAgent: { type: String, default: null },

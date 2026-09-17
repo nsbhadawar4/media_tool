@@ -11,6 +11,8 @@ import {
   Trash2,
   Activity,
   Settings,
+  Users,
+  BarChart3,
   LogOut,
   Lock,
   X,
@@ -19,25 +21,32 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/toast/ToastContext';
 import { cn } from '@/utils/cn';
 
-const NAV_ITEMS = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/folders', label: 'Folders', icon: FolderClosed },
-  { href: '/admin/media', label: 'Media', icon: ImageIcon },
-  { href: '/admin/documents', label: 'Documents', icon: FileText },
-  { href: '/admin/trash', label: 'Trash', icon: Trash2 },
-  { href: '/admin/activity', label: 'Activity', icon: Activity },
-  { href: '/admin/settings', label: 'Settings', icon: Settings },
+const USER_NAV = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/folders', label: 'Folders', icon: FolderClosed },
+  { href: '/media', label: 'Media', icon: ImageIcon },
+  { href: '/documents', label: 'Documents', icon: FileText },
+  { href: '/trash', label: 'Trash', icon: Trash2 },
+  { href: '/activity', label: 'Activity', icon: Activity },
+  { href: '/settings', label: 'Settings', icon: Settings },
+] as const;
+
+const ADMIN_NAV = [
+  { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
 ] as const;
 
 interface SidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  /** 'admin' swaps the navigation for the administration area. */
+  variant?: 'user' | 'admin';
 }
 
-export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({ isMobileOpen, onCloseMobile, variant = 'user' }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const toast = useToast();
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -68,13 +77,22 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
     try {
       await logout();
       toast.success('Signed out');
-      router.replace('/admin/login');
+      router.replace('/login');
     } catch {
       toast.error('Failed to sign out');
     }
   };
 
   const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const isAdminArea = variant === 'admin';
+  const navItems = isAdminArea ? ADMIN_NAV : USER_NAV;
+  // Only an administrator is offered the cross-link, and only from the other side.
+  const crossLink = isAdminArea
+    ? { href: '/dashboard', label: 'My library', icon: FolderClosed }
+    : isAdmin
+      ? { href: '/admin/users', label: 'Administration', icon: Users }
+      : null;
 
   const content = (
     <div className="flex h-full flex-col bg-sidebar-bg text-sidebar-foreground">
@@ -83,7 +101,9 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sidebar-active">
             <Lock className="h-4 w-4" />
           </div>
-          <span className="truncate text-sm font-semibold text-sidebar-active">media_tool</span>
+          <span className="truncate text-sm font-semibold text-sidebar-active">
+            media_tool{isAdminArea && <span className="ml-1 text-xs font-normal opacity-70">admin</span>}
+          </span>
         </div>
         <button
           type="button"
@@ -96,7 +116,7 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
       </div>
 
       <nav aria-label="Main" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = isItemActive(item.href);
           const Icon = item.icon;
           return (
@@ -128,6 +148,16 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
       </nav>
 
       <div className="app-safe-bottom shrink-0 px-3 pb-5 pt-2">
+        {crossLink && (
+          <Link
+            href={crossLink.href}
+            onClick={onCloseMobile}
+            className="mb-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-hover hover:text-sidebar-active"
+          >
+            <crossLink.icon className="h-4 w-4 shrink-0" />
+            {crossLink.label}
+          </Link>
+        )}
         <button
           type="button"
           onClick={handleLogout}

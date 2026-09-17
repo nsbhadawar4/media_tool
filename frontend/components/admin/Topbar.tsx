@@ -8,7 +8,7 @@ import { GlobalSearchModal } from './GlobalSearchModal';
 
 export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const { admin } = useAuth();
+  const { user } = useAuth();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
 
@@ -73,7 +73,7 @@ export function Topbar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
               <User className="h-3.5 w-3.5" />
             </div>
             <span className="hidden max-w-36 truncate text-xs font-medium text-foreground sm:inline">
-              {admin?.name ?? admin?.email ?? 'Admin'}
+              {user?.name ?? user?.email ?? 'Admin'}
             </span>
           </div>
         </div>

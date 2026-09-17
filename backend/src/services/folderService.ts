@@ -5,10 +5,17 @@ import { AppError } from '../utils/AppError';
 import { getStorageProvider } from './storage';
 
 /**
- * Blocks deletion of folders flagged as protected. The flag is set out-of-band (directly
- * in the database or by a migration) and no route can clear it, so a folder the
- * installation depends on cannot be removed through the UI or the API by mistake.
+ * Every function here takes the authenticated user's id and puts it into the query filter
+ * itself, rather than loading a document and comparing owners afterwards. The difference
+ * matters: a filter cannot be forgotten halfway through a code path, and a folder
+ * belonging to someone else comes back as "not found" — which is also the right thing to
+ * tell the caller, since confirming the id exists would leak that another account has it.
+ *
+ * The owner id always comes from req.user (set by requireAuth from the session cookie),
+ * never from the request body, params or query.
  */
+
+/** Blocks deletion of folders flagged as protected. The flag is set out-of-band and no route can clear it. */
 export function assertDeletable(folder: IFolder): void {
   if (folder.isProtected) {
     throw AppError.forbidden(`"${folder.name}" is a protected folder and cannot be deleted`);
@@ -24,32 +31,47 @@ export function slugify(name: string): string {
     .replace(/(^-+|-+$)/g, '') || 'folder';
 }
 
-async function buildPath(parentId: string | null): Promise<Types.ObjectId[]> {
+async function buildPath(ownerId: string, parentId: string | null): Promise<Types.ObjectId[]> {
   if (!parentId) return [];
-  const parent = await Folder.findOne({ _id: parentId, isDeleted: false });
+  const parent = await Folder.findOne({ _id: parentId, ownerId, isDeleted: false });
   if (!parent) throw AppError.notFound('Parent folder not found');
   return [...parent.path, parent._id];
 }
 
-export async function assertNoCycle(folderId: string, newParentId: string | null): Promise<void> {
+export async function assertNoCycle(
+  ownerId: string,
+  folderId: string,
+  newParentId: string | null,
+): Promise<void> {
   if (!newParentId) return;
   if (newParentId === folderId) throw AppError.badRequest('A folder cannot be its own parent');
-  const newParent = await Folder.findById(newParentId);
+  const newParent = await Folder.findOne({ _id: newParentId, ownerId });
   if (!newParent || newParent.isDeleted) throw AppError.notFound('Target parent folder not found');
   if (newParent.path.some((ancestorId) => ancestorId.toString() === folderId)) {
     throw AppError.badRequest('Cannot move a folder into its own subfolder');
   }
 }
 
-export async function assertUniqueSibling(name: string, parentId: string | null, excludeId?: string): Promise<void> {
+export async function assertUniqueSibling(
+  ownerId: string,
+  name: string,
+  parentId: string | null,
+  excludeId?: string,
+): Promise<void> {
   const slug = slugify(name);
-  const query: Record<string, unknown> = { parentFolder: parentId ?? null, slug, isDeleted: false };
+  const query: Record<string, unknown> = {
+    ownerId,
+    parentFolder: parentId ?? null,
+    slug,
+    isDeleted: false,
+  };
   if (excludeId) query._id = { $ne: excludeId };
   const clash = await Folder.findOne(query);
   if (clash) throw AppError.conflict(`A folder named "${name}" already exists here`);
 }
 
 export interface CreateFolderInput {
+  ownerId: string;
   name: string;
   description?: string;
   parentFolder?: string | null;
@@ -58,10 +80,11 @@ export interface CreateFolderInput {
 
 export async function createFolder(input: CreateFolderInput): Promise<IFolder> {
   const parentId = input.parentFolder ?? null;
-  await assertUniqueSibling(input.name, parentId);
-  const path = await buildPath(parentId);
+  await assertUniqueSibling(input.ownerId, input.name, parentId);
+  const path = await buildPath(input.ownerId, parentId);
 
-  const folder = await Folder.create({
+  return Folder.create({
+    ownerId: new Types.ObjectId(input.ownerId),
     name: input.name,
     slug: slugify(input.name),
     description: input.description,
@@ -69,7 +92,6 @@ export async function createFolder(input: CreateFolderInput): Promise<IFolder> {
     path,
     createdBy: new Types.ObjectId(input.createdBy),
   });
-  return folder;
 }
 
 export interface UpdateFolderInput {
@@ -79,24 +101,30 @@ export interface UpdateFolderInput {
   coverImage?: string | null;
 }
 
-export async function updateFolder(id: string, input: UpdateFolderInput): Promise<IFolder> {
-  const folder = await Folder.findOne({ _id: id, isDeleted: false });
+export async function updateFolder(
+  ownerId: string,
+  id: string,
+  input: UpdateFolderInput,
+): Promise<IFolder> {
+  const folder = await Folder.findOne({ _id: id, ownerId, isDeleted: false });
   if (!folder) throw AppError.notFound('Folder not found');
 
   const nextName = input.name ?? folder.name;
-  const parentChanging = input.parentFolder !== undefined && input.parentFolder !== (folder.parentFolder?.toString() ?? null);
-  const nextParent = input.parentFolder !== undefined ? input.parentFolder : (folder.parentFolder?.toString() ?? null);
+  const parentChanging =
+    input.parentFolder !== undefined && input.parentFolder !== (folder.parentFolder?.toString() ?? null);
+  const nextParent =
+    input.parentFolder !== undefined ? input.parentFolder : (folder.parentFolder?.toString() ?? null);
 
   if (input.name !== undefined || parentChanging) {
-    await assertUniqueSibling(nextName, nextParent, id);
+    await assertUniqueSibling(ownerId, nextName, nextParent, id);
   }
 
   if (parentChanging) {
-    await assertNoCycle(id, nextParent);
-    const newPath = await buildPath(nextParent);
+    await assertNoCycle(ownerId, id, nextParent);
+    const newPath = await buildPath(ownerId, nextParent);
     folder.path = newPath;
     folder.parentFolder = nextParent ? new Types.ObjectId(nextParent) : null;
-    await propagateDescendantPaths(folder);
+    await propagateDescendantPaths(ownerId, folder);
   }
 
   if (input.name !== undefined) {
@@ -105,7 +133,15 @@ export async function updateFolder(id: string, input: UpdateFolderInput): Promis
   }
   if (input.description !== undefined) folder.description = input.description ?? undefined;
   if (input.coverImage !== undefined) {
-    folder.coverImage = input.coverImage ? new Types.ObjectId(input.coverImage) : null;
+    // The cover must be one of this user's own files, or it would expose another
+    // account's image through this folder's card.
+    if (input.coverImage) {
+      const owned = await Media.exists({ _id: input.coverImage, ownerId, isDeleted: false });
+      if (!owned) throw AppError.notFound('Cover image not found');
+      folder.coverImage = new Types.ObjectId(input.coverImage);
+    } else {
+      folder.coverImage = null;
+    }
   }
 
   await folder.save();
@@ -113,12 +149,16 @@ export async function updateFolder(id: string, input: UpdateFolderInput): Promis
 }
 
 /** After a folder moves, every descendant's stored ancestor `path` array must be rewritten. */
-async function propagateDescendantPaths(folder: IFolder): Promise<void> {
-  const descendants = await Folder.find({ path: folder._id });
+async function propagateDescendantPaths(ownerId: string, folder: IFolder): Promise<void> {
+  const descendants = await Folder.find({ ownerId, path: folder._id });
   for (const descendant of descendants) {
     const idx = descendant.path.findIndex((p) => p.toString() === folder._id.toString());
     const prefix = idx >= 0 ? descendant.path.slice(idx) : [descendant._id];
-    descendant.path = [...folder.path, folder._id, ...prefix.filter((p) => p.toString() !== folder._id.toString())];
+    descendant.path = [
+      ...folder.path,
+      folder._id,
+      ...prefix.filter((p) => p.toString() !== folder._id.toString()),
+    ];
     await descendant.save();
   }
 }
@@ -132,41 +172,44 @@ async function propagateDescendantPaths(folder: IFolder): Promise<void> {
  * the trash are left untouched: re-deleting a parent must not rewrite when they were
  * deleted, nor claim them for a restore that would undo a deliberate earlier deletion.
  */
-export async function softDeleteFolder(id: string): Promise<IFolder> {
-  const folder = await Folder.findOne({ _id: id, isDeleted: false });
+export async function softDeleteFolder(ownerId: string, id: string): Promise<IFolder> {
+  const folder = await Folder.findOne({ _id: id, ownerId, isDeleted: false });
   if (!folder) throw AppError.notFound('Folder not found');
   assertDeletable(folder);
 
   const now = new Date();
-  const descendantIds = (await Folder.find({ path: folder._id }, { _id: 1 })).map((f) => f._id);
+  const descendantIds = (await Folder.find({ ownerId, path: folder._id }, { _id: 1 })).map((f) => f._id);
   const allFolderIds = [folder._id, ...descendantIds];
 
-  // The root records no cascade parent: the admin deleted this one on purpose, so it is
+  // The root records no cascade parent: the user deleted this one on purpose, so it is
   // the entry that shows up in the trash list.
-  await Folder.updateOne({ _id: folder._id }, { isDeleted: true, deletedAt: now, deletedCascadeRoot: null });
+  await Folder.updateOne(
+    { _id: folder._id, ownerId },
+    { isDeleted: true, deletedAt: now, deletedCascadeRoot: null },
+  );
 
   if (descendantIds.length > 0) {
     await Folder.updateMany(
-      { _id: { $in: descendantIds }, isDeleted: false },
+      { _id: { $in: descendantIds }, ownerId, isDeleted: false },
       { isDeleted: true, deletedAt: now, deletedCascadeRoot: folder._id },
     );
   }
 
   await Media.updateMany(
-    { folderId: { $in: allFolderIds }, isDeleted: false },
+    { folderId: { $in: allFolderIds }, ownerId, isDeleted: false },
     { isDeleted: true, deletedAt: now, deletedCascadeRoot: folder._id },
   );
 
   if (folder.parentFolder) {
-    await recalculateItemCount(folder.parentFolder.toString());
+    await recalculateItemCount(ownerId, folder.parentFolder.toString());
   }
 
-  return (await Folder.findById(id))!;
+  return (await Folder.findOne({ _id: id, ownerId }))!;
 }
 
 export interface RestoreFolderResult {
   folder: IFolder;
-  /** How many descendants came back with it — surfaced to the admin and the activity log. */
+  /** How many descendants came back with it — surfaced to the user and the activity log. */
   restoredFolders: number;
   restoredMedia: number;
   /** True when the original parent is gone, so the folder was restored to the root instead. */
@@ -181,14 +224,14 @@ export interface RestoreFolderResult {
  * restored one by one. Anything trashed separately (cascade root null, or a different
  * root) deliberately stays where it is.
  */
-export async function restoreFolder(id: string): Promise<RestoreFolderResult> {
-  const folder = await Folder.findOne({ _id: id, isDeleted: true });
+export async function restoreFolder(ownerId: string, id: string): Promise<RestoreFolderResult> {
+  const folder = await Folder.findOne({ _id: id, ownerId, isDeleted: true });
   if (!folder) throw AppError.notFound('Deleted folder not found');
 
   // A folder can only be restored into a parent that still exists and isn't itself deleted.
   let reparentedToRoot = false;
   if (folder.parentFolder) {
-    const parent = await Folder.findById(folder.parentFolder);
+    const parent = await Folder.findOne({ _id: folder.parentFolder, ownerId });
     if (!parent || parent.isDeleted) {
       folder.parentFolder = null;
       folder.path = [];
@@ -203,22 +246,24 @@ export async function restoreFolder(id: string): Promise<RestoreFolderResult> {
 
   const [folderResult, mediaResult] = await Promise.all([
     Folder.updateMany(
-      { deletedCascadeRoot: folder._id, isDeleted: true },
+      { ownerId, deletedCascadeRoot: folder._id, isDeleted: true },
       { isDeleted: false, deletedAt: null, deletedCascadeRoot: null },
     ),
     Media.updateMany(
-      { deletedCascadeRoot: folder._id, isDeleted: true },
+      { ownerId, deletedCascadeRoot: folder._id, isDeleted: true },
       { isDeleted: false, deletedAt: null, deletedCascadeRoot: null },
     ),
   ]);
 
   // Restored media changes the counts on this folder and on every subfolder that came back.
-  const subtreeIds = (await Folder.find({ path: folder._id }, { _id: 1 })).map((f) => f._id.toString());
+  const subtreeIds = (await Folder.find({ ownerId, path: folder._id }, { _id: 1 })).map((f) =>
+    f._id.toString(),
+  );
   for (const folderId of [folder._id.toString(), ...subtreeIds]) {
-    await recalculateItemCount(folderId);
+    await recalculateItemCount(ownerId, folderId);
   }
   if (folder.parentFolder) {
-    await recalculateItemCount(folder.parentFolder.toString());
+    await recalculateItemCount(ownerId, folder.parentFolder.toString());
   }
 
   return {
@@ -231,7 +276,7 @@ export async function restoreFolder(id: string): Promise<RestoreFolderResult> {
 
 /**
  * Everything a permanent folder delete would destroy. Computed before anything is touched
- * so the admin can be shown the real blast radius, and so the API can refuse to proceed
+ * so the user can be shown the real blast radius, and so the API can refuse to proceed
  * if the caller's confirmation doesn't match what is actually about to happen.
  */
 export interface FolderDeletionScope {
@@ -257,18 +302,21 @@ export interface IMediaLike {
  *
  * Only ever considers items already in the trash. A live file that was moved into this
  * folder after it was trashed is never in scope — refusing the delete (below) is the safe
- * outcome, since permanently destroying something the admin can still see in the gallery
+ * outcome, since permanently destroying something the user can still see in the gallery
  * would be indefensible.
  */
-export async function getFolderDeletionScope(id: string): Promise<FolderDeletionScope> {
-  const folder = await Folder.findOne({ _id: id, isDeleted: true });
+export async function getFolderDeletionScope(
+  ownerId: string,
+  id: string,
+): Promise<FolderDeletionScope> {
+  const folder = await Folder.findOne({ _id: id, ownerId, isDeleted: true });
   if (!folder) throw AppError.notFound('Deleted folder not found');
 
-  const descendants = await Folder.find({ path: folder._id, isDeleted: true }, { _id: 1 });
+  const descendants = await Folder.find({ ownerId, path: folder._id, isDeleted: true }, { _id: 1 });
   const folderIds = [folder._id, ...descendants.map((f) => f._id)];
 
   const media = await Media.find(
-    { folderId: { $in: folderIds }, isDeleted: true },
+    { ownerId, folderId: { $in: folderIds }, isDeleted: true },
     { _id: 1, originalName: 1, size: 1, storageKey: 1, thumbnailKey: 1 },
   );
 
@@ -291,22 +339,23 @@ export interface PermanentDeleteResult {
 /**
  * Irreversibly removes a trashed folder, its trashed subtree, and those files' bytes.
  *
- * The previous implementation deleted the folder document alone, which left every child
- * record orphaned and every byte on disk forever — the admin was told the photos were
- * gone while they were still fully recoverable from storage. Storage is cleared first and
- * a record is only dropped once its bytes are actually gone, so a storage failure leaves
- * the item in the trash to retry rather than losing track of a file that still exists.
+ * Storage is cleared first and a record is only dropped once its bytes are actually gone,
+ * so a storage failure leaves the item in the trash to retry rather than losing track of
+ * a file that still exists.
  */
-export async function permanentlyDeleteFolder(id: string): Promise<PermanentDeleteResult> {
-  const scope = await getFolderDeletionScope(id);
+export async function permanentlyDeleteFolder(
+  ownerId: string,
+  id: string,
+): Promise<PermanentDeleteResult> {
+  const scope = await getFolderDeletionScope(ownerId, id);
   assertDeletable(scope.folder);
 
   // Refuse while anything live is inside: those items are still visible in the gallery and
   // were never put in the trash, so nobody has confirmed destroying them.
   const allFolderIds = [scope.folder._id, ...scope.folderIds];
   const [activeDescendant, activeMedia] = await Promise.all([
-    Folder.exists({ path: scope.folder._id, isDeleted: false }),
-    Media.exists({ folderId: { $in: allFolderIds }, isDeleted: false }),
+    Folder.exists({ ownerId, path: scope.folder._id, isDeleted: false }),
+    Media.exists({ ownerId, folderId: { $in: allFolderIds }, isDeleted: false }),
   ]);
   if (activeDescendant || activeMedia) {
     throw AppError.badRequest(
@@ -314,14 +363,14 @@ export async function permanentlyDeleteFolder(id: string): Promise<PermanentDele
     );
   }
 
-  const { deletedMedia, freedBytes, failed } = await purgeMediaRecords(scope.media);
+  const { deletedMedia, freedBytes, failed } = await purgeMediaRecords(ownerId, scope.media);
 
-  // Leave the folders in place if any file survived, so the admin can see and retry it.
+  // Leave the folders in place if any file survived, so the user can see and retry it.
   if (failed.length > 0) {
     return { deletedFolders: 0, deletedMedia, freedBytes, failed };
   }
 
-  const folderResult = await Folder.deleteMany({ _id: { $in: allFolderIds } });
+  const folderResult = await Folder.deleteMany({ _id: { $in: allFolderIds }, ownerId });
 
   return {
     deletedFolders: folderResult.deletedCount ?? 0,
@@ -337,6 +386,7 @@ export async function permanentlyDeleteFolder(id: string): Promise<PermanentDele
  * or cleaned up again.
  */
 export async function purgeMediaRecords(
+  ownerId: string,
   media: IMediaLike[],
 ): Promise<{ deletedMedia: number; freedBytes: number; failed: PermanentDeleteResult['failed'] }> {
   const provider = getStorageProvider();
@@ -349,7 +399,7 @@ export async function purgeMediaRecords(
       await provider.delete(item.storageKey);
       // A missing thumbnail must not block removing the file it belongs to.
       if (item.thumbnailKey) await provider.delete(item.thumbnailKey).catch(() => undefined);
-      await Media.deleteOne({ _id: item._id });
+      await Media.deleteOne({ _id: item._id, ownerId });
       deletedMedia += 1;
       freedBytes += item.size ?? 0;
     } catch (err) {
@@ -364,14 +414,14 @@ export async function purgeMediaRecords(
   return { deletedMedia, freedBytes, failed };
 }
 
-export async function recalculateItemCount(folderId: string): Promise<void> {
-  const count = await Media.countDocuments({ folderId, isDeleted: false });
-  await Folder.updateOne({ _id: folderId }, { itemCount: count });
+export async function recalculateItemCount(ownerId: string, folderId: string): Promise<void> {
+  const count = await Media.countDocuments({ ownerId, folderId, isDeleted: false });
+  await Folder.updateOne({ _id: folderId, ownerId }, { itemCount: count });
 }
 
 export async function getBreadcrumbs(folder: IFolder): Promise<Array<{ id: string; name: string }>> {
   if (folder.path.length === 0) return [];
-  const ancestors = await Folder.find({ _id: { $in: folder.path } });
+  const ancestors = await Folder.find({ _id: { $in: folder.path }, ownerId: folder.ownerId });
   const byId = new Map(ancestors.map((a) => [a._id.toString(), a]));
   return folder.path.map((id) => {
     const a = byId.get(id.toString());

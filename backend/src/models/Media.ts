@@ -3,6 +3,8 @@ import { FILE_TYPES, type FileType } from '../config/constants';
 
 export interface IMedia extends Document {
   _id: Types.ObjectId;
+  /** The account this file belongs to. Every query is scoped by it. */
+  ownerId: Types.ObjectId;
   folderId: Types.ObjectId | null; // null = "unfiled" root-level media
   originalName: string;
   storedName: string; // sanitized/unique name used on disk or in the bucket
@@ -31,6 +33,7 @@ export interface IMedia extends Document {
 
 const mediaSchema = new Schema<IMedia>(
   {
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     folderId: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
     originalName: { type: String, required: true, trim: true },
     storedName: { type: String, required: true },
@@ -44,7 +47,7 @@ const mediaSchema = new Schema<IMedia>(
     height: { type: Number, default: null },
     duration: { type: Number, default: null },
     thumbnailKey: { type: String, default: null },
-    uploadedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    uploadedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedCascadeRoot: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
@@ -52,8 +55,9 @@ const mediaSchema = new Schema<IMedia>(
   { timestamps: true },
 );
 
-mediaSchema.index({ folderId: 1, isDeleted: 1, createdAt: -1 });
-mediaSchema.index({ isDeleted: 1, fileType: 1, createdAt: -1 });
+mediaSchema.index({ ownerId: 1, folderId: 1, isDeleted: 1, createdAt: -1 });
+mediaSchema.index({ ownerId: 1, isDeleted: 1, fileType: 1, createdAt: -1 });
+mediaSchema.index({ ownerId: 1, createdAt: -1 });
 mediaSchema.index({ originalName: 'text' });
 
 export const Media = model<IMedia>('Media', mediaSchema);

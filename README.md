@@ -1,7 +1,8 @@
 # media_tool
 
 A private, personal media management application for photos, videos and documents.
-Not a public product — designed to be self-hosted and used by a single admin.
+Self-hosted and multi-user: each account gets its own private library, and an
+administrator manages accounts without ever seeing their contents.
 
 - **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS v4, Lucide icons, React Query
 - **Backend**: Node.js, Express, TypeScript, MongoDB/Mongoose, JWT + HTTP-only cookies
@@ -173,7 +174,8 @@ underlying bucket is otherwise reachable.
 
 ## 6. Admin creation/setup
 
-There's no public sign-up — the single admin account is bootstrapped from environment
+Anyone can sign up at `/signup` and gets the `user` role. Administrators are created
+only from the command line — see below. The account is bootstrapped from environment
 variables:
 
 ```bash
@@ -205,8 +207,13 @@ npm run dev        # backend on :5000, frontend on :3000
 Output from the two servers is prefixed with `[backend]` / `[frontend]`, and Ctrl+C stops
 both. To run just one, use `npm run dev:backend` or `npm run dev:frontend`.
 
-Visit `http://localhost:3000/admin` → you'll land on the login page → sign in with the
-admin account you created above → `/admin/dashboard`.
+Visit `http://localhost:3000/signup` to create an account, or `http://localhost:3000/login`
+to sign in — either way you land on `/dashboard` with your own library.
+
+Administrators additionally get `/admin` (user management and installation-wide
+statistics), reachable from the sidebar or at `http://localhost:3000/admin/login`.
+
+The full API reference lives in [`backend/README.md`](backend/README.md).
 
 ### Production build
 

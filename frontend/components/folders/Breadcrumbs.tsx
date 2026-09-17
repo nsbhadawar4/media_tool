@@ -9,7 +9,7 @@ export function Breadcrumbs({ items, currentName }: { items: Breadcrumb[]; curre
       className="mb-4 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 text-sm text-muted"
     >
       <Link
-        href="/admin/folders"
+        href="/folders"
         className="flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground"
       >
         <Home className="h-3.5 w-3.5" />
@@ -18,7 +18,7 @@ export function Breadcrumbs({ items, currentName }: { items: Breadcrumb[]; curre
       {items.map((item) => (
         <span key={item.id} className="flex shrink-0 items-center gap-1.5">
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          <Link href={`/admin/folders/${item.id}`} className="rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground">
+          <Link href={`/folders/${item.id}`} className="rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground">
             {item.name}
           </Link>
         </span>

@@ -171,7 +171,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
             <button
               type="button"
-              onClick={() => router.push('/admin/activity')}
+              onClick={() => router.push('/activity')}
               className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline"
             >
               View all

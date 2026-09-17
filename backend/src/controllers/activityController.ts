@@ -6,7 +6,9 @@ import { sendSuccess } from '../utils/apiResponse';
 export const listActivity = asyncHandler(async (req: Request, res: Response) => {
   const { action, page, limit } = req.query as unknown as { action?: string; page: number; limit: number };
 
-  const filter: Record<string, unknown> = {};
+  // Users see only their own history. An admin reviewing someone else's activity does it
+  // through /api/admin/users/:id, not by widening this endpoint.
+  const filter: Record<string, unknown> = { performedBy: req.user!.id };
   if (action) filter.action = action;
 
   const [items, total] = await Promise.all([

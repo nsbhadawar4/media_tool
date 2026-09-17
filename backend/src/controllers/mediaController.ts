@@ -32,7 +32,9 @@ export const listMedia = asyncHandler(async (req: Request, res: Response) => {
     limit: number;
   };
 
-  const filter: Record<string, unknown> = { isDeleted: isDeleted ?? false };
+  // Scoped to the caller before anything else; a folderId from the query can only ever
+  // narrow this further, never widen it to another account's files.
+  const filter: Record<string, unknown> = { ownerId: req.user!.id, isDeleted: isDeleted ?? false };
   if (folderId) filter.folderId = folderId;
   if (fileType) filter.fileType = fileType;
   if (search) filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
@@ -47,16 +49,16 @@ export const listMedia = asyncHandler(async (req: Request, res: Response) => {
 
   sendSuccess(
     res,
-    items.map((m) => serializeMedia(m, req.admin!.id)),
+    items.map((m) => serializeMedia(m, req.user!.id)),
     200,
     { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
   );
 });
 
 export const getMedia = asyncHandler(async (req: Request, res: Response) => {
-  const media = await Media.findById(req.params.id);
+  const media = await Media.findOne({ _id: req.params.id, ownerId: req.user!.id });
   if (!media) throw AppError.notFound('File not found');
-  sendSuccess(res, serializeMedia(media, req.admin!.id));
+  sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
 /** Parses the browser-reported video length, ignoring anything non-finite or implausible. */
@@ -84,15 +86,16 @@ export const uploadMedia = asyncHandler(async (req: Request, res: Response) => {
   for (const file of files) {
     try {
       const media = await mediaService.saveUploadedMedia({
+        ownerId: req.user!.id,
         file: { originalname: file.originalname, path: file.path, mimetype: file.mimetype, size: file.size },
         folderId,
-        uploadedBy: req.admin!.id,
+        uploadedBy: req.user!.id,
         // A poster belongs to exactly one video, so it only applies when this request
         // carries a single file — which is how the frontend always uploads.
         posterPath: files.length === 1 ? poster?.path ?? null : null,
         duration: files.length === 1 ? duration : null,
       });
-      uploaded.push(serializeMedia(media, req.admin!.id));
+      uploaded.push(serializeMedia(media, req.user!.id));
       await logActivity(req, {
         action: 'media_uploaded',
         targetType: 'media',
@@ -110,7 +113,7 @@ export const uploadMedia = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateMedia = asyncHandler(async (req: Request, res: Response) => {
-  const media = await mediaService.renameMedia(req.params.id, req.body.originalName);
+  const media = await mediaService.renameMedia(req.user!.id, req.params.id, req.body.originalName);
 
   await logActivity(req, {
     action: 'media_renamed',
@@ -120,11 +123,11 @@ export const updateMedia = asyncHandler(async (req: Request, res: Response) => {
     message: `Renamed file to "${media.originalName}"`,
   });
 
-  sendSuccess(res, serializeMedia(media, req.admin!.id));
+  sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
 export const moveMedia = asyncHandler(async (req: Request, res: Response) => {
-  const media = await mediaService.moveMedia(req.params.id, req.body.folderId ?? null);
+  const media = await mediaService.moveMedia(req.user!.id, req.params.id, req.body.folderId ?? null);
 
   await logActivity(req, {
     action: 'media_moved',
@@ -135,11 +138,11 @@ export const moveMedia = asyncHandler(async (req: Request, res: Response) => {
     metadata: { folderId: media.folderId },
   });
 
-  sendSuccess(res, serializeMedia(media, req.admin!.id));
+  sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
 export const deleteMedia = asyncHandler(async (req: Request, res: Response) => {
-  const media = await mediaService.softDeleteMedia(req.params.id);
+  const media = await mediaService.softDeleteMedia(req.user!.id, req.params.id);
 
   await logActivity(req, {
     action: 'media_deleted',
@@ -149,11 +152,11 @@ export const deleteMedia = asyncHandler(async (req: Request, res: Response) => {
     message: `Moved "${media.originalName}" to trash`,
   });
 
-  sendSuccess(res, serializeMedia(media, req.admin!.id));
+  sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
 export const restoreMedia = asyncHandler(async (req: Request, res: Response) => {
-  const media = await mediaService.restoreMedia(req.params.id);
+  const media = await mediaService.restoreMedia(req.user!.id, req.params.id);
 
   await logActivity(req, {
     action: 'media_restored',
@@ -163,7 +166,7 @@ export const restoreMedia = asyncHandler(async (req: Request, res: Response) => 
     message: `Restored "${media.originalName}" from trash`,
   });
 
-  sendSuccess(res, serializeMedia(media, req.admin!.id));
+  sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
 /** Parses a single-range `Range: bytes=start-end` header. Returns null for anything else (multi-range, malformed). */
@@ -190,7 +193,9 @@ function parseRange(header: string | undefined, totalSize: number): { start: num
 }
 
 async function streamMediaResponse(req: Request, res: Response, disposition: 'inline' | 'attachment') {
-  const media = await Media.findById(req.params.id);
+  // Ownership is enforced here rather than in requireMediaAccess: a valid session for one
+  // account plus another account's media id must not stream those bytes.
+  const media = await Media.findOne({ _id: req.params.id, ownerId: req.user!.id });
   if (!media) throw AppError.notFound('File not found');
 
   const provider = getStorageProvider();
@@ -235,7 +240,7 @@ export const downloadMedia = asyncHandler(async (req: Request, res: Response) =>
  * aggressive cache header and skip the Range handling that streaming a video needs.
  */
 export const streamThumbnail = asyncHandler(async (req: Request, res: Response) => {
-  const media = await Media.findById(req.params.id);
+  const media = await Media.findOne({ _id: req.params.id, ownerId: req.user!.id });
   if (!media) throw AppError.notFound('File not found');
   if (!media.thumbnailKey) throw AppError.notFound('No thumbnail for this file');
 
@@ -261,7 +266,7 @@ function bulkResponse(result: mediaService.BulkResult, adminId: string) {
 
 export const bulkDeleteMedia = asyncHandler(async (req: Request, res: Response) => {
   const { ids } = req.body as { ids: string[] };
-  const result = await mediaService.bulkSoftDeleteMedia(ids);
+  const result = await mediaService.bulkSoftDeleteMedia(req.user!.id, ids);
 
   if (result.succeeded.length > 0) {
     // One summary entry rather than one per file — a 40-item delete should read as a
@@ -275,12 +280,12 @@ export const bulkDeleteMedia = asyncHandler(async (req: Request, res: Response) 
     });
   }
 
-  sendSuccess(res, bulkResponse(result, req.admin!.id));
+  sendSuccess(res, bulkResponse(result, req.user!.id));
 });
 
 export const bulkMoveMedia = asyncHandler(async (req: Request, res: Response) => {
   const { ids, folderId } = req.body as { ids: string[]; folderId: string | null };
-  const result = await mediaService.bulkMoveMedia(ids, folderId);
+  const result = await mediaService.bulkMoveMedia(req.user!.id, ids, folderId);
 
   if (result.succeeded.length > 0) {
     await logActivity(req, {
@@ -292,5 +297,5 @@ export const bulkMoveMedia = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  sendSuccess(res, bulkResponse(result, req.admin!.id));
+  sendSuccess(res, bulkResponse(result, req.user!.id));
 });

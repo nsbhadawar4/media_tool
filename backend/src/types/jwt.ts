@@ -1,11 +1,14 @@
+import type { UserRole } from '../models/User';
+
 export interface SessionTokenPayload {
-  sub: string; // admin id
+  sub: string; // user id
+  role: UserRole;
   email: string;
   name: string;
 }
 
 export interface MediaTokenPayload {
-  sub: string; // admin id, so tokens can't be replayed by a different session type
+  sub: string; // user id, so tokens can't be replayed by a different session
   mediaId: string;
   purpose: 'media-access';
 }

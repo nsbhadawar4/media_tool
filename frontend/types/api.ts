@@ -4,10 +4,42 @@ export type SortOption = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'size_
 
 export type FolderSortOption = 'name_asc' | 'name_desc' | 'newest' | 'oldest';
 
-export interface AdminProfile {
+export type UserRole = 'user' | 'admin';
+
+export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  role: UserRole;
+}
+
+export interface SignupInput {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  mobile?: string;
+}
+
+/** One row of the admin user list: the account plus how much it is storing. */
+export interface AdminUserSummary extends UserProfile {
+  mobile: string | null;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+  folderCount: number;
+  mediaCount: number;
+  storageUsedBytes: number;
+}
+
+export interface AdminStats {
+  totalUsers: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  totalFolders: number;
+  totalMedia: number;
+  storageUsedBytes: number;
 }
 
 export interface Folder {

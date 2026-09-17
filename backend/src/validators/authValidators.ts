@@ -8,3 +8,24 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const signupSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long'),
+    email: z.string().trim().toLowerCase().email('Enter a valid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+    mobile: z
+      .string()
+      .trim()
+      .regex(/^[+]?[\d\s()-]{7,20}$/, 'Enter a valid mobile number')
+      .optional()
+      .or(z.literal('').transform(() => undefined)),
+    // Deliberately absent: `role`. Signup always creates a 'user' — see the controller.
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export type SignupInput = z.infer<typeof signupSchema>;

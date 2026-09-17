@@ -14,6 +14,7 @@ import { MediaGrid, MediaGridSkeleton } from './MediaGrid';
 import { MediaFilters } from './MediaFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { UploadButton } from './UploadButton';
+import { labelFor, partitionByFileType, rejectionMessage } from '@/utils/uploadAccept';
 import { UploadProgressPanel } from './UploadProgressPanel';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
@@ -102,7 +103,16 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
   });
 
   const handleFilesSelected = (files: File[]) => {
-    uploadQueue.addFiles(files, folderId ?? null);
+    // A page pinned to one kind of file (Documents, for instance) drops anything else
+    // here rather than at the server, so the reason is obvious and nothing half-uploads.
+    const { accepted, rejected } = partitionByFileType(files, fixedFileType);
+
+    if (rejected.length > 0 && fixedFileType) {
+      toast.error(rejectionMessage(fixedFileType, rejected));
+    }
+    if (accepted.length > 0) {
+      uploadQueue.addFiles(accepted, folderId ?? null);
+    }
   };
 
   const handleSearchChange = (value: string) => {
@@ -272,7 +282,7 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
               {total} file{total === 1 ? '' : 's'}
             </p>
           )}
-          <UploadButton onFilesSelected={handleFilesSelected} />
+          <UploadButton onFilesSelected={handleFilesSelected} fileType={fixedFileType} />
         </div>
       </div>
 
@@ -304,6 +314,9 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent bg-surface px-10 py-8">
             <UploadCloud className="h-8 w-8 text-accent" />
             <p className="text-sm font-medium text-foreground">Drop files to upload</p>
+            {fixedFileType && (
+              <p className="text-xs text-muted">Only {labelFor(fixedFileType)} files are accepted here</p>
+            )}
           </div>
         </div>
       )}

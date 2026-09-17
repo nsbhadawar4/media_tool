@@ -4,7 +4,13 @@ import { useState, type ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
-export function AdminShell({ children }: { children: ReactNode }) {
+export function AdminShell({
+  children,
+  variant = 'user',
+}: {
+  children: ReactNode;
+  variant?: 'user' | 'admin';
+}) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -19,7 +25,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
 
-      <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
+      <Sidebar
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+        variant={variant}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />

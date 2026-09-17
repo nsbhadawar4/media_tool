@@ -51,6 +51,8 @@ async function readImageDimensions(filePath: string): Promise<{ width: number | 
 export interface SaveUploadedMediaInput {
   file: UploadedFileInput;
   folderId: string | null;
+  /** Authenticated caller. Stamped onto the Media document and used to verify the folder. */
+  ownerId: string;
   uploadedBy: string;
   /**
    * Optional poster frame for a video, grabbed in the browser at upload time (see the
@@ -63,7 +65,7 @@ export interface SaveUploadedMediaInput {
 }
 
 export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<IMedia> {
-  const { file, folderId, uploadedBy, posterPath, duration } = input;
+  const { file, folderId, ownerId, uploadedBy, posterPath, duration } = input;
 
   // Both temp files are abandoned on every failure path below, so clean them up together.
   const discardTempFiles = async () => {
@@ -85,8 +87,10 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
     throw AppError.badRequest(err instanceof Error ? err.message : 'Invalid filename');
   }
 
+  // Uploading into someone else's folder must be impossible, so the folder is looked up
+  // by id *and* owner. A folder that exists but belongs to another account reads as absent.
   if (folderId) {
-    const folder = await Folder.findOne({ _id: folderId, isDeleted: false });
+    const folder = await Folder.findOne({ _id: folderId, ownerId, isDeleted: false });
     if (!folder) {
       await discardTempFiles();
       throw AppError.notFound('Target folder not found');
@@ -122,6 +126,7 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
   }
 
   const media = await Media.create({
+    ownerId: new Types.ObjectId(ownerId),
     folderId: folderId ?? null,
     originalName: safeName,
     storedName,
@@ -139,27 +144,31 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
   });
 
   if (folderId) {
-    await recalculateItemCount(folderId);
-    await Folder.updateOne({ _id: folderId, coverImage: null }, { coverImage: media._id });
+    await recalculateItemCount(ownerId, folderId);
+    await Folder.updateOne({ _id: folderId, ownerId, coverImage: null }, { coverImage: media._id });
   }
 
   return media;
 }
 
-export async function renameMedia(id: string, originalName: string): Promise<IMedia> {
-  const media = await Media.findOne({ _id: id, isDeleted: false });
+export async function renameMedia(ownerId: string, id: string, originalName: string): Promise<IMedia> {
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: false });
   if (!media) throw AppError.notFound('File not found');
   media.originalName = originalName;
   await media.save();
   return media;
 }
 
-export async function moveMedia(id: string, folderId: string | null): Promise<IMedia> {
-  const media = await Media.findOne({ _id: id, isDeleted: false });
+export async function moveMedia(
+  ownerId: string,
+  id: string,
+  folderId: string | null,
+): Promise<IMedia> {
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: false });
   if (!media) throw AppError.notFound('File not found');
 
   if (folderId) {
-    const folder = await Folder.findOne({ _id: folderId, isDeleted: false });
+    const folder = await Folder.findOne({ _id: folderId, ownerId, isDeleted: false });
     if (!folder) throw AppError.notFound('Target folder not found');
   }
 
@@ -167,30 +176,30 @@ export async function moveMedia(id: string, folderId: string | null): Promise<IM
   media.folderId = folderId ? new Types.ObjectId(folderId) : null;
   await media.save();
 
-  if (previousFolderId) await recalculateItemCount(previousFolderId);
-  if (folderId) await recalculateItemCount(folderId);
+  if (previousFolderId) await recalculateItemCount(ownerId, previousFolderId);
+  if (folderId) await recalculateItemCount(ownerId, folderId);
 
   return media;
 }
 
-export async function softDeleteMedia(id: string): Promise<IMedia> {
-  const media = await Media.findOne({ _id: id, isDeleted: false });
+export async function softDeleteMedia(ownerId: string, id: string): Promise<IMedia> {
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: false });
   if (!media) throw AppError.notFound('File not found');
   media.isDeleted = true;
   media.deletedAt = new Date();
   // Deleted on its own, so it is its own trash entry and no folder restore will reclaim it.
   media.deletedCascadeRoot = null;
   await media.save();
-  if (media.folderId) await recalculateItemCount(media.folderId.toString());
+  if (media.folderId) await recalculateItemCount(ownerId, media.folderId.toString());
   return media;
 }
 
-export async function restoreMedia(id: string): Promise<IMedia> {
-  const media = await Media.findOne({ _id: id, isDeleted: true });
+export async function restoreMedia(ownerId: string, id: string): Promise<IMedia> {
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: true });
   if (!media) throw AppError.notFound('Deleted file not found');
 
   if (media.folderId) {
-    const folder = await Folder.findById(media.folderId);
+    const folder = await Folder.findOne({ _id: media.folderId, ownerId });
     if (!folder || folder.isDeleted) {
       media.folderId = null; // parent folder is gone/still trashed — restore to unfiled
     }
@@ -200,7 +209,7 @@ export async function restoreMedia(id: string): Promise<IMedia> {
   media.deletedAt = null;
   media.deletedCascadeRoot = null;
   await media.save();
-  if (media.folderId) await recalculateItemCount(media.folderId.toString());
+  if (media.folderId) await recalculateItemCount(ownerId, media.folderId.toString());
   return media;
 }
 
@@ -208,11 +217,14 @@ export async function restoreMedia(id: string): Promise<IMedia> {
  * Irreversibly removes one trashed file and its bytes. Shares purgeMediaRecords with the
  * folder purge so both paths delete storage before the record, never the other way round.
  */
-export async function permanentlyDeleteMedia(id: string): Promise<{ freedBytes: number }> {
-  const media = await Media.findOne({ _id: id, isDeleted: true });
+export async function permanentlyDeleteMedia(
+  ownerId: string,
+  id: string,
+): Promise<{ freedBytes: number }> {
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: true });
   if (!media) throw AppError.notFound('Deleted file not found');
 
-  const { failed, freedBytes } = await purgeMediaRecords([media]);
+  const { failed, freedBytes } = await purgeMediaRecords(ownerId, [media]);
   if (failed.length > 0) {
     throw AppError.internal(`Could not remove "${media.originalName}" from storage: ${failed[0]!.error}`);
   }
@@ -244,8 +256,8 @@ function affectedFolderIds(...groups: Array<Array<Types.ObjectId | null>>): stri
  * tab) are reported in `failed` rather than failing the whole request, so a stale selection
  * can't block the items that are still valid.
  */
-export async function bulkSoftDeleteMedia(ids: string[]): Promise<BulkResult> {
-  const items = await Media.find({ _id: { $in: ids }, isDeleted: false });
+export async function bulkSoftDeleteMedia(ownerId: string, ids: string[]): Promise<BulkResult> {
+  const items = await Media.find({ _id: { $in: ids }, ownerId, isDeleted: false });
   const found = new Set(items.map((m) => m._id.toString()));
   const failed = ids
     .filter((id) => !found.has(id))
@@ -256,12 +268,12 @@ export async function bulkSoftDeleteMedia(ids: string[]): Promise<BulkResult> {
   const deletedAt = new Date();
   // A bulk delete is still a direct action per file, so each becomes its own trash entry.
   await Media.updateMany(
-    { _id: { $in: [...found] } },
+    { _id: { $in: [...found] }, ownerId },
     { isDeleted: true, deletedAt, deletedCascadeRoot: null },
   );
 
   for (const folderId of affectedFolderIds(items.map((m) => m.folderId))) {
-    await recalculateItemCount(folderId);
+    await recalculateItemCount(ownerId, folderId);
   }
 
   // Reflect the update on the in-memory docs so callers can serialize them straight back.
@@ -274,13 +286,17 @@ export async function bulkSoftDeleteMedia(ids: string[]): Promise<BulkResult> {
 }
 
 /** Moves many files into one folder (or to unfiled when `folderId` is null). */
-export async function bulkMoveMedia(ids: string[], folderId: string | null): Promise<BulkResult> {
+export async function bulkMoveMedia(
+  ownerId: string,
+  ids: string[],
+  folderId: string | null,
+): Promise<BulkResult> {
   if (folderId) {
-    const folder = await Folder.findOne({ _id: folderId, isDeleted: false });
+    const folder = await Folder.findOne({ _id: folderId, ownerId, isDeleted: false });
     if (!folder) throw AppError.notFound('Target folder not found');
   }
 
-  const items = await Media.find({ _id: { $in: ids }, isDeleted: false });
+  const items = await Media.find({ _id: { $in: ids }, ownerId, isDeleted: false });
   const found = new Set(items.map((m) => m._id.toString()));
   const failed = ids.filter((id) => !found.has(id)).map((id) => ({ id, error: 'File not found' }));
 
@@ -288,10 +304,10 @@ export async function bulkMoveMedia(ids: string[], folderId: string | null): Pro
 
   const target = folderId ? new Types.ObjectId(folderId) : null;
   const previousFolderIds = items.map((m) => m.folderId);
-  await Media.updateMany({ _id: { $in: [...found] } }, { folderId: target });
+  await Media.updateMany({ _id: { $in: [...found] }, ownerId }, { folderId: target });
 
   for (const affected of affectedFolderIds(previousFolderIds, [target])) {
-    await recalculateItemCount(affected);
+    await recalculateItemCount(ownerId, affected);
   }
 
   for (const item of items) {

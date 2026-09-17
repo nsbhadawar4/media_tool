@@ -90,7 +90,7 @@ export default function FolderDetailPage() {
       await foldersApi.update(folder._id, { parentFolder: targetParentId });
       toast.success('Folder moved');
       invalidate();
-      router.push(targetParentId ? `/admin/folders/${targetParentId}` : '/admin/folders');
+      router.push(targetParentId ? `/folders/${targetParentId}` : '/folders');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to move folder');
     }
@@ -102,7 +102,7 @@ export default function FolderDetailPage() {
       await foldersApi.remove(folder._id);
       toast.success('Folder moved to trash');
       invalidate();
-      router.push(folder.parentFolder ? `/admin/folders/${folder.parentFolder}` : '/admin/folders');
+      router.push(folder.parentFolder ? `/folders/${folder.parentFolder}` : '/folders');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Failed to delete folder');
       setIsDeleting(false);

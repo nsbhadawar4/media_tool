@@ -17,6 +17,7 @@ const FOLDER_SORT_MAP: Record<string, Record<string, 1 | -1>> = {
 };
 
 export const listFolders = asyncHandler(async (req: Request, res: Response) => {
+  const ownerId = req.user!.id;
   const { parentFolder, includeDeleted, search, sort } = req.query as unknown as {
     parentFolder?: string;
     includeDeleted?: boolean;
@@ -24,7 +25,9 @@ export const listFolders = asyncHandler(async (req: Request, res: Response) => {
     sort: string;
   };
 
-  const filter: Record<string, unknown> = { isDeleted: includeDeleted ?? false };
+  // ownerId is the first key of every filter in this file and comes from the session
+  // cookie, never from the request — see services/folderService for the reasoning.
+  const filter: Record<string, unknown> = { ownerId, isDeleted: includeDeleted ?? false };
 
   if (search) {
     filter.name = { $regex: escapeRegex(search), $options: 'i' };
@@ -39,7 +42,7 @@ export const listFolders = asyncHandler(async (req: Request, res: Response) => {
   let breadcrumbs: Array<{ id: string; name: string }> = [];
   let parent: IFolder | null = null;
   if (parentFolder) {
-    const parentDoc = await Folder.findById(parentFolder);
+    const parentDoc = await Folder.findOne({ _id: parentFolder, ownerId });
     if (parentDoc) {
       parent = parentDoc;
       breadcrumbs = [...(await folderService.getBreadcrumbs(parentDoc)), { id: parentDoc._id.toString(), name: parentDoc.name }];
@@ -47,24 +50,29 @@ export const listFolders = asyncHandler(async (req: Request, res: Response) => {
   }
 
   sendSuccess(res, {
-    folders: folders.map((f) => serializeFolder(f, req.admin!.id)),
-    parent: parent ? serializeFolder(parent as IFolder, req.admin!.id) : null,
+    folders: folders.map((f) => serializeFolder(f, req.user!.id)),
+    parent: parent ? serializeFolder(parent as IFolder, req.user!.id) : null,
     breadcrumbs,
   });
 });
 
 export const getFolder = asyncHandler(async (req: Request, res: Response) => {
-  const folder = await Folder.findById(req.params.id).populate('coverImage');
+  const ownerId = req.user!.id;
+  // Another account's folder id returns 404, not 403: confirming it exists would itself
+  // tell the caller something about an account that is not theirs.
+  const folder = await Folder.findOne({ _id: req.params.id, ownerId }).populate('coverImage');
   if (!folder) throw AppError.notFound('Folder not found');
 
   const [subfolders, breadcrumbs] = await Promise.all([
-    Folder.find({ parentFolder: folder._id, isDeleted: false }).sort({ name: 1 }).populate('coverImage'),
+    Folder.find({ ownerId, parentFolder: folder._id, isDeleted: false })
+      .sort({ name: 1 })
+      .populate('coverImage'),
     folderService.getBreadcrumbs(folder),
   ]);
 
   sendSuccess(res, {
-    folder: serializeFolder(folder, req.admin!.id),
-    subfolders: subfolders.map((f) => serializeFolder(f, req.admin!.id)),
+    folder: serializeFolder(folder, req.user!.id),
+    subfolders: subfolders.map((f) => serializeFolder(f, req.user!.id)),
     breadcrumbs,
   });
 });
@@ -77,10 +85,11 @@ export const createFolder = asyncHandler(async (req: Request, res: Response) => 
   }
 
   const folder = await folderService.createFolder({
+    ownerId: req.user!.id,
     name: req.body.name,
     description: req.body.description,
     parentFolder: req.body.parentFolder ?? null,
-    createdBy: req.admin!.id,
+    createdBy: req.user!.id,
   });
 
   if (env.isDevelopment) {
@@ -99,10 +108,11 @@ export const createFolder = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const updateFolder = asyncHandler(async (req: Request, res: Response) => {
-  const before = await Folder.findById(req.params.id);
+  const ownerId = req.user!.id;
+  const before = await Folder.findOne({ _id: req.params.id, ownerId });
   if (!before) throw AppError.notFound('Folder not found');
 
-  const folder = await folderService.updateFolder(req.params.id, req.body);
+  const folder = await folderService.updateFolder(ownerId, req.params.id, req.body);
 
   const renamed = req.body.name && req.body.name !== before.name;
   await logActivity(req, {
@@ -117,7 +127,7 @@ export const updateFolder = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const deleteFolder = asyncHandler(async (req: Request, res: Response) => {
-  const folder = await folderService.softDeleteFolder(req.params.id);
+  const folder = await folderService.softDeleteFolder(req.user!.id, req.params.id);
 
   await logActivity(req, {
     action: 'folder_deleted',
@@ -131,7 +141,7 @@ export const deleteFolder = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const restoreFolder = asyncHandler(async (req: Request, res: Response) => {
-  const result = await folderService.restoreFolder(req.params.id);
+  const result = await folderService.restoreFolder(req.user!.id, req.params.id);
   const { folder, restoredFolders, restoredMedia, reparentedToRoot } = result;
 
   await logActivity(req, {

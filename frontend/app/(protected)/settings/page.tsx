@@ -17,7 +17,7 @@ const THEME_OPTIONS = [
 ];
 
 export default function SettingsPage() {
-  const { admin, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const toast = useToast();
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function SettingsPage() {
     try {
       await logout();
       toast.success('Signed out');
-      router.replace('/admin/login');
+      router.replace('/login');
     } catch {
       toast.error('Failed to sign out');
     }
@@ -47,8 +47,8 @@ export default function SettingsPage() {
               <User className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1 basis-40">
-              <p className="truncate text-sm font-medium text-foreground">{admin?.name}</p>
-              <p className="truncate text-xs text-muted">{admin?.email}</p>
+              <p className="truncate text-sm font-medium text-foreground">{user?.name}</p>
+              <p className="truncate text-xs text-muted">{user?.email}</p>
             </div>
             <Button variant="secondary" className="shrink-0" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />

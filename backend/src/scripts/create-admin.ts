@@ -1,18 +1,21 @@
 /**
- * Bootstraps (or resets) the single admin account from environment variables.
- * Safe to re-run: it upserts by email, so it can also be used to rotate the
- * admin password later (update .env and re-run).
+ * Bootstraps (or resets) an administrator account from arguments or environment variables.
+ * Safe to re-run: it upserts by email, so it can also be used to rotate the admin password
+ * later, or to promote an existing account to administrator.
  *
  * Usage: npm run create-admin -- <email> <password>
  *        npm run create-admin                  (falls back to .env)
  *
  * Passing the credentials as arguments keeps the plaintext password out of .env.
  * Otherwise reads ADMIN_EMAIL, ADMIN_NAME and either ADMIN_PASSWORD or ADMIN_PASSWORD_HASH.
+ *
+ * This is the only way an account gets role='admin' — public signup always creates a
+ * plain user, whatever the request body says.
  */
 import bcrypt from 'bcryptjs';
 import { env } from '../config/env';
 import { connectDatabase, disconnectDatabase } from '../config/database';
-import { Admin } from '../models/Admin';
+import { User } from '../models/User';
 
 async function main() {
   const [argEmail, argPassword] = process.argv.slice(2);
@@ -36,20 +39,24 @@ async function main() {
 
   await connectDatabase();
 
-  const existing = await Admin.findOne({ email: email.toLowerCase() });
+  const normalizedEmail = email.toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail });
 
   if (existing) {
     existing.name = env.ADMIN_NAME ?? existing.name;
     existing.passwordHash = passwordHash;
+    existing.role = 'admin';
     existing.isActive = true;
     await existing.save();
-    console.log(`Updated existing admin: ${existing.email}`);
+    console.log(`Updated existing account and ensured role=admin: ${existing.email}`);
   } else {
-    const created = await Admin.create({
-      email: email.toLowerCase(),
+    const created = await User.create({
+      email: normalizedEmail,
       name: env.ADMIN_NAME ?? 'Administrator',
       passwordHash,
+      role: 'admin',
       isActive: true,
+      isEmailVerified: true,
     });
     console.log(`Created admin: ${created.email}`);
   }

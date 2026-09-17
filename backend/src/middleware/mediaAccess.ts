@@ -3,7 +3,7 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { verifyMediaToken, verifySessionToken } from '../services/tokenService';
-import { Admin } from '../models/Admin';
+import { User } from '../models/User';
 
 /**
  * Guards the streaming/download endpoints. These are hit directly by <img>/<video>
@@ -11,6 +11,10 @@ import { Admin } from '../models/Admin';
  *   - a signed, short-lived `?token=` query param scoped to this exact media id, or
  *   - the normal session cookie (works when frontend/backend share a registrable domain).
  * This keeps files fully private without relying on browser SameSite/CORS specifics.
+ *
+ * This middleware only establishes *who is asking*. It does not decide whether they may
+ * have this particular file — the handlers do that by looking the media up with
+ * `ownerId: req.user.id`, so a valid session plus someone else's media id is a 404.
  */
 export const requireMediaAccess = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   const mediaId = req.params.id;
@@ -26,7 +30,9 @@ export const requireMediaAccess = asyncHandler(async (req: Request, _res: Respon
     if (payload.mediaId !== mediaId) {
       throw AppError.forbidden('Token does not match this file');
     }
-    req.admin = { id: payload.sub, email: '', name: '' };
+    // `sub` is whoever the token was minted for; tokens are only ever minted while
+    // serializing media that account already owns.
+    req.user = { id: payload.sub, email: '', name: '', role: 'user' };
     next();
     return;
   }
@@ -41,9 +47,9 @@ export const requireMediaAccess = asyncHandler(async (req: Request, _res: Respon
     throw AppError.unauthorized('Session expired or invalid, please log in again');
   }
 
-  const admin = await Admin.findById(session.sub);
-  if (!admin || !admin.isActive) throw AppError.unauthorized('Session no longer valid');
+  const user = await User.findById(session.sub);
+  if (!user || !user.isActive) throw AppError.unauthorized('Session no longer valid');
 
-  req.admin = { id: admin._id.toString(), email: admin.email, name: admin.name };
+  req.user = { id: user._id.toString(), email: user.email, name: user.name, role: user.role };
   next();
 });

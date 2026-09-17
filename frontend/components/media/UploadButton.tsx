@@ -3,17 +3,26 @@
 import { useRef } from 'react';
 import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { acceptFor } from '@/utils/uploadAccept';
+import type { FileType } from '@/types/api';
 
 interface UploadButtonProps {
   onFilesSelected: (files: File[]) => void;
   variant?: 'primary' | 'secondary';
   label?: string;
+  /**
+   * Narrows the file picker to one kind of file. It is a convenience only — the dialog's
+   * "All files" option ignores it — so the caller still filters what comes back.
+   */
+  fileType?: FileType;
 }
 
-const ACCEPT =
-  '.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.mp4,.mov,.webm,.mkv,.pdf,.doc,.docx,.xls,.xlsx,.txt';
-
-export function UploadButton({ onFilesSelected, variant = 'primary', label = 'Upload' }: UploadButtonProps) {
+export function UploadButton({
+  onFilesSelected,
+  variant = 'primary',
+  label = 'Upload',
+  fileType,
+}: UploadButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -26,7 +35,7 @@ export function UploadButton({ onFilesSelected, variant = 'primary', label = 'Up
         ref={inputRef}
         type="file"
         multiple
-        accept={ACCEPT}
+        accept={acceptFor(fileType)}
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);

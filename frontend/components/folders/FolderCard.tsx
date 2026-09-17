@@ -18,7 +18,7 @@ export function FolderCard({ folder, onRename, onMove, onDelete }: FolderCardPro
 
   return (
     <div
-      onClick={() => router.push(`/admin/folders/${folder._id}`)}
+      onClick={() => router.push(`/folders/${folder._id}`)}
       className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
     >
       {/*

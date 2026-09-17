@@ -3,12 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import type { AdminProfile } from '@/types/api';
+import type { SignupInput, UserProfile } from '@/types/api';
 
 interface AuthContextValue {
-  admin: AdminProfile | null;
+  user: UserProfile | null;
+  /** Convenience for the admin area's guard; the backend enforces this independently. */
+  isAdmin: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<UserProfile>;
+  signup: (input: SignupInput) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -16,15 +19,15 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [admin, setAdmin] = useState<AdminProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
       const { data } = await authApi.me();
-      setAdmin(data);
+      setUser(data);
     } catch (err) {
-      setAdmin(err instanceof ApiError && err.status === 401 ? null : null);
+      setUser(err instanceof ApiError && err.status === 401 ? null : null);
     } finally {
       setIsLoading(false);
     }
@@ -39,18 +42,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     const { data } = await authApi.login(email, password, rememberMe);
-    setAdmin(data);
+    setUser(data);
+    // Returned as well as stored: callers redirect by role, and reading it back from
+    // state in the same tick would still see the old value.
+    return data;
+  }, []);
+
+  /** Deliberately does not sign the new account in — see the backend's signup handler. */
+  const signup = useCallback(async (input: SignupInput) => {
+    await authApi.signup(input);
   }, []);
 
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } finally {
-      setAdmin(null);
+      setUser(null);
     }
   }, []);
 
-  const value = useMemo(() => ({ admin, isLoading, login, logout, refresh }), [admin, isLoading, login, logout, refresh]);
+  const value = useMemo(
+    () => ({
+      user,
+      isAdmin: user?.role === 'admin',
+      isLoading,
+      login,
+      signup,
+      logout,
+      refresh,
+    }),
+    [user, isLoading, login, signup, logout, refresh],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

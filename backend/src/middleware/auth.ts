@@ -3,12 +3,13 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { verifySessionToken } from '../services/tokenService';
-import { Admin } from '../models/Admin';
+import { User } from '../models/User';
 
 /**
- * Requires a valid session cookie. Re-checks the admin still exists and is
- * active on every request rather than trusting the JWT claims blindly —
- * this is a single-admin private app, so the DB round trip is cheap.
+ * Requires a valid session cookie, and re-reads the account on every request rather than
+ * trusting the JWT claims. The token is signed, but it is also long-lived: without this
+ * round trip a deactivated user, or one whose role was downgraded, would keep full access
+ * until their cookie happened to expire.
  */
 export const requireAuth = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
   const token = req.cookies?.[env.COOKIE_NAME];
@@ -23,11 +24,30 @@ export const requireAuth = asyncHandler(async (req: Request, _res: Response, nex
     throw AppError.unauthorized('Session expired or invalid, please log in again');
   }
 
-  const admin = await Admin.findById(payload.sub);
-  if (!admin || !admin.isActive) {
+  const user = await User.findById(payload.sub);
+  if (!user || !user.isActive) {
     throw AppError.unauthorized('Session no longer valid');
   }
 
-  req.admin = { id: admin._id.toString(), email: admin.email, name: admin.name };
+  req.user = {
+    id: user._id.toString(),
+    email: user.email,
+    name: user.name,
+    // Read from the database, not the token, so a role change takes effect immediately.
+    role: user.role,
+  };
   next();
 });
+
+/** Must be chained after requireAuth. Anything else is a 403, never a redirect. */
+export const requireAdmin = (req: Request, _res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    next(AppError.unauthorized('You must be logged in'));
+    return;
+  }
+  if (req.user.role !== 'admin') {
+    next(AppError.forbidden('Administrator access required'));
+    return;
+  }
+  next();
+};

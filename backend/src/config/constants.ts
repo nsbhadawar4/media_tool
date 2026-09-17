@@ -69,6 +69,7 @@ export function fileTypeFromMime(mime: string): FileType | null {
 }
 
 export const ACTIVITY_ACTIONS = [
+  'signup',
   'login',
   'login_failed',
   'logout',
@@ -85,8 +86,11 @@ export const ACTIVITY_ACTIONS = [
   'media_restored',
   'media_permanently_deleted',
   'media_moved',
+  'user_activated',
+  'user_deactivated',
+  'user_deleted',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
-export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth'] as const;
+export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user'] as const;
 export type ActivityTargetType = (typeof ACTIVITY_TARGET_TYPES)[number];

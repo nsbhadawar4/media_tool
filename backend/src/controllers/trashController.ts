@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import { Folder } from '../models/Folder';
 import { Media } from '../models/Media';
 import { AppError } from '../utils/AppError';
@@ -27,18 +28,19 @@ export const PERMANENT_DELETE_CONFIRMATION = 'DELETE PERMANENTLY';
  * one file someone actually wants back impossible to find.
  */
 export const listTrash = asyncHandler(async (req: Request, res: Response) => {
+  const ownerId = req.user!.id;
   const [folders, media] = await Promise.all([
-    Folder.find({ isDeleted: true, deletedCascadeRoot: null }).sort({ deletedAt: -1 }),
-    Media.find({ isDeleted: true, deletedCascadeRoot: null }).sort({ deletedAt: -1 }),
+    Folder.find({ ownerId, isDeleted: true, deletedCascadeRoot: null }).sort({ deletedAt: -1 }),
+    Media.find({ ownerId, isDeleted: true, deletedCascadeRoot: null }).sort({ deletedAt: -1 }),
   ]);
 
   // What each trashed folder is holding, so the UI can state the real cost of destroying it.
   const contents = await Promise.all(
     folders.map(async (folder) => {
       const [folderCount, mediaStats] = await Promise.all([
-        Folder.countDocuments({ deletedCascadeRoot: folder._id, isDeleted: true }),
+        Folder.countDocuments({ ownerId, deletedCascadeRoot: folder._id, isDeleted: true }),
         Media.aggregate<{ count: number; bytes: number }>([
-          { $match: { deletedCascadeRoot: folder._id, isDeleted: true } },
+          { $match: { ownerId: new Types.ObjectId(ownerId), deletedCascadeRoot: folder._id, isDeleted: true } },
           { $group: { _id: null, count: { $sum: 1 }, bytes: { $sum: '$size' } } },
         ]),
       ]);
@@ -53,7 +55,7 @@ export const listTrash = asyncHandler(async (req: Request, res: Response) => {
 
   sendSuccess(res, {
     folders: contents,
-    media: media.map((m) => serializeMedia(m, req.admin!.id)),
+    media: media.map((m) => serializeMedia(m, req.user!.id)),
   });
 });
 
@@ -61,10 +63,10 @@ export const listTrash = asyncHandler(async (req: Request, res: Response) => {
 export const restoreTrashItem = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const folder = await Folder.findOne({ _id: id, isDeleted: true });
+  const folder = await Folder.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (folder) {
     const { folder: restored, restoredFolders, restoredMedia, reparentedToRoot } =
-      await folderService.restoreFolder(id);
+      await folderService.restoreFolder(req.user!.id, id);
 
     await logActivity(req, {
       action: 'folder_restored',
@@ -89,9 +91,9 @@ export const restoreTrashItem = asyncHandler(async (req: Request, res: Response)
     return;
   }
 
-  const media = await Media.findOne({ _id: id, isDeleted: true });
+  const media = await Media.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (media) {
-    const restored = await mediaService.restoreMedia(id);
+    const restored = await mediaService.restoreMedia(req.user!.id, id);
     await logActivity(req, {
       action: 'media_restored',
       targetType: 'media',
@@ -99,7 +101,7 @@ export const restoreTrashItem = asyncHandler(async (req: Request, res: Response)
       targetName: restored.originalName,
       message: `Restored "${restored.originalName}" from trash`,
     });
-    sendSuccess(res, { type: 'media', item: serializeMedia(restored, req.admin!.id) });
+    sendSuccess(res, { type: 'media', item: serializeMedia(restored, req.user!.id) });
     return;
   }
 
@@ -115,9 +117,9 @@ export const restoreTrashItem = asyncHandler(async (req: Request, res: Response)
 export const previewPermanentDelete = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const folder = await Folder.findOne({ _id: id, isDeleted: true });
+  const folder = await Folder.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (folder) {
-    const scope = await folderService.getFolderDeletionScope(id);
+    const scope = await folderService.getFolderDeletionScope(req.user!.id, id);
     sendSuccess(res, {
       type: 'folder',
       name: folder.name,
@@ -129,7 +131,7 @@ export const previewPermanentDelete = asyncHandler(async (req: Request, res: Res
     return;
   }
 
-  const media = await Media.findOne({ _id: id, isDeleted: true });
+  const media = await Media.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (media) {
     sendSuccess(res, {
       type: 'media',
@@ -160,9 +162,9 @@ export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res:
     );
   }
 
-  const folder = await Folder.findOne({ _id: id, isDeleted: true });
+  const folder = await Folder.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (folder) {
-    const result = await folderService.permanentlyDeleteFolder(id);
+    const result = await folderService.permanentlyDeleteFolder(req.user!.id, id);
 
     await logActivity(req, {
       action: 'folder_permanently_deleted',
@@ -190,9 +192,9 @@ export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res:
     return;
   }
 
-  const media = await Media.findOne({ _id: id, isDeleted: true });
+  const media = await Media.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
   if (media) {
-    const { freedBytes } = await mediaService.permanentlyDeleteMedia(id);
+    const { freedBytes } = await mediaService.permanentlyDeleteMedia(req.user!.id, id);
 
     await logActivity(req, {
       action: 'media_permanently_deleted',

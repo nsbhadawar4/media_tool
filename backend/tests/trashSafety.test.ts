@@ -28,12 +28,23 @@ import * as mediaService from '../src/services/mediaService';
 
 let mongo: MongoMemoryServer;
 
+/** Everything in this suite belongs to OWNER; OTHER_OWNER exists to prove isolation. */
+const OWNER = new mongoose.Types.ObjectId();
+const OWNER_ID = OWNER.toString();
+const OTHER_OWNER = new mongoose.Types.ObjectId();
+const OTHER_OWNER_ID = OTHER_OWNER.toString();
+
 /** Absolute path a storage key maps to under the local provider. */
 const storagePath = (key: string) => path.resolve(env.localStorageRoot, key);
 const fileExists = (key: string) => fs.existsSync(storagePath(key));
 
 /** Creates a media document with real bytes behind it, so storage deletion is observable. */
-async function makeMedia(name: string, folderId: mongoose.Types.ObjectId | null, bytes = 1024) {
+async function makeMedia(
+  name: string,
+  folderId: mongoose.Types.ObjectId | null,
+  bytes = 1024,
+  ownerId: mongoose.Types.ObjectId = OWNER,
+) {
   const storageKey = `photos/${folderId?.toString() ?? 'unfiled'}/${name}`;
   const thumbnailKey = `thumbnails/${name}.webp`;
 
@@ -44,6 +55,7 @@ async function makeMedia(name: string, folderId: mongoose.Types.ObjectId | null,
   }
 
   return Media.create({
+    ownerId,
     folderId,
     originalName: name,
     storedName: name,
@@ -74,11 +86,16 @@ beforeEach(async () => {
 
 /** parent > child, one photo in each. */
 async function makeTree() {
-  const parent = await folderService.createFolder({ name: 'Holiday', createdBy: new mongoose.Types.ObjectId().toString() });
+  const parent = await folderService.createFolder({
+    ownerId: OWNER_ID,
+    name: 'Holiday',
+    createdBy: OWNER_ID,
+  });
   const child = await folderService.createFolder({
+    ownerId: OWNER_ID,
     name: 'Beach',
     parentFolder: parent._id.toString(),
-    createdBy: new mongoose.Types.ObjectId().toString(),
+    createdBy: OWNER_ID,
   });
   const parentPhoto = await makeMedia('parent.jpg', parent._id);
   const childPhoto = await makeMedia('child.jpg', child._id);
@@ -88,7 +105,7 @@ async function makeTree() {
 test('deleting a folder trashes the whole subtree but touches no files', async () => {
   const { parent, child, parentPhoto, childPhoto } = await makeTree();
 
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
   assert.equal((await Folder.findById(parent._id))!.isDeleted, true);
   assert.equal((await Folder.findById(child._id))!.isDeleted, true);
@@ -104,9 +121,9 @@ test('restoring a folder brings back its subfolders and files', async () => {
   // Regression: restore used to recover the folder document alone, leaving every photo
   // inside it stranded in the trash.
   const { parent, child, parentPhoto, childPhoto } = await makeTree();
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
-  const result = await folderService.restoreFolder(parent._id.toString());
+  const result = await folderService.restoreFolder(OWNER_ID, parent._id.toString());
 
   assert.equal((await Folder.findById(parent._id))!.isDeleted, false);
   assert.equal((await Folder.findById(child._id))!.isDeleted, false, 'subfolder must come back');
@@ -124,9 +141,9 @@ test('restoring a folder does not resurrect a file deleted separately beforehand
   const { parent, parentPhoto, childPhoto } = await makeTree();
 
   // Deleted on purpose, before the folder was ever trashed.
-  await mediaService.softDeleteMedia(childPhoto._id.toString());
-  await folderService.softDeleteFolder(parent._id.toString());
-  await folderService.restoreFolder(parent._id.toString());
+  await mediaService.softDeleteMedia(OWNER_ID, childPhoto._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
+  await folderService.restoreFolder(OWNER_ID, parent._id.toString());
 
   assert.equal((await Media.findById(parentPhoto._id))!.isDeleted, false);
   assert.equal(
@@ -139,11 +156,11 @@ test('restoring a folder does not resurrect a file deleted separately beforehand
 test('re-deleting a parent preserves an already-trashed subfolder’s deletion time', async () => {
   const { parent, child } = await makeTree();
 
-  await folderService.softDeleteFolder(child._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, child._id.toString());
   const originalDeletedAt = (await Folder.findById(child._id))!.deletedAt!;
 
   await new Promise((resolve) => setTimeout(resolve, 10));
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
   const after = await Folder.findById(child._id);
   assert.equal(
@@ -157,7 +174,7 @@ test('re-deleting a parent preserves an already-trashed subfolder’s deletion t
 
 test('trash lists only directly-deleted entries', async () => {
   const { parent, child, parentPhoto } = await makeTree();
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
   const roots = await Folder.find({ isDeleted: true, deletedCascadeRoot: null });
   assert.equal(roots.length, 1, 'only the folder the admin deleted should be listed');
@@ -175,13 +192,13 @@ test('permanently deleting a folder removes the subtree and its bytes', async ()
   // Regression: this used to delete the folder document only, orphaning every child
   // record and leaving all the files on disk indefinitely.
   const { parent, child, parentPhoto, childPhoto } = await makeTree();
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
-  const scope = await folderService.getFolderDeletionScope(parent._id.toString());
+  const scope = await folderService.getFolderDeletionScope(OWNER_ID, parent._id.toString());
   assert.equal(scope.media.length, 2, 'preview must account for nested files');
   assert.equal(scope.totalBytes, 2048);
 
-  const result = await folderService.permanentlyDeleteFolder(parent._id.toString());
+  const result = await folderService.permanentlyDeleteFolder(OWNER_ID, parent._id.toString());
 
   assert.equal(result.deletedMedia, 2);
   assert.equal(result.deletedFolders, 2, 'folder and subfolder both removed');
@@ -199,13 +216,13 @@ test('permanently deleting a folder removes the subtree and its bytes', async ()
 
 test('permanent deletion refuses while live items are inside', async () => {
   const { parent } = await makeTree();
-  await folderService.softDeleteFolder(parent._id.toString());
+  await folderService.softDeleteFolder(OWNER_ID, parent._id.toString());
 
   // A file that is not in the trash — nobody has confirmed destroying this one.
   await makeMedia('added-later.jpg', parent._id);
 
   await assert.rejects(
-    () => folderService.permanentlyDeleteFolder(parent._id.toString()),
+    () => folderService.permanentlyDeleteFolder(OWNER_ID, parent._id.toString()),
     /not in the trash/,
   );
   assert.notEqual(await Folder.findById(parent._id), null, 'nothing may be deleted when the check fails');
@@ -215,25 +232,25 @@ test('protected folders cannot be trashed or permanently deleted', async () => {
   const { parent } = await makeTree();
   await Folder.updateOne({ _id: parent._id }, { isProtected: true });
 
-  await assert.rejects(() => folderService.softDeleteFolder(parent._id.toString()), /protected folder/);
+  await assert.rejects(() => folderService.softDeleteFolder(OWNER_ID, parent._id.toString()), /protected folder/);
 
   await Folder.updateOne({ _id: parent._id }, { isDeleted: true, deletedAt: new Date() });
-  await assert.rejects(() => folderService.permanentlyDeleteFolder(parent._id.toString()), /protected folder/);
+  await assert.rejects(() => folderService.permanentlyDeleteFolder(OWNER_ID, parent._id.toString()), /protected folder/);
   assert.notEqual(await Folder.findById(parent._id), null);
 });
 
 test('deleting a single file keeps its bytes until permanent deletion', async () => {
   const { parentPhoto } = await makeTree();
 
-  await mediaService.softDeleteMedia(parentPhoto._id.toString());
+  await mediaService.softDeleteMedia(OWNER_ID, parentPhoto._id.toString());
   assert.ok(fileExists(parentPhoto.storageKey), 'a normal delete must never remove the file');
 
-  await mediaService.restoreMedia(parentPhoto._id.toString());
+  await mediaService.restoreMedia(OWNER_ID, parentPhoto._id.toString());
   assert.equal((await Media.findById(parentPhoto._id))!.isDeleted, false);
   assert.ok(fileExists(parentPhoto.storageKey));
 
-  await mediaService.softDeleteMedia(parentPhoto._id.toString());
-  await mediaService.permanentlyDeleteMedia(parentPhoto._id.toString());
+  await mediaService.softDeleteMedia(OWNER_ID, parentPhoto._id.toString());
+  await mediaService.permanentlyDeleteMedia(OWNER_ID, parentPhoto._id.toString());
   assert.equal(fileExists(parentPhoto.storageKey), false, 'only permanent deletion removes bytes');
   assert.equal(await Media.findById(parentPhoto._id), null);
 });
@@ -242,7 +259,7 @@ test('a file cannot be permanently deleted unless it is already in the trash', a
   const { parentPhoto } = await makeTree();
 
   await assert.rejects(
-    () => mediaService.permanentlyDeleteMedia(parentPhoto._id.toString()),
+    () => mediaService.permanentlyDeleteMedia(OWNER_ID, parentPhoto._id.toString()),
     /Deleted file not found/,
   );
   assert.ok(fileExists(parentPhoto.storageKey), 'a live file keeps its bytes');
@@ -251,7 +268,7 @@ test('a file cannot be permanently deleted unless it is already in the trash', a
 test('bulk delete routes every file through the trash, not storage', async () => {
   const { parentPhoto, childPhoto } = await makeTree();
 
-  const result = await mediaService.bulkSoftDeleteMedia([
+  const result = await mediaService.bulkSoftDeleteMedia(OWNER_ID, [
     parentPhoto._id.toString(),
     childPhoto._id.toString(),
   ]);

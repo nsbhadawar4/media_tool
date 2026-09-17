@@ -2,6 +2,8 @@ import { Schema, model, Types, type Document } from 'mongoose';
 
 export interface IFolder extends Document {
   _id: Types.ObjectId;
+  /** The account this folder belongs to. Every query is scoped by it. */
+  ownerId: Types.ObjectId;
   name: string;
   slug: string;
   description?: string;
@@ -26,6 +28,7 @@ export interface IFolder extends Document {
 
 const folderSchema = new Schema<IFolder>(
   {
+    ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 255 },
     slug: { type: String, required: true, trim: true, lowercase: true },
     description: { type: String, trim: true, maxlength: 2000 },
@@ -33,7 +36,7 @@ const folderSchema = new Schema<IFolder>(
     path: [{ type: Schema.Types.ObjectId, ref: 'Folder' }],
     coverImage: { type: Schema.Types.ObjectId, ref: 'Media', default: null },
     itemCount: { type: Number, default: 0 },
-    createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
     deletedCascadeRoot: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
@@ -43,8 +46,13 @@ const folderSchema = new Schema<IFolder>(
 );
 
 // Siblings can't share a name (case-insensitive via lowercase slug), among non-deleted folders.
-folderSchema.index({ parentFolder: 1, slug: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
-folderSchema.index({ isDeleted: 1, createdAt: -1 });
+// Sibling names are unique per owner, not globally: two people may both have a "Trip".
+folderSchema.index(
+  { ownerId: 1, parentFolder: 1, slug: 1 },
+  { unique: true, partialFilterExpression: { isDeleted: false } },
+);
+folderSchema.index({ ownerId: 1, parentFolder: 1 });
+folderSchema.index({ ownerId: 1, isDeleted: 1, createdAt: -1 });
 folderSchema.index({ name: 'text' });
 
 export const Folder = model<IFolder>('Folder', folderSchema);
