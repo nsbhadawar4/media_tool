@@ -5,6 +5,12 @@
 
 node_modules/
 
+# Secrets never belong in git. frontend/ and backend/ ignore their own .env files
+# too; this is a safety net for anything dropped at the root.
+.env
+.env.*
+!.env.example
+
 .DS_Store
 Thumbs.db
 *.log

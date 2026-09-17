@@ -41,17 +41,18 @@ export default function SettingsPage() {
           <CardHeader>
             <h2 className="text-sm font-semibold text-foreground">Account</h2>
           </CardHeader>
-          <CardBody className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+          {/* Wraps on narrow screens so a long email never pushes the button off-screen. */}
+          <CardBody className="flex flex-wrap items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
               <User className="h-5 w-5" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 basis-40">
               <p className="truncate text-sm font-medium text-foreground">{admin?.name}</p>
               <p className="truncate text-xs text-muted">{admin?.email}</p>
             </div>
-            <Button variant="secondary" onClick={handleLogout}>
+            <Button variant="secondary" className="shrink-0" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
-              Logout
+              Sign out
             </Button>
           </CardBody>
         </Card>

@@ -11,6 +11,7 @@ import { FullPageSpinner } from '@/components/ui/Spinner';
 import { FolderModal } from '@/components/folders/FolderModal';
 import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Breadcrumbs } from '@/components/folders/Breadcrumbs';
 import { FolderGrid } from '@/components/folders/FolderGrid';
 import { FolderToolbar } from '@/components/folders/FolderToolbar';
@@ -43,7 +44,7 @@ export default function FolderDetailPage() {
   const [subfolderSearch, setSubfolderSearch] = useState('');
   const [subfolderSort, setSubfolderSort] = useState<FolderSortOption>('name_asc');
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['folder', id],
     queryFn: () => foldersApi.get(id),
   });
@@ -56,8 +57,14 @@ export default function FolderDetailPage() {
   }, [subfolders, subfolderSearch, subfolderSort]);
 
   if (isLoading) return <FullPageSpinner />;
-  if (!data) {
-    return <p className="text-sm text-muted">Folder not found.</p>;
+  if (isError || !data) {
+    return (
+      <ErrorState
+        error={error ?? new Error('Folder not found')}
+        onRetry={() => refetch()}
+        subject="this folder"
+      />
+    );
   }
 
   const { folder, breadcrumbs } = data.data;
@@ -180,7 +187,11 @@ export default function FolderDetailPage() {
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDelete}
         title="Move folder to trash?"
-        description={`"${folder.name}" and everything inside it will be moved to trash.`}
+        description={
+          `"${folder.name}", its ${folder.itemCount} file${folder.itemCount === 1 ? '' : 's'} and every ` +
+          'subfolder inside it will be moved to trash together. Nothing is removed from storage, and ' +
+          'restoring the folder brings all of it back.'
+        }
         confirmLabel="Move to trash"
         isLoading={isDeleting}
       />

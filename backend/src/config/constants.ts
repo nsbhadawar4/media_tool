@@ -3,9 +3,9 @@
 export const FILE_TYPES = ['image', 'video', 'document'] as const;
 export type FileType = (typeof FILE_TYPES)[number];
 
-/** Top-level storage directory per file type — mirrors backend/uploads/{photos,videos,documents}. */
+/** Top-level storage directory per file type — mirrors backend/uploads/{images,videos,documents}. */
 export const STORAGE_DIR_BY_FILE_TYPE: Record<FileType, string> = {
-  image: 'photos',
+  image: 'images',
   video: 'videos',
   document: 'documents',
 };

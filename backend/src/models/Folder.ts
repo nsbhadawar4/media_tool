@@ -12,6 +12,14 @@ export interface IFolder extends Document {
   createdBy?: Types.ObjectId | null;
   isDeleted: boolean;
   deletedAt?: Date | null;
+  /**
+   * Which folder's deletion put this one in the trash, or null when an admin trashed it
+   * directly. Restoring a folder brings back exactly the items that name it here, so an
+   * item the admin deleted on purpose earlier is never silently resurrected alongside it.
+   */
+  deletedCascadeRoot?: Types.ObjectId | null;
+  /** Guard flag for folders that must never be deletable. Nothing in the UI can clear it. */
+  isProtected: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +36,8 @@ const folderSchema = new Schema<IFolder>(
     createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
+    deletedCascadeRoot: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
+    isProtected: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

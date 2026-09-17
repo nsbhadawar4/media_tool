@@ -1,13 +1,14 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { Select } from '@/components/ui/Select';
 import type { FolderSortOption } from '@/types/api';
 
-const SORT_OPTIONS: Array<{ label: string; value: FolderSortOption }> = [
-  { label: 'Name A-Z', value: 'name_asc' },
-  { label: 'Name Z-A', value: 'name_desc' },
-  { label: 'Newest', value: 'newest' },
-  { label: 'Oldest', value: 'oldest' },
+const SORT_OPTIONS = [
+  { label: 'Name A–Z', value: 'name_asc' },
+  { label: 'Name Z–A', value: 'name_desc' },
+  { label: 'Newest first', value: 'newest' },
+  { label: 'Oldest first', value: 'oldest' },
 ];
 
 interface FolderToolbarProps {
@@ -32,28 +33,35 @@ export function FolderToolbar({
       <div className="relative w-full sm:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <input
+          type="text"
           value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full rounded-xl border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+          aria-label={searchPlaceholder}
+          className="w-full rounded-xl border border-border bg-surface py-2 pl-9 pr-9 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted transition hover:bg-surface-hover hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         <span className="whitespace-nowrap text-xs text-muted">
           {count} {count === 1 ? 'folder' : 'folders'}
         </span>
-        <select
+        <Select
+          aria-label="Sort folders"
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as FolderSortOption)}
-          className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground outline-none transition focus:border-accent"
-        >
-          {SORT_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          onChange={(event) => onSortChange(event.target.value as FolderSortOption)}
+          options={SORT_OPTIONS}
+        />
       </div>
     </div>
   );

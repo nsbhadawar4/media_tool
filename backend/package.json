@@ -9,8 +9,13 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:trash": "tsx --test tests/trashSafety.test.ts",
+    "test:trash-api": "tsx --test tests/trashApi.test.ts",
+    "test": "tsx --test tests/trashSafety.test.ts tests/trashApi.test.ts",
     "create-admin": "tsx src/scripts/create-admin.ts",
-    "hash-password": "tsx src/scripts/hash-password.ts"
+    "migrate-to-atlas": "tsx src/scripts/migrate-to-atlas.ts",
+    "hash-password": "tsx src/scripts/hash-password.ts",
+    "generate-thumbnails": "tsx src/scripts/generate-thumbnails.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.705.0",
@@ -40,6 +45,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^20.17.10",
+    "mongodb-memory-server": "^10.4.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

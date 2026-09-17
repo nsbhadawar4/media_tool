@@ -21,10 +21,18 @@ const optionalString = z
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().int().positive().default(4000),
-  API_BASE_URL: z.string().default('http://localhost:4000'),
+  PORT: z.coerce.number().int().positive().default(5000),
+  API_BASE_URL: z.string().default('http://localhost:5000'),
 
-  MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
+  // MongoDB Atlas connection string. Required, with no fallback on purpose: a default
+  // here would let the app start against some other database and silently write there.
+  MONGODB_URI: z
+    .string({ required_error: 'MONGODB_URI is required' })
+    .trim()
+    .min(1, 'MONGODB_URI is required')
+    .refine((v) => v.startsWith('mongodb://') || v.startsWith('mongodb+srv://'), {
+      message: 'MONGODB_URI must be a mongodb:// or mongodb+srv:// connection string',
+    }),
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
@@ -43,7 +51,10 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:3000'),
 
   STORAGE_PROVIDER: z.enum(['local', 'r2', 's3']).default('local'),
-  LOCAL_STORAGE_DIR: z.string().default('./uploads'),
+  // Directory the `local` storage provider writes to, relative to backend/.
+  // LOCAL_STORAGE_DIR is the previous name for this and is still honoured below.
+  UPLOAD_DIR: z.string().optional(),
+  LOCAL_STORAGE_DIR: z.string().optional(),
 
   R2_ACCOUNT_ID: optionalString,
   R2_ACCESS_KEY_ID: optionalString,
@@ -58,7 +69,7 @@ const envSchema = z.object({
   S3_ENDPOINT: optionalString,
   S3_FORCE_PATH_STYLE: boolish(false),
 
-  MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(512),
+  MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(500),
   MAX_FILES_PER_UPLOAD: z.coerce.number().int().positive().default(25),
 
   LOGIN_RATE_LIMIT_WINDOW_MIN: z.coerce.number().int().positive().default(15),
@@ -80,6 +91,9 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
+/** UPLOAD_DIR is the documented name; LOCAL_STORAGE_DIR stays supported for older .env files. */
+const uploadDir = raw.UPLOAD_DIR ?? raw.LOCAL_STORAGE_DIR ?? 'uploads';
+
 export const env = {
   ...raw,
   isProduction: raw.NODE_ENV === 'production',
@@ -93,9 +107,9 @@ export const env = {
   maxFileSizeBytes: raw.MAX_FILE_SIZE_MB * 1024 * 1024,
 
   /** Absolute path used by the local storage provider. */
-  localStorageRoot: path.isAbsolute(raw.LOCAL_STORAGE_DIR)
-    ? raw.LOCAL_STORAGE_DIR
-    : path.resolve(process.cwd(), raw.LOCAL_STORAGE_DIR),
+  localStorageRoot: path.isAbsolute(uploadDir)
+    ? uploadDir
+    : path.resolve(process.cwd(), uploadDir),
 
   tmpDir: path.resolve(process.cwd(), 'tmp'),
 } as const;

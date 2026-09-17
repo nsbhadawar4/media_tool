@@ -7,7 +7,15 @@ import { DocumentViewerModal } from './DocumentViewerModal';
 
 /** Renders whichever preview modal fits the currently active media item, or nothing. */
 export function MediaViewerModals({ viewer }: { viewer: MediaViewerState }) {
-  const { activeMedia, close, goNextImage, goPrevImage, imageIndex, totalImages } = viewer;
+  const {
+    activeMedia,
+    close,
+    goNextImage,
+    goPrevImage,
+    imageIndex,
+    totalImages,
+    neighbourImageUrls,
+  } = viewer;
 
   if (!activeMedia) return null;
 
@@ -21,13 +29,14 @@ export function MediaViewerModals({ viewer }: { viewer: MediaViewerState }) {
         onClose={close}
         onNext={goNextImage}
         onPrev={goPrevImage}
+        preloadUrls={neighbourImageUrls}
       />
     );
   }
 
   if (activeMedia.fileType === 'video') {
-    return <VideoPlayerModal media={activeMedia} onClose={close} />;
+    return <VideoPlayerModal key={activeMedia.id} media={activeMedia} onClose={close} />;
   }
 
-  return <DocumentViewerModal media={activeMedia} onClose={close} />;
+  return <DocumentViewerModal key={activeMedia.id} media={activeMedia} onClose={close} />;
 }

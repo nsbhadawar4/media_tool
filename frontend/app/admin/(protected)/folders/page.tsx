@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { FolderPlus } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
-import { FolderGrid } from '@/components/folders/FolderGrid';
+import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid';
 import { FolderToolbar } from '@/components/folders/FolderToolbar';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,7 +20,7 @@ export default function FoldersPage() {
   const [sort, setSort] = useState<FolderSortOption>('name_asc');
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['folders', 'root', debouncedSearch, sort],
     queryFn: () => foldersApi.list({ parentFolder: null, search: debouncedSearch || undefined, sort }),
   });
@@ -48,12 +49,12 @@ export default function FoldersPage() {
         searchPlaceholder="Search all folders…"
       />
 
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="aspect-[4/3] animate-pulse rounded-2xl bg-surface-hover" />
-          ))}
-        </div>
+      {/* An error must not fall through to the empty state, which would claim the
+          library is empty when it simply could not be read. */}
+      {isError ? (
+        <ErrorState error={error} onRetry={() => refetch()} subject="folders" />
+      ) : isLoading ? (
+        <FolderGridSkeleton />
       ) : (
         <FolderGrid
           folders={folders}

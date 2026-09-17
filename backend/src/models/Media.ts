@@ -19,6 +19,12 @@ export interface IMedia extends Document {
   uploadedBy?: Types.ObjectId | null;
   isDeleted: boolean;
   deletedAt?: Date | null;
+  /**
+   * Which folder's deletion put this file in the trash, or null when an admin trashed the
+   * file itself. See the matching field on Folder — this is what makes a folder restore
+   * recover its contents without also undoing unrelated, deliberate deletions.
+   */
+  deletedCascadeRoot?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +47,7 @@ const mediaSchema = new Schema<IMedia>(
     uploadedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
     isDeleted: { type: Boolean, default: false, index: true },
     deletedAt: { type: Date, default: null },
+    deletedCascadeRoot: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
   },
   { timestamps: true },
 );

@@ -12,13 +12,18 @@ import {
   deleteMedia,
   restoreMedia,
   streamMedia,
+  streamThumbnail,
   downloadMedia,
+  bulkDeleteMedia,
+  bulkMoveMedia,
 } from '../controllers/mediaController';
 import {
   mediaIdParamSchema,
   updateMediaSchema,
   moveMediaSchema,
   listMediaQuerySchema,
+  bulkDeleteMediaSchema,
+  bulkMoveMediaSchema,
 } from '../validators/mediaValidators';
 
 const router = Router();
@@ -26,11 +31,16 @@ const router = Router();
 // Streamed directly by <img>/<video> src and download links — authenticated via a
 // scoped token or the session cookie, not the standard requireAuth chain.
 router.get('/:id/raw', validate({ params: mediaIdParamSchema }), requireMediaAccess, streamMedia);
+router.get('/:id/thumb', validate({ params: mediaIdParamSchema }), requireMediaAccess, streamThumbnail);
 router.get('/:id/download', validate({ params: mediaIdParamSchema }), requireMediaAccess, downloadMedia);
+
+// Registered ahead of the `/:id` routes so "bulk" is never parsed as a media id.
+router.post('/bulk/delete', requireAuth, validate({ body: bulkDeleteMediaSchema }), bulkDeleteMedia);
+router.post('/bulk/move', requireAuth, validate({ body: bulkMoveMediaSchema }), bulkMoveMedia);
 
 router.get('/', requireAuth, validate({ query: listMediaQuerySchema }), listMedia);
 router.get('/:id', requireAuth, validate({ params: mediaIdParamSchema }), getMedia);
-router.post('/upload', requireAuth, uploadMiddleware.array('files'), uploadMedia);
+router.post('/upload', requireAuth, uploadMiddleware, uploadMedia);
 router.patch(
   '/:id',
   requireAuth,

@@ -6,6 +6,8 @@ import { sendSuccess } from '../utils/apiResponse';
 import { logActivity } from '../services/activityService';
 import { serializeFolder } from '../utils/serializeFolder';
 import * as folderService from '../services/folderService';
+import { env } from '../config/env';
+import { logger } from '../utils/logger';
 
 const FOLDER_SORT_MAP: Record<string, Record<string, 1 | -1>> = {
   name_asc: { name: 1 },
@@ -68,12 +70,22 @@ export const getFolder = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createFolder = asyncHandler(async (req: Request, res: Response) => {
+  // Development-only trace of the write path into MongoDB. Names and ids only —
+  // never credentials, tokens or cookies.
+  if (env.isDevelopment) {
+    logger.info(`Creating folder: ${JSON.stringify({ name: req.body.name, parentFolder: req.body.parentFolder ?? null })}`);
+  }
+
   const folder = await folderService.createFolder({
     name: req.body.name,
     description: req.body.description,
     parentFolder: req.body.parentFolder ?? null,
     createdBy: req.admin!.id,
   });
+
+  if (env.isDevelopment) {
+    logger.info(`Folder created in MongoDB: ${folder._id.toString()}`);
+  }
 
   await logActivity(req, {
     action: 'folder_created',
@@ -119,17 +131,23 @@ export const deleteFolder = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const restoreFolder = asyncHandler(async (req: Request, res: Response) => {
-  const folder = await folderService.restoreFolder(req.params.id);
+  const result = await folderService.restoreFolder(req.params.id);
+  const { folder, restoredFolders, restoredMedia, reparentedToRoot } = result;
 
   await logActivity(req, {
     action: 'folder_restored',
     targetType: 'folder',
     targetId: folder._id,
     targetName: folder.name,
-    message: `Restored folder "${folder.name}" from trash`,
+    message:
+      `Restored folder "${folder.name}" from trash` +
+      (restoredFolders + restoredMedia > 0
+        ? ` with ${restoredMedia} file(s) and ${restoredFolders} subfolder(s)`
+        : ''),
+    metadata: { restoredFolders, restoredMedia, reparentedToRoot },
   });
 
-  sendSuccess(res, folder);
+  sendSuccess(res, { folder, restoredFolders, restoredMedia, reparentedToRoot });
 });
 
 function escapeRegex(value: string): string {

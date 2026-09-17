@@ -16,6 +16,16 @@ export interface UploadResult {
   failed: Array<{ fileName: string; error: string }>;
 }
 
+/**
+ * Bulk endpoints apply per item rather than all-or-nothing: `failed` lists the ids that
+ * could not be processed (already trashed, deleted in another tab) while everything else
+ * still goes through, so one stale selection entry can't block the rest.
+ */
+export interface BulkResult {
+  succeeded: Media[];
+  failed: Array<{ id: string; error: string }>;
+}
+
 export const mediaApi = {
   list: (params: ListMediaParams = {}) => api.get<Media[]>('/api/media', { ...params }),
   get: (id: string) => api.get<Media>(`/api/media/${id}`),
@@ -23,6 +33,9 @@ export const mediaApi = {
   move: (id: string, folderId: string | null) => api.post<Media>(`/api/media/${id}/move`, { folderId }),
   remove: (id: string) => api.delete<Media>(`/api/media/${id}`),
   restore: (id: string) => api.post<Media>(`/api/media/${id}/restore`),
+  bulkRemove: (ids: string[]) => api.post<BulkResult>('/api/media/bulk/delete', { ids }),
+  bulkMove: (ids: string[], folderId: string | null) =>
+    api.post<BulkResult>('/api/media/bulk/move', { ids, folderId }),
 };
 
 /** Thrown when a caller aborts an in-progress upload via its AbortSignal — distinct from a real failure. */
@@ -31,6 +44,13 @@ export class UploadCancelledError extends Error {
     super('Upload cancelled');
     this.name = 'UploadCancelledError';
   }
+}
+
+export interface UploadExtras {
+  /** Poster frame for a video, captured in the browser (see utils/videoPoster). */
+  poster?: Blob | null;
+  /** Video length in seconds, also read in the browser. */
+  duration?: number | null;
 }
 
 /**
@@ -44,6 +64,7 @@ export function uploadFile(
   folderId: string | null,
   onProgress: (percent: number) => void,
   signal?: AbortSignal,
+  extras: UploadExtras = {},
 ): Promise<Media> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -54,6 +75,9 @@ export function uploadFile(
     const formData = new FormData();
     formData.append('files', file);
     if (folderId) formData.append('folderId', folderId);
+    // The server only accepts a poster whose extension maps to a known image type.
+    if (extras.poster) formData.append('poster', extras.poster, 'poster.jpg');
+    if (extras.duration) formData.append('duration', String(extras.duration));
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_BASE_URL}/api/media/upload`);

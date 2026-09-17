@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, ChevronDown, RotateCcw, Upload, Video, X } from 'lucide-react';
 import { ProgressBar } from '@/components/ui/Badge';
+import { cn } from '@/utils/cn';
 import { iconForDocument } from '@/utils/fileIcons';
 import { formatBytes } from '@/utils/format';
 import type { UploadQueue, UploadQueueItem } from '@/hooks/useUploadQueue';
@@ -40,18 +41,29 @@ function UploadThumb({ item }: { item: UploadQueueItem }) {
   );
 }
 
-export function UploadProgressPanel({ queue }: { queue: UploadQueue }) {
+interface UploadProgressPanelProps {
+  queue: UploadQueue;
+  /** Lifts the panel clear of the bulk-selection bar, which docks to the same edge. */
+  isRaised?: boolean;
+}
+
+export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { items, cancel, retry, dismiss, clearCompleted } = queue;
 
   if (items.length === 0) return null;
 
-  const uploadingCount = items.filter((i) => i.status === 'uploading').length;
+  const uploadingCount = items.filter((i) => i.status === 'uploading' || i.status === 'preparing').length;
   const doneCount = items.filter((i) => i.status === 'done').length;
   const errorCount = items.filter((i) => i.status === 'error' || i.status === 'cancelled').length;
 
   return (
-    <div className="animate-slide-up fixed bottom-4 left-4 z-50 w-full max-w-sm overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl sm:bottom-6 sm:left-6">
+    <div
+      className={cn(
+        'app-safe-bottom animate-slide-up fixed left-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl transition-[bottom] duration-200 sm:left-6 sm:w-full sm:max-w-sm',
+        isRaised ? 'bottom-28 sm:bottom-30' : 'bottom-4 sm:bottom-6',
+      )}
+    >
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
         <Upload className="h-4 w-4 shrink-0 text-muted" />
         <p className="flex-1 text-sm font-medium text-foreground">
@@ -90,8 +102,9 @@ export function UploadProgressPanel({ queue }: { queue: UploadQueue }) {
                 <p className="mt-0.5 text-[11px] text-muted">
                   {formatBytes(item.fileSize)}
                   {item.status === 'uploading' && ` · ${item.progress}%`}
+                  {item.status === 'preparing' && ' · preparing preview…'}
                 </p>
-                {item.status === 'uploading' && (
+                {(item.status === 'uploading' || item.status === 'preparing') && (
                   <div className="mt-1.5">
                     <ProgressBar value={item.progress} />
                   </div>
@@ -101,7 +114,7 @@ export function UploadProgressPanel({ queue }: { queue: UploadQueue }) {
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {item.status === 'uploading' && (
+                {(item.status === 'uploading' || item.status === 'preparing') && (
                   <button
                     type="button"
                     onClick={() => cancel(item.id)}

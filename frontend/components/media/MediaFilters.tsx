@@ -1,6 +1,8 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+import { Select } from '@/components/ui/Select';
+import { cn } from '@/utils/cn';
 import type { FileType, SortOption } from '@/types/api';
 
 const TYPE_FILTERS: Array<{ label: string; value: FileType | undefined }> = [
@@ -11,10 +13,10 @@ const TYPE_FILTERS: Array<{ label: string; value: FileType | undefined }> = [
 ];
 
 const SORT_OPTIONS: Array<{ label: string; value: SortOption }> = [
-  { label: 'Newest', value: 'newest' },
-  { label: 'Oldest', value: 'oldest' },
-  { label: 'Name A-Z', value: 'name_asc' },
-  { label: 'Name Z-A', value: 'name_desc' },
+  { label: 'Newest first', value: 'newest' },
+  { label: 'Oldest first', value: 'oldest' },
+  { label: 'Name A–Z', value: 'name_asc' },
+  { label: 'Name Z–A', value: 'name_desc' },
   { label: 'Largest first', value: 'size_desc' },
   { label: 'Smallest first', value: 'size_asc' },
 ];
@@ -39,46 +41,57 @@ export function MediaFilters({
   showTypeFilter = true,
 }: MediaFiltersProps) {
   return (
-    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="relative w-full sm:max-w-xs">
+    <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="relative w-full lg:max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <input
+          type="text"
           value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search files…"
-          className="w-full rounded-xl border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+          aria-label="Search files"
+          className="w-full rounded-xl border border-border bg-surface py-2 pl-9 pr-9 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted transition hover:bg-surface-hover hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {showTypeFilter && onFileTypeChange && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {TYPE_FILTERS.map((f) => (
+          <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-hover p-1">
+            {TYPE_FILTERS.map((filter) => (
               <button
-                key={f.label}
+                key={filter.label}
                 type="button"
-                onClick={() => onFileTypeChange(f.value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  fileType === f.value ? 'bg-accent text-accent-foreground' : 'bg-surface-hover text-muted hover:text-foreground'
-                }`}
+                onClick={() => onFileTypeChange(filter.value)}
+                aria-pressed={fileType === filter.value}
+                className={cn(
+                  'shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition',
+                  fileType === filter.value
+                    ? 'bg-surface text-foreground shadow-sm'
+                    : 'text-muted hover:text-foreground',
+                )}
               >
-                {f.label}
+                {filter.label}
               </button>
             ))}
           </div>
         )}
 
-        <select
+        <Select
+          aria-label="Sort files"
           value={sort}
-          onChange={(e) => onSortChange(e.target.value as SortOption)}
-          className="rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-foreground outline-none transition focus:border-accent"
-        >
-          {SORT_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          onChange={(event) => onSortChange(event.target.value as SortOption)}
+          options={SORT_OPTIONS}
+        />
       </div>
     </div>
   );

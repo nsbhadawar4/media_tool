@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import multer, { type FileFilterCallback } from 'multer';
 import type { Request } from 'express';
 import { env } from '../config/env';
-import { EXTENSION_TO_MIME, ALLOWED_MIME_TYPES } from '../config/constants';
+import { EXTENSION_TO_MIME, ALLOWED_MIME_TYPES, IMAGE_MIME_TYPES } from '../config/constants';
 import { assertSafeFilename } from '../utils/filenameSafety';
 import { AppError } from '../utils/AppError';
 
@@ -30,6 +30,18 @@ const storage = multer.diskStorage({
  * multer accepts the files (see mediaController.uploadMedia's per-file loop).
  */
 function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback): void {
+  // The `poster` part is a browser-generated video still, never stored as media in its own
+  // right — it only has to be an image sharp can read, so it skips the extension mapping
+  // that real uploads go through.
+  if (file.fieldname === 'poster') {
+    if (!(IMAGE_MIME_TYPES as readonly string[]).includes(file.mimetype)) {
+      cb(AppError.badRequest('Video poster must be an image'));
+      return;
+    }
+    cb(null, true);
+    return;
+  }
+
   try {
     assertSafeFilename(file.originalname);
   } catch (err) {
@@ -57,11 +69,23 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
   cb(null, true);
 }
 
-export const uploadMedia = multer({
+const upload = multer({
   storage,
   fileFilter,
   limits: {
     fileSize: env.maxFileSizeBytes,
-    files: env.MAX_FILES_PER_UPLOAD,
+    // +1 leaves room for the optional poster part; the real per-request cap on *media*
+    // is enforced by the `files` field's maxCount below.
+    files: env.MAX_FILES_PER_UPLOAD + 1,
   },
 });
+
+/**
+ * Accepts the media itself plus an optional `poster` still for videos. `.fields()` rather
+ * than `.array()` so the two parts stay distinguishable by field name — the poster must
+ * never be mistaken for another uploaded file.
+ */
+export const uploadMedia = upload.fields([
+  { name: 'files', maxCount: env.MAX_FILES_PER_UPLOAD },
+  { name: 'poster', maxCount: 1 },
+]);

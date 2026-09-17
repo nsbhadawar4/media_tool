@@ -56,7 +56,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 sm:bottom-6 sm:right-6">
+      {/*
+        aria-live so a screen reader announces a toast without moving focus; "polite"
+        because none of these interrupt what the user is doing.
+      */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="false"
+        className="app-safe-bottom pointer-events-none fixed bottom-4 right-4 z-100 flex max-w-[calc(100vw-2rem)] flex-col gap-2 sm:bottom-6 sm:right-6 sm:w-full sm:max-w-sm"
+      >
         {toasts.map((toast) => {
           const { icon: Icon, className } = VARIANT_STYLES[toast.variant];
           return (
@@ -68,7 +77,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               )}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-              <p className="flex-1 text-sm text-foreground">{toast.message}</p>
+              <p className="min-w-0 flex-1 wrap-break-word text-sm text-foreground">{toast.message}</p>
               <button
                 type="button"
                 onClick={() => dismiss(toast.id)}

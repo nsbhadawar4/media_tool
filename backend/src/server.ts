@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { createApp } from './app';
 import { env } from './config/env';
-import { connectDatabase } from './config/database';
+import { connectDatabase, disconnectDatabase } from './config/database';
 import { logger } from './utils/logger';
 
 async function bootstrap(): Promise<void> {
@@ -22,7 +22,9 @@ async function bootstrap(): Promise<void> {
 
   const shutdown = (signal: string) => {
     logger.info(`Received ${signal}, shutting down gracefully`);
-    server.close(() => process.exit(0));
+    server.close(() => {
+      void disconnectDatabase().finally(() => process.exit(0));
+    });
     setTimeout(() => process.exit(1), 10_000).unref();
   };
 

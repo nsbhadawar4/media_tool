@@ -21,6 +21,10 @@ export interface Folder {
   itemCount: number;
   isDeleted: boolean;
   deletedAt: string | null;
+  /** Set when this folder was trashed only because an ancestor was — see the trash system. */
+  deletedCascadeRoot?: string | null;
+  /** Protected folders cannot be deleted through the UI or the API. */
+  isProtected?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,8 +43,11 @@ export interface Media {
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  deletedCascadeRoot?: string | null;
   viewUrl: string;
   downloadUrl: string;
+  /** Small derived preview. Null when none could be generated — fall back to viewUrl or a placeholder. */
+  thumbnailUrl: string | null;
 }
 
 export interface Breadcrumb {

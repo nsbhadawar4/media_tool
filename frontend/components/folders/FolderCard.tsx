@@ -19,16 +19,31 @@ export function FolderCard({ folder, onRename, onMove, onDelete }: FolderCardPro
   return (
     <div
       onClick={() => router.push(`/admin/folders/${folder._id}`)}
-      className="group animate-fade-in flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
     >
-      <div className="relative flex aspect-[4/3] items-center justify-center bg-surface-hover">
+      {/*
+        Square tile, matching MediaCard. `overflow-hidden` plus an absolutely positioned
+        image is what keeps the aspect ratio: a tall cover left in the normal flow can
+        out-grow an `aspect-ratio` box, because a flex item's `min-height: auto` lets its
+        content push the box taller than the ratio asked for.
+      */}
+      <div className="relative aspect-square w-full overflow-hidden bg-surface-hover">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover.viewUrl} alt={folder.name} className="h-full w-full object-cover" />
+          <img
+            src={cover.thumbnailUrl ?? cover.viewUrl}
+            alt={folder.name}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
         ) : (
-          <FolderClosed className="h-12 w-12 text-accent/60" />
+          <div className="flex h-full w-full items-center justify-center">
+            <FolderClosed className="h-12 w-12 text-accent/60" />
+          </div>
         )}
-        <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
+        {/* Visible on touch, hover-revealed where there is a pointer. */}
+        <div className="absolute right-2 top-2 opacity-100 transition-opacity duration-150 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
           <div onClick={(e) => e.stopPropagation()}>
             <DropdownMenu
               triggerClassName="bg-black/40 text-white hover:bg-black/60 hover:text-white"

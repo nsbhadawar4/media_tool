@@ -156,3 +156,120 @@ body {
 .animate-slide-up {
   animation: slide-up 0.2s ease-out;
 }
+
+/* ---------------------------------------------------------------------------
+   Viewport height on mobile Safari
+   `100vh` on iOS includes the browser chrome, so a full-height shell is taller
+   than the visible area and its bottom is unreachable. `100dvh` tracks the real
+   viewport; the `100vh` line above it stays as the fallback for browsers that
+   don't understand `dvh` (Safari < 15.4), which simply drop the second value.
+--------------------------------------------------------------------------- */
+.app-viewport-h {
+  height: 100vh;
+  height: 100dvh;
+}
+.app-viewport-min-h {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Keeps fixed, bottom-docked UI clear of the home indicator on notched iPhones. */
+.app-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.app-safe-inset-b {
+  bottom: calc(var(--app-dock-offset, 0px) + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------------------------------------------------------------------------
+   Focus
+   Pointer users never see this; keyboard users always do. Applied globally so a
+   control can't ship without a visible focus state by omission.
+--------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+/* Elements that draw their own ring opt out of the global outline. */
+.focus-ring-custom:focus-visible {
+  outline: none;
+}
+
+/* Safari/Chrome on touch devices paint a grey flash on tap; the components have
+   their own active states. */
+button,
+a,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS zooms the page when focusing an input under 16px. Inputs are styled at
+   14px, so the size is pinned only at the width where that zoom would trigger. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Theme toggle icon
+   The inline script in the root layout sets `data-theme` before first paint, but
+   React doesn't know the resolved theme until after hydration. Rendering both
+   icons and choosing between them in CSS — off the same conditions that drive
+   the colour variables — avoids both a hydration mismatch and the wrong icon
+   flashing on load.
+--------------------------------------------------------------------------- */
+.theme-icon-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-icon-dark {
+    display: block;
+  }
+  :root:not([data-theme='light']) .theme-icon-light {
+    display: none;
+  }
+}
+:root[data-theme='dark'] .theme-icon-dark {
+  display: block;
+}
+:root[data-theme='dark'] .theme-icon-light {
+  display: none;
+}
+:root[data-theme='light'] .theme-icon-dark {
+  display: none;
+}
+:root[data-theme='light'] .theme-icon-light {
+  display: block;
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   Everything here is decoration; none of it carries meaning. Users who ask for
+   less motion get the end state immediately rather than a faster animation.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

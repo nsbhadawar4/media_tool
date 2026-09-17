@@ -9,6 +9,19 @@ export const uploadMediaBodySchema = z.object({
   folderId: objectId.nullable().optional(),
 });
 
+/**
+ * Ids for a bulk operation. Capped at the page size the gallery can show at once, so a
+ * single request can never be asked to touch an unbounded number of documents.
+ */
+const bulkIds = z.array(objectId).min(1, 'Select at least one file').max(200);
+
+export const bulkDeleteMediaSchema = z.object({ ids: bulkIds });
+
+export const bulkMoveMediaSchema = z.object({
+  ids: bulkIds,
+  folderId: objectId.nullable(),
+});
+
 export const updateMediaSchema = z.object({
   originalName: z.string().trim().min(1).max(500).optional(),
 });

@@ -3,7 +3,7 @@ import { ShieldCheck, Lock, FolderClosed } from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-16 text-center">
+    <main className="app-viewport-min-h flex flex-col items-center justify-center bg-background px-6 py-16 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
         <Lock className="h-7 w-7" />
       </div>

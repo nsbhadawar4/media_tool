@@ -8,12 +8,14 @@
     "backend"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",
     "build:frontend": "npm run build --workspace frontend",
     "build:backend": "npm run build --workspace backend",
     "typecheck:frontend": "npm run typecheck --workspace frontend",
     "typecheck:backend": "npm run typecheck --workspace backend",
-    "create-admin": "npm run create-admin --workspace backend"
+    "create-admin": "npm run create-admin --workspace backend",
+    "migrate-to-atlas": "npm run migrate-to-atlas --workspace backend"
   }
 }

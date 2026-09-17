@@ -28,6 +28,17 @@ export function useMediaViewer(media: Media[]) {
     if (prev) setActiveId(prev.id);
   }, [images, activeImageIndex]);
 
+  /**
+   * Full-size URLs either side of the current image. The viewer renders these hidden so
+   * the browser has them cached by the time the user arrows onto them.
+   */
+  const neighbourImageUrls = useMemo(() => {
+    if (images.length < 2 || activeImageIndex === -1) return [];
+    const next = images[(activeImageIndex + 1) % images.length];
+    const prev = images[(activeImageIndex - 1 + images.length) % images.length];
+    return [...new Set([next?.viewUrl, prev?.viewUrl])].filter((url): url is string => Boolean(url));
+  }, [images, activeImageIndex]);
+
   return {
     activeMedia,
     openAt,
@@ -36,6 +47,7 @@ export function useMediaViewer(media: Media[]) {
     goPrevImage,
     imageIndex: activeImageIndex,
     totalImages: images.length,
+    neighbourImageUrls,
   };
 }
 

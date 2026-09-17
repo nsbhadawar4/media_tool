@@ -11,7 +11,7 @@ import type {
   StreamResult,
 } from './StorageProvider';
 
-/** Storage provider for local development: writes/reads files under LOCAL_STORAGE_DIR. */
+/** Storage provider for local development: writes/reads files under UPLOAD_DIR. */
 export class LocalStorageProvider implements StorageService {
   readonly name = 'local' as const;
   private readonly root: string;

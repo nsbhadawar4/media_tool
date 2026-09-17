@@ -3,8 +3,14 @@ dist/
 .env
 .env.*
 !.env.example
+# Uploaded files are never committed, but the directory skeleton is.
+# The `!uploads/**/` line matters: without it git never descends into the
+# subdirectories, so the .gitkeep negation below can never take effect.
 uploads/**
+!uploads/**/
 !uploads/**/.gitkeep
+# Data directory for the built-in local MongoDB (MONGODB_URI=local)
+.data/
 tmp/**
 !tmp/.gitkeep
 *.log

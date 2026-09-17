@@ -59,11 +59,24 @@ export const getMedia = asyncHandler(async (req: Request, res: Response) => {
   sendSuccess(res, serializeMedia(media, req.admin!.id));
 });
 
+/** Parses the browser-reported video length, ignoring anything non-finite or implausible. */
+function parseDuration(raw: unknown): number | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return Math.round(seconds);
+}
+
 export const uploadMedia = asyncHandler(async (req: Request, res: Response) => {
-  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  // `.fields()` gives a fieldname -> files map rather than a flat array (see middleware/upload).
+  const parts = (req.files as Record<string, Express.Multer.File[]> | undefined) ?? {};
+  const files = parts.files ?? [];
+  const poster = parts.poster?.[0] ?? null;
+
   if (files.length === 0) throw AppError.badRequest('No files were uploaded');
 
   const folderId = (req.body.folderId as string | undefined) ?? null;
+  const duration = parseDuration(req.body.duration);
 
   const uploaded: ReturnType<typeof serializeMedia>[] = [];
   const failed: Array<{ fileName: string; error: string }> = [];
@@ -74,6 +87,10 @@ export const uploadMedia = asyncHandler(async (req: Request, res: Response) => {
         file: { originalname: file.originalname, path: file.path, mimetype: file.mimetype, size: file.size },
         folderId,
         uploadedBy: req.admin!.id,
+        // A poster belongs to exactly one video, so it only applies when this request
+        // carries a single file — which is how the frontend always uploads.
+        posterPath: files.length === 1 ? poster?.path ?? null : null,
+        duration: files.length === 1 ? duration : null,
       });
       uploaded.push(serializeMedia(media, req.admin!.id));
       await logActivity(req, {
@@ -210,4 +227,70 @@ export const streamMedia = asyncHandler(async (req: Request, res: Response) => {
 
 export const downloadMedia = asyncHandler(async (req: Request, res: Response) => {
   await streamMediaResponse(req, res, 'attachment');
+});
+
+/**
+ * Serves the derived thumbnail. Kept separate from `streamMedia` on purpose: thumbnails
+ * are small, immutable and requested dozens at a time by the gallery, so they get an
+ * aggressive cache header and skip the Range handling that streaming a video needs.
+ */
+export const streamThumbnail = asyncHandler(async (req: Request, res: Response) => {
+  const media = await Media.findById(req.params.id);
+  if (!media) throw AppError.notFound('File not found');
+  if (!media.thumbnailKey) throw AppError.notFound('No thumbnail for this file');
+
+  const result = await getStorageProvider().getObjectStream(media.thumbnailKey);
+
+  res.setHeader('Content-Type', 'image/webp');
+  res.setHeader('Content-Length', result.totalSize);
+  // Derived from bytes that never change, and the URL is scoped by a signed token, so it
+  // is safe to let the browser keep it for as long as that token could live.
+  res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
+
+  result.stream.on('error', () => res.destroy());
+  result.stream.pipe(res);
+});
+
+/** Shared shape for both bulk endpoints: what went through, and what didn't. */
+function bulkResponse(result: mediaService.BulkResult, adminId: string) {
+  return {
+    succeeded: result.succeeded.map((m) => serializeMedia(m, adminId)),
+    failed: result.failed,
+  };
+}
+
+export const bulkDeleteMedia = asyncHandler(async (req: Request, res: Response) => {
+  const { ids } = req.body as { ids: string[] };
+  const result = await mediaService.bulkSoftDeleteMedia(ids);
+
+  if (result.succeeded.length > 0) {
+    // One summary entry rather than one per file — a 40-item delete should read as a
+    // single action in the activity feed, not bury everything else in it.
+    await logActivity(req, {
+      action: 'media_deleted',
+      targetType: 'media',
+      targetName: null,
+      message: `Moved ${result.succeeded.length} file${result.succeeded.length === 1 ? '' : 's'} to trash`,
+      metadata: { names: result.succeeded.map((m) => m.originalName) },
+    });
+  }
+
+  sendSuccess(res, bulkResponse(result, req.admin!.id));
+});
+
+export const bulkMoveMedia = asyncHandler(async (req: Request, res: Response) => {
+  const { ids, folderId } = req.body as { ids: string[]; folderId: string | null };
+  const result = await mediaService.bulkMoveMedia(ids, folderId);
+
+  if (result.succeeded.length > 0) {
+    await logActivity(req, {
+      action: 'media_moved',
+      targetType: 'media',
+      targetName: null,
+      message: `Moved ${result.succeeded.length} file${result.succeeded.length === 1 ? '' : 's'}`,
+      metadata: { folderId, names: result.succeeded.map((m) => m.originalName) },
+    });
+  }
+
+  sendSuccess(res, bulkResponse(result, req.admin!.id));
 });

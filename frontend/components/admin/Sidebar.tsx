@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -24,7 +25,7 @@ const NAV_ITEMS = [
   { href: '/admin/media', label: 'Media', icon: ImageIcon },
   { href: '/admin/documents', label: 'Documents', icon: FileText },
   { href: '/admin/trash', label: 'Trash', icon: Trash2 },
-  { href: '/admin/activity', label: 'Activity Logs', icon: Activity },
+  { href: '/admin/activity', label: 'Activity', icon: Activity },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ] as const;
 
@@ -38,6 +39,30 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
   const router = useRouter();
   const { logout } = useAuth();
   const toast = useToast();
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  // The drawer covers the page, so it behaves like a dialog: Escape closes it, the page
+  // behind it stops scrolling, and focus moves into it for keyboard and screen-reader users.
+  useEffect(() => {
+    if (!isMobileOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    drawerRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseMobile();
+    };
+    document.addEventListener('keydown', handleKey);
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [isMobileOpen, onCloseMobile]);
 
   const handleLogout = async () => {
     try {
@@ -49,56 +74,67 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
     }
   };
 
+  const isItemActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
   const content = (
     <div className="flex h-full flex-col bg-sidebar-bg text-sidebar-foreground">
-      <div className="flex items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-sidebar-active">
+      <div className="flex shrink-0 items-center justify-between px-5 py-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sidebar-active">
             <Lock className="h-4 w-4" />
           </div>
-          <span className="text-sm font-semibold text-sidebar-active">media_tool</span>
+          <span className="truncate text-sm font-semibold text-sidebar-active">media_tool</span>
         </div>
         <button
           type="button"
           onClick={onCloseMobile}
-          className="rounded-lg p-1.5 text-sidebar-foreground hover:bg-sidebar-hover lg:hidden"
-          aria-label="Close menu"
+          className="rounded-lg p-1.5 text-sidebar-foreground transition hover:bg-sidebar-hover hover:text-sidebar-active lg:hidden"
+          aria-label="Close navigation menu"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-2">
+      <nav aria-label="Main" className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-2">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = isItemActive(item.href);
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onCloseMobile}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                'relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150',
                 isActive
                   ? 'bg-white/10 text-sidebar-active'
                   : 'text-sidebar-foreground hover:bg-sidebar-hover hover:text-sidebar-active',
               )}
             >
+              {/* Marks the active item without relying on colour alone. */}
+              <span
+                aria-hidden
+                className={cn(
+                  'absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-accent transition-opacity duration-150',
+                  isActive ? 'opacity-100' : 'opacity-0',
+                )}
+              />
               <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
+              <span className="truncate">{item.label}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-3 pb-5 pt-2">
+      <div className="app-safe-bottom shrink-0 px-3 pb-5 pt-2">
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition hover:bg-sidebar-hover hover:text-sidebar-active"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors duration-150 hover:bg-sidebar-hover hover:text-sidebar-active"
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          Logout
+          Sign out
         </button>
       </div>
     </div>
@@ -106,14 +142,22 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop */}
-      <aside className="hidden w-64 shrink-0 lg:block">{content}</aside>
+      <aside className="hidden w-64 shrink-0 border-r border-border lg:block">{content}</aside>
 
-      {/* Mobile drawer */}
       {isMobileOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="animate-fade-in absolute inset-0 bg-black/50" onClick={onCloseMobile} />
-          <div className="animate-slide-up absolute inset-y-0 left-0 w-64 shadow-2xl">{content}</div>
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="animate-fade-in absolute inset-0 bg-black/60" onClick={onCloseMobile} aria-hidden />
+          <div
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            // Slides in from the edge it is anchored to; the shared slide-up keyframe
+            // moved it vertically, which read as the wrong panel appearing.
+            className="animate-slide-in-left absolute inset-y-0 left-0 w-68 max-w-[85vw] shadow-2xl"
+          >
+            {content}
+          </div>
         </div>
       )}
     </>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { FolderClosed, Search } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
+import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { searchApi } from '@/lib/api/search';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -67,33 +68,29 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
         {TYPE_FILTERS.map((f) => (
           <button
             key={f.label}
             type="button"
             onClick={() => setFileType(f.value)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
               fileType === f.value ? 'bg-accent text-accent-foreground' : 'bg-surface-hover text-muted hover:text-foreground'
             }`}
           >
             {f.label}
           </button>
         ))}
-        <select
+        <Select
+          aria-label="Sort results"
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortOption)}
-          className="ml-auto rounded-full border border-border bg-surface px-3 py-1 text-xs text-foreground outline-none"
-        >
-          {SORT_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          onChange={(event) => setSort(event.target.value as SortOption)}
+          options={SORT_OPTIONS}
+          className="ml-auto"
+        />
       </div>
 
-      <div className="mt-4 max-h-[55vh] min-h-[10rem] overflow-y-auto">
+      <div className="mt-4 min-h-40 overflow-y-auto">
         {isFetching && (
           <div className="flex justify-center py-8">
             <Spinner />

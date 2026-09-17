@@ -1,6 +1,17 @@
 import type { ApiResponse, PaginationMeta } from '@/types/api';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+/**
+ * Request paths in this app already start with `/api` (e.g. `/api/auth/login`), so the
+ * base URL is the backend's origin. NEXT_PUBLIC_API_URL is commonly written with the
+ * `/api` suffix though, so trim it (and any trailing slash) rather than double it up.
+ */
+function normalizeBaseUrl(value: string): string {
+  return value.replace(/\/+$/, '').replace(/\/api$/, '');
+}
+
+export const API_BASE_URL = normalizeBaseUrl(
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
+);
 
 export class ApiError extends Error {
   readonly status: number;
@@ -84,7 +95,8 @@ export const api = {
   post: <T>(path: string, body?: unknown, query?: RequestOptions['query']) =>
     apiRequest<T>(path, { method: 'POST', body, query }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
-  delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  // Takes a body because permanent deletion requires an explicit typed confirmation.
+  delete: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'DELETE', body }),
   postForm: <T>(path: string, formData: FormData) =>
     apiRequest<T>(path, { method: 'POST', body: formData, isFormData: true }),
 };

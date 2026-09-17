@@ -5,15 +5,18 @@ import type { IMedia } from '../models/Media';
 export interface MediaUrls {
   viewUrl: string;
   downloadUrl: string;
+  /** Null when no thumbnail could be derived — the client then falls back to viewUrl or a placeholder. */
+  thumbnailUrl: string | null;
 }
 
 /** Mints a fresh, short-lived signed token per response so <img>/<video>/download links work without exposing raw storage keys. */
-export function buildMediaUrls(media: Pick<IMedia, '_id'>, adminId: string): MediaUrls {
+export function buildMediaUrls(media: Pick<IMedia, '_id' | 'thumbnailKey'>, adminId: string): MediaUrls {
   const token = signMediaToken({ sub: adminId, mediaId: media._id.toString() });
   const base = `${env.API_BASE_URL.replace(/\/$/, '')}/api/media/${media._id.toString()}`;
   return {
     viewUrl: `${base}/raw?token=${token}`,
     downloadUrl: `${base}/download?token=${token}`,
+    thumbnailUrl: media.thumbnailKey ? `${base}/thumb?token=${token}` : null,
   };
 }
 

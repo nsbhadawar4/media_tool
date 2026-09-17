@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
-import { uploadFile, UploadCancelledError } from '@/lib/api/media';
+import { uploadFile, UploadCancelledError, type UploadExtras } from '@/lib/api/media';
 import { ApiError } from '@/lib/api/client';
+import { guessFileTypeFromFile } from '@/utils/fileIcons';
+import { extractVideoPoster } from '@/utils/videoPoster';
 import type { Media } from '@/types/api';
 
 export interface UploadQueueItem {
@@ -12,7 +14,8 @@ export interface UploadQueueItem {
   mimeType: string;
   folderId: string | null;
   progress: number;
-  status: 'uploading' | 'done' | 'error' | 'cancelled';
+  /** `preparing` covers capturing a video's poster frame, which happens before any bytes are sent. */
+  status: 'preparing' | 'uploading' | 'done' | 'error' | 'cancelled';
   error?: string;
 }
 
@@ -36,7 +39,29 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
       controllers.current.set(id, controller);
       pendingCount.current += 1;
 
-      uploadFile(file, folderId, (percent) => updateItem(id, { progress: percent }), controller.signal)
+      // Videos get a poster frame captured locally first — the API cannot derive one
+      // itself. Never fatal: a file the browser can't decode just uploads without a
+      // thumbnail (see utils/videoPoster).
+      const prepare = async (): Promise<UploadExtras> => {
+        if (guessFileTypeFromFile(file) !== 'video') return {};
+        updateItem(id, { status: 'preparing' });
+        const { poster, duration } = await extractVideoPoster(file);
+        return { poster, duration };
+      };
+
+      prepare()
+        .catch(() => ({}) as UploadExtras)
+        .then((extras) => {
+          if (controller.signal.aborted) throw new UploadCancelledError();
+          updateItem(id, { status: 'uploading' });
+          return uploadFile(
+            file,
+            folderId,
+            (percent) => updateItem(id, { progress: percent }),
+            controller.signal,
+            extras,
+          );
+        })
         .then((media) => {
           updateItem(id, { status: 'done', progress: 100 });
           onFileUploaded?.(media);
@@ -105,7 +130,7 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
   }, []);
 
   const clearCompleted = useCallback(() => {
-    setItems((prev) => prev.filter((item) => item.status === 'uploading'));
+    setItems((prev) => prev.filter((item) => item.status === 'uploading' || item.status === 'preparing'));
   }, []);
 
   return { items, addFiles, cancel, retry, dismiss, clearCompleted };
