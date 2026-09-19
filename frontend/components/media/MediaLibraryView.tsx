@@ -8,14 +8,13 @@ import { foldersApi } from '@/lib/api/folders';
 import { useToast } from '@/lib/toast/ToastContext';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useMediaSelection } from '@/hooks/useMediaSelection';
-import { useUploadQueue } from '@/hooks/useUploadQueue';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useUploads } from '@/lib/upload/UploadContext';
 import { MediaGrid, MediaGridSkeleton } from './MediaGrid';
 import { MediaFilters } from './MediaFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { UploadButton } from './UploadButton';
 import { labelFor, partitionByFileType, rejectionMessage } from '@/utils/uploadAccept';
-import { UploadProgressPanel } from './UploadProgressPanel';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
 import { RenameModal } from '@/components/ui/RenameModal';
@@ -38,6 +37,7 @@ interface MediaLibraryViewProps {
 export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: MediaLibraryViewProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { addFiles, setPanelRaised } = useUploads();
 
   // The field updates instantly; only the debounced value reaches the query, so typing
   // a filename does not fire a request per keystroke.
@@ -97,10 +97,13 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   }, [queryClient]);
 
-  const uploadQueue = useUploadQueue({
-    onFileUploaded: () => invalidateAfterChange(),
-    onAllSettled: () => toast.success('Upload complete'),
-  });
+  // The progress panel is mounted app-wide now, so this view has to tell it when the bulk
+  // action bar is docked over the same corner. Cleared on unmount, or the panel would stay
+  // lifted over a page that has no bulk bar at all.
+  useEffect(() => {
+    setPanelRaised(selection.selectedCount > 0);
+    return () => setPanelRaised(false);
+  }, [selection.selectedCount, setPanelRaised]);
 
   const handleFilesSelected = (files: File[]) => {
     // A page pinned to one kind of file (Documents, for instance) drops anything else
@@ -111,7 +114,7 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
       toast.error(rejectionMessage(fixedFileType, rejected));
     }
     if (accepted.length > 0) {
-      uploadQueue.addFiles(accepted, folderId ?? null);
+      addFiles(accepted, folderId ?? null);
     }
   };
 
@@ -302,6 +305,13 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
             onDelete={setMediaToDelete}
             onSetCover={folderId ? handleSetCover : undefined}
             emptyMessage={searchInput ? `No files match “${searchInput}”.` : emptyMessage}
+            // A search that matched nothing is not an empty folder, so it gets no upload
+            // prompt — clearing the search is the way out of that one.
+            emptyAction={
+              searchInput ? undefined : (
+                <UploadButton onFilesSelected={handleFilesSelected} fileType={fixedFileType} label="Upload media" />
+              )
+            }
             selection={selection}
           />
         </div>
@@ -329,8 +339,6 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
         busyLabel={bulkLabel}
       />
 
-      {/* Both dock to the bottom of the viewport, so the panel steps aside for the bulk bar. */}
-      <UploadProgressPanel queue={uploadQueue} isRaised={selection.selectedCount > 0} />
       <MediaViewerModals viewer={viewer} />
 
       <RenameModal

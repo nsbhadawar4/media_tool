@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { UploadProvider } from '@/lib/upload/UploadContext';
 
 /**
  * The authoritative auth gate for every signed-in page. proxy.ts already redirects
@@ -26,5 +27,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     return <FullPageSpinner />;
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  // Inside the gate, not outside it: the queue and its progress panel belong to a signed-in
+  // session, and tearing them down on sign-out is the point.
+  return (
+    <UploadProvider>
+      <AdminShell>{children}</AdminShell>
+    </UploadProvider>
+  );
 }

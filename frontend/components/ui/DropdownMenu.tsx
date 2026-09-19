@@ -17,10 +17,36 @@ interface DropdownMenuProps {
   align?: 'left' | 'right';
   trigger?: ReactNode;
   triggerClassName?: string;
+  /**
+   * Names the trigger for screen readers. Worth setting wherever a page has several of
+   * these, so they don't all announce as an identical "More actions".
+   */
+  triggerLabel?: string;
+  /** 'auto' drops the square icon-button sizing for a trigger that carries its own content. */
+  triggerSize?: 'icon' | 'auto';
+  /** Non-interactive block above the items — an account summary, say. */
+  header?: ReactNode;
+  /** Widen the menu when the labels need it. */
+  width?: number;
 }
 
 const MENU_WIDTH = 176;
 const VIEWPORT_MARGIN = 8;
+const ITEM_HEIGHT = 36;
+/** Rough, like the item height above — only used to decide which way the menu opens. */
+const HEADER_HEIGHT = 56;
+
+/*
+ * Size classes live apart from the rest so a caller's `triggerClassName` never has to fight
+ * them. `cn` is clsx, not tailwind-merge, so two conflicting utilities both survive and
+ * whichever Tailwind happens to emit later wins — see Card for the same trap.
+ */
+const TRIGGER_BASE =
+  'flex items-center justify-center text-muted transition hover:bg-surface-hover hover:text-foreground';
+const TRIGGER_SIZE_CLASSES = {
+  icon: 'h-8 w-8 rounded-lg',
+  auto: 'rounded-xl',
+} as const;
 
 /**
  * Actions menu anchored to its trigger.
@@ -31,13 +57,25 @@ const VIEWPORT_MARGIN = 8;
  * half. A portal escapes any ancestor clipping, and fixed coordinates let the menu flip
  * when it would otherwise open off the bottom or side of the screen.
  */
-export function DropdownMenu({ items, align = 'right', trigger, triggerClassName }: DropdownMenuProps) {
+export function DropdownMenu({
+  items,
+  align = 'right',
+  trigger,
+  triggerClassName,
+  triggerLabel,
+  triggerSize = 'icon',
+  header,
+  width,
+}: DropdownMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const menuWidth = width ?? MENU_WIDTH;
+  const hasHeader = Boolean(header);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -49,19 +87,19 @@ export function DropdownMenu({ items, align = 'right', trigger, triggerClassName
     if (!isOpen || !triggerRef.current) return;
 
     const rect = triggerRef.current.getBoundingClientRect();
-    const menuHeight = items.length * 36 + 8;
+    const menuHeight = items.length * ITEM_HEIGHT + 8 + (hasHeader ? HEADER_HEIGHT : 0);
 
     const wouldOverflowBottom = rect.bottom + menuHeight + VIEWPORT_MARGIN > window.innerHeight;
     const top = wouldOverflowBottom ? rect.top - menuHeight - 6 : rect.bottom + 6;
 
-    const preferredLeft = align === 'right' ? rect.right - MENU_WIDTH : rect.left;
+    const preferredLeft = align === 'right' ? rect.right - menuWidth : rect.left;
     const left = Math.min(
       Math.max(VIEWPORT_MARGIN, preferredLeft),
-      window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN,
+      window.innerWidth - menuWidth - VIEWPORT_MARGIN,
     );
 
     setPosition({ top: Math.max(VIEWPORT_MARGIN, top), left });
-  }, [isOpen, align, items.length]);
+  }, [isOpen, align, items.length, menuWidth, hasHeader]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -122,11 +160,8 @@ export function DropdownMenu({ items, align = 'right', trigger, triggerClassName
         }}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-hover hover:text-foreground',
-          triggerClassName,
-        )}
-        aria-label="More actions"
+        className={cn(TRIGGER_BASE, TRIGGER_SIZE_CLASSES[triggerSize], triggerClassName)}
+        aria-label={triggerLabel ?? 'More actions'}
       >
         {trigger ?? <MoreVertical className="h-4 w-4" />}
       </button>
@@ -139,9 +174,15 @@ export function DropdownMenu({ items, align = 'right', trigger, triggerClassName
             ref={menuRef}
             role="menu"
             aria-orientation="vertical"
-            style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
-            className="animate-scale-in fixed z-70 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-xl"
+            style={{ top: position.top, left: position.left, width: menuWidth }}
+            // A header brings its own bottom border, so it must sit flush against the top
+            // edge rather than floating on the list's padding.
+            className={cn(
+              'animate-scale-in fixed z-70 overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
+              hasHeader ? 'pb-1' : 'py-1',
+            )}
           >
+            {header}
             {items.map((item) => (
               <button
                 key={item.label}

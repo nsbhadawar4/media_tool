@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   FolderClosed,
@@ -21,26 +21,27 @@ import { Button } from '@/components/ui/Button';
 import { StatCard, StatCardSkeleton } from '@/components/admin/StatCard';
 import { ActivityIcon } from '@/components/admin/ActivityIcon';
 import { UploadButton } from '@/components/media/UploadButton';
-import { UploadProgressPanel } from '@/components/media/UploadProgressPanel';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
-import { FolderModal } from '@/components/folders/FolderModal';
+import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid';
+import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
-import { useUploadQueue } from '@/hooks/useUploadQueue';
-import { useToast } from '@/lib/toast/ToastContext';
+import { useFolderCrud } from '@/hooks/useFolderCrud';
+import { useUploads } from '@/lib/upload/UploadContext';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { foldersApi } from '@/lib/api/folders';
-import { ApiError } from '@/lib/api/client';
 import { formatBytes, formatRelativeTime } from '@/utils/format';
 import { iconForFileType, toneForDocument } from '@/utils/fileIcons';
 import { cn } from '@/utils/cn';
 
 const RECENT_TILE_GRID = 'grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6';
 
+/** How many folders the overview strip shows before sending people to the full list. */
+const RECENT_FOLDER_COUNT = 6;
+
 export default function DashboardPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const crud = useFolderCrud(null);
+  const { addFiles, requestUpload } = useUploads();
 
   const statsQuery = useQuery({
     queryKey: ['dashboard', 'stats'],
@@ -50,33 +51,19 @@ export default function DashboardPage() {
     queryKey: ['dashboard', 'recent'],
     queryFn: () => dashboardApi.recent(),
   });
+  // There is no "recent folders" endpoint, and adding one is not what this change is for.
+  // The existing list endpoint sorted newest-first answers it for top-level folders, which
+  // is what this strip shows; nested folders live one click further in.
+  const recentFoldersQuery = useQuery({
+    queryKey: ['folders', 'root', '', 'newest'],
+    queryFn: () => foldersApi.list({ parentFolder: null, sort: 'newest' }),
+  });
 
   const stats = statsQuery.data;
   const recentUploads = recentQuery.data?.data.recentUploads ?? [];
   const recentActivity = recentQuery.data?.data.recentActivity ?? [];
+  const recentFolders = (recentFoldersQuery.data?.data.folders ?? []).slice(0, RECENT_FOLDER_COUNT);
   const viewer = useMediaViewer(recentUploads);
-
-  const invalidateAfterUpload = () => {
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    queryClient.invalidateQueries({ queryKey: ['media'] });
-    queryClient.invalidateQueries({ queryKey: ['folders'] });
-  };
-
-  const uploadQueue = useUploadQueue({
-    onFileUploaded: invalidateAfterUpload,
-    onAllSettled: () => toast.success('Upload complete'),
-  });
-
-  const handleCreateFolder = async (input: { name: string; description?: string }) => {
-    try {
-      await foldersApi.create({ ...input, parentFolder: null });
-      toast.success('Folder created');
-      queryClient.invalidateQueries({ queryKey: ['folders'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    } catch (err) {
-      throw new Error(err instanceof ApiError ? err.message : 'Failed to create folder');
-    }
-  };
 
   return (
     <div>
@@ -85,12 +72,12 @@ export default function DashboardPage() {
         description="An overview of your private library."
         actions={
           <>
-            <Button variant="secondary" onClick={() => setIsCreateFolderOpen(true)}>
+            <Button variant="secondary" onClick={() => crud.setIsCreateOpen(true)}>
               <FolderPlus className="h-4 w-4" />
               <span className="hidden sm:inline">Create folder</span>
               <span className="sm:hidden">Folder</span>
             </Button>
-            <UploadButton onFilesSelected={(files) => uploadQueue.addFiles(files, null)} label="Upload" />
+            <UploadButton onFilesSelected={(files) => addFiles(files, null)} label="Upload" />
           </>
         }
       />
@@ -113,6 +100,40 @@ export default function DashboardPage() {
           )}
         </div>
       )}
+
+      <section className="mt-6 sm:mt-8">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-foreground">Recent folders</h2>
+          <Link href="/folders" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
+            View all
+          </Link>
+        </div>
+
+        {recentFoldersQuery.isError ? (
+          <InlineErrorState
+            error={recentFoldersQuery.error}
+            onRetry={() => recentFoldersQuery.refetch()}
+            subject="your folders"
+          />
+        ) : recentFoldersQuery.isLoading ? (
+          <FolderGridSkeleton count={RECENT_FOLDER_COUNT} />
+        ) : (
+          <FolderGrid
+            folders={recentFolders}
+            onRename={crud.setFolderToRename}
+            onMove={crud.setFolderToMove}
+            onDelete={crud.setFolderToDelete}
+            onUpload={(folder) => requestUpload(folder._id)}
+            emptyMessage="Create your first folder to organize your photos, videos and documents."
+            emptyAction={
+              <Button onClick={() => crud.setIsCreateOpen(true)}>
+                <FolderPlus className="h-4 w-4" />
+                Create folder
+              </Button>
+            }
+          />
+        )}
+      </section>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
         <Card className="min-w-0 xl:col-span-2">
@@ -219,14 +240,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <UploadProgressPanel queue={uploadQueue} />
       <MediaViewerModals viewer={viewer} />
-      <FolderModal
-        key={isCreateFolderOpen ? 'create-open' : 'create-closed'}
-        isOpen={isCreateFolderOpen}
-        onClose={() => setIsCreateFolderOpen(false)}
-        onSubmit={handleCreateFolder}
-      />
+      <FolderCrudModals crud={crud} />
     </div>
   );
 }

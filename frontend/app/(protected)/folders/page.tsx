@@ -11,11 +11,13 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useUploads } from '@/lib/upload/UploadContext';
 import { foldersApi } from '@/lib/api/folders';
 import type { FolderSortOption } from '@/types/api';
 
 export default function FoldersPage() {
   const crud = useFolderCrud(null);
+  const { requestUpload } = useUploads();
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<FolderSortOption>('name_asc');
   const debouncedSearch = useDebounce(search, 300);
@@ -61,10 +63,21 @@ export default function FoldersPage() {
           onRename={crud.setFolderToRename}
           onMove={crud.setFolderToMove}
           onDelete={crud.setFolderToDelete}
+          onUpload={(folder) => requestUpload(folder._id)}
           emptyMessage={
             debouncedSearch
               ? `No folders match "${debouncedSearch}".`
               : 'Create your first folder to start organizing photos, videos and documents.'
+          }
+          // A search that found nothing is not an empty library, so it gets no
+          // "create a folder" prompt — clearing the search is the way out of it.
+          emptyAction={
+            debouncedSearch ? undefined : (
+              <Button onClick={() => crud.setIsCreateOpen(true)}>
+                <FolderPlus className="h-4 w-4" />
+                Create folder
+              </Button>
+            )
           }
         />
       )}

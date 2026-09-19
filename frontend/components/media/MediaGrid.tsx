@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ImageOff } from 'lucide-react';
 import { MediaCard } from './MediaCard';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -14,6 +15,8 @@ interface MediaGridProps {
   onDelete: (media: Media) => void;
   onSetCover?: (media: Media) => void;
   emptyMessage?: string;
+  /** Call to action for the empty state — omit where there is nothing useful to offer. */
+  emptyAction?: ReactNode;
   /** Omit to render a read-only grid with no checkboxes. */
   selection?: MediaSelection;
 }
@@ -30,6 +33,7 @@ export function MediaGrid({
   onDelete,
   onSetCover,
   emptyMessage,
+  emptyAction,
   selection,
 }: MediaGridProps) {
   if (media.length === 0) {
@@ -38,6 +42,7 @@ export function MediaGrid({
         icon={ImageOff}
         title="No files here yet"
         description={emptyMessage ?? 'Upload photos, videos or documents to get started.'}
+        action={emptyAction}
       />
     );
   }

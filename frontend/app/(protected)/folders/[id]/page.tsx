@@ -1,9 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderPlus, MoreHorizontal, PencilLine, FolderInput, Trash2 } from 'lucide-react';
+import { ArrowLeft, FolderPlus, MoreHorizontal, PencilLine, FolderInput, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
@@ -19,6 +20,7 @@ import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { MediaLibraryView } from '@/components/media/MediaLibraryView';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useToast } from '@/lib/toast/ToastContext';
+import { useUploads } from '@/lib/upload/UploadContext';
 import { foldersApi } from '@/lib/api/folders';
 import { ApiError } from '@/lib/api/client';
 import type { FolderSortOption } from '@/types/api';
@@ -37,6 +39,7 @@ export default function FolderDetailPage() {
   const toast = useToast();
 
   const subfolderCrud = useFolderCrud(id);
+  const { requestUpload } = useUploads();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isMoveOpen, setIsMoveOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -111,6 +114,20 @@ export default function FolderDetailPage() {
 
   return (
     <div>
+      {/*
+        Breadcrumbs already show the whole trail, but they are a row of small targets and
+        the one people reach for most is "up one level". This is that one step, at a size
+        worth aiming at on a phone. It resolves to a fixed destination rather than
+        history.back(), which could just as easily lead back out of the app.
+      */}
+      <Link
+        href={folder.parentFolder ? `/folders/${folder.parentFolder}` : '/folders'}
+        className="mb-2 -ml-1.5 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm text-muted transition hover:bg-surface-hover hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Link>
+
       <Breadcrumbs items={breadcrumbs} currentName={folder.name} />
 
       <PageHeader
@@ -156,6 +173,7 @@ export default function FolderDetailPage() {
             onRename={subfolderCrud.setFolderToRename}
             onMove={subfolderCrud.setFolderToMove}
             onDelete={subfolderCrud.setFolderToDelete}
+            onUpload={(target) => requestUpload(target._id)}
             emptyMessage={subfolderSearch ? `No subfolders match "${subfolderSearch}".` : undefined}
           />
         </div>
