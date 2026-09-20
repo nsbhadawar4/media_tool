@@ -36,12 +36,42 @@ Two consequences worth knowing:
 Locally nothing changes: `npm run dev` still runs Express on `:5000` via `app.listen()`
 and Next on `:3000`.
 
-### Why there is no `vercel.json`
+### Where the Vercel configuration lives
 
-Nothing in this architecture needs one. The framework is auto-detected, the build command
-comes from `frontend/package.json`, `maxDuration` is declared by the route itself, and
-`/api/[...path]` is a real Next.js route rather than a rewrite target. A `vercel.json`
-here would only restate defaults.
+`frontend/vercel.json`, and nowhere else. A `vercel.json` is read from the project's Root
+Directory, which is `frontend/` — so a file at the repository root would simply be ignored.
+
+It is deliberately almost empty:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs"
+}
+```
+
+Pinning the framework states the intent in the repository rather than leaving it to
+detection, which is what keeps the import flow from treating this monorepo as ambiguous.
+Everything else is left at its default on purpose: the build command comes from
+`frontend/package.json`, the install is handled by Vercel's npm-workspaces detection (see
+below if that ever fails), and `maxDuration` is declared by the route handler itself.
+Restating any of those here would only create a second place to keep them correct.
+
+### There is no root `vercel.json`, and `backend/` is not a second service
+
+Vercel has no multi-service configuration: one Project builds one framework, and a
+`vercel.json` configures exactly one Project. A monorepo that genuinely has two
+deployables needs two Vercel **Projects**, each with its own Root Directory — that is a
+dashboard setting, not something any config file can express.
+
+This repository does not need that, because `backend/` is not deployed as a service at
+all. It is compiled to `backend/dist/` during the frontend's build and imported by
+`app/api/[...path]/route.ts`, so the Express app ships *inside* the Next.js function.
+`backend/package.json`'s `start` script (`node dist/server.js`, which calls
+`app.listen()`) is for local development only; Vercel runs no long-lived processes.
+
+If the import screen offers to create a second project for `backend/`, decline it. One
+project, one domain, one API implementation — see §1.
 
 ---
 
@@ -101,8 +131,10 @@ The bucket CORS rule needs roughly this, with your own origin:
 3. Confirm **Include source files outside of the Root Directory in the Build Step** is
    enabled, in the same settings section. It is on by default, and the build needs it to
    reach `backend/`.
-4. Framework Preset should already read **Next.js**. Leave the build and install commands
-   at their defaults.
+4. Framework Preset should already read **Next.js** — `frontend/vercel.json` pins it.
+   Leave the build and install commands at their defaults.
+5. If the importer also offers to create a project for `backend/`, **decline it**. The
+   Express app is built into the frontend's function, not deployed separately.
 
 ### If the build fails during install
 
