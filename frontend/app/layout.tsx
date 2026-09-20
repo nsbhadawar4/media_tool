@@ -57,7 +57,18 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="h-full min-h-full antialiased">
+      {/*
+        suppressHydrationWarning, for the same reason <html> carries it: browser
+        extensions (password managers, grammar checkers, dark-mode tools) routinely add
+        their own attributes to <body> before React hydrates, and React reports the
+        resulting DOM as a mismatch it did not cause.
+
+        Safe to suppress precisely here because this className is a constant — there is
+        no server/client difference React could legitimately be reporting. The flag also
+        only covers this element's own attributes, one level deep, so a real mismatch
+        anywhere inside the app still surfaces normally.
+      */}
+      <body suppressHydrationWarning className="h-full min-h-full antialiased">
         <QueryProvider>
           <ThemeProvider>
             <ToastProvider>
