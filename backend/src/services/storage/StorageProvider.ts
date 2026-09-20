@@ -13,6 +13,13 @@ export interface StoredObjectMeta {
   size: number;
 }
 
+/** What an object actually is in storage, as opposed to what a client claimed it would be. */
+export interface ObjectStat {
+  key: string;
+  size: number;
+  contentType: string | null;
+}
+
 export interface StreamRange {
   start: number;
   end: number;
@@ -24,6 +31,21 @@ export interface StreamResult {
   contentType: string;
   range?: StreamRange;
   totalSize: number;
+}
+
+export interface SignedUrlOptions {
+  expiresInSeconds?: number;
+  /** Makes the signed response download under this name rather than display inline. */
+  downloadFilename?: string;
+  /** Content-Type the storage should report, overriding whatever was stored. */
+  contentType?: string;
+}
+
+export interface UploadUrlInput {
+  key: string;
+  /** Signed into the URL: the client must send exactly this Content-Type or the PUT fails. */
+  contentType: string;
+  expiresInSeconds?: number;
 }
 
 /**
@@ -44,6 +66,13 @@ export interface StorageService {
   exists(key: string): Promise<boolean>;
 
   /**
+   * Size and content type of a stored object, or null when it isn't there. Used to check
+   * what a direct-to-bucket upload actually deposited, which is the only trustworthy
+   * account of it — the client's claimed size never touched this server.
+   */
+  stat(key: string): Promise<ObjectStat | null>;
+
+  /**
    * A directly usable, permanent URL for this object, if the provider can produce one
    * (e.g. a public R2/S3 bucket or CDN bound to a custom domain). Returns null when the
    * provider has no such URL (e.g. local dev storage, or a private bucket) — callers must
@@ -56,7 +85,15 @@ export interface StorageService {
    * (S3/R2 presigned URL). Returns null for providers that can't produce one
    * (local dev storage has no direct-access URL of any kind).
    */
-  getSignedUrl(key: string, expiresInSeconds?: number): Promise<string | null>;
+  getSignedUrl(key: string, options?: SignedUrlOptions): Promise<string | null>;
+
+  /**
+   * A time-limited URL the browser can PUT bytes straight to, bypassing this API.
+   * Returns null for providers that can't offer one, and the caller then falls back to
+   * uploading through the API. This is what makes files larger than a request body limit
+   * possible at all on a serverless host: the bytes never pass through a function.
+   */
+  getUploadUrl(input: UploadUrlInput): Promise<string | null>;
 
   /**
    * Open a (optionally byte-range) read stream for serving/downloading a file.

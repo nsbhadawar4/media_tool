@@ -60,8 +60,10 @@ export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressP
   return (
     <div
       className={cn(
-        'app-safe-bottom animate-slide-up fixed left-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl transition-[bottom] duration-200 sm:left-6 sm:w-full sm:max-w-sm',
-        isRaised ? 'bottom-28 sm:bottom-30' : 'bottom-4 sm:bottom-6',
+        'animate-slide-up fixed left-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl transition-[bottom] duration-200 sm:left-6 sm:w-full sm:max-w-sm',
+        // The dock classes fold the home-indicator inset and the tab bar's height into
+        // `bottom`, so the panel clears both instead of sitting under the tab bar.
+        isRaised ? 'app-dock-raised' : 'app-dock',
       )}
     >
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Private personal media management API (Express + TypeScript + MongoDB)",
-  "main": "dist/server.js",
+  "main": "dist/app.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
@@ -11,13 +11,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:trash": "tsx --test tests/trashSafety.test.ts",
     "test:trash-api": "tsx --test tests/trashApi.test.ts",
-    "test": "tsx --test tests/trashSafety.test.ts tests/trashApi.test.ts tests/userIsolation.test.ts",
+    "test": "tsx --test tests/trashSafety.test.ts tests/trashApi.test.ts tests/userIsolation.test.ts tests/directUpload.test.ts tests/vercelBridge.test.ts",
     "create-admin": "tsx src/scripts/create-admin.ts",
     "migrate-to-users": "tsx src/scripts/migrate-to-users.ts",
     "migrate-to-atlas": "tsx src/scripts/migrate-to-atlas.ts",
     "hash-password": "tsx src/scripts/hash-password.ts",
     "generate-thumbnails": "tsx src/scripts/generate-thumbnails.ts",
-    "test:isolation": "tsx --test tests/userIsolation.test.ts"
+    "smoke:vercel": "tsx smoke-vercel.mts",
+    "test:isolation": "tsx --test tests/userIsolation.test.ts",
+    "test:bridge": "tsx --test tests/vercelBridge.test.ts",
+    "test:upload": "tsx --test tests/directUpload.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.705.0",
@@ -50,5 +53,20 @@
     "mongodb-memory-server": "^10.4.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "types": "dist/app.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/app.d.ts",
+      "default": "./dist/app.js"
+    },
+    "./database": {
+      "types": "./dist/config/database.d.ts",
+      "default": "./dist/config/database.js"
+    },
+    "./env": {
+      "types": "./dist/config/env.d.ts",
+      "default": "./dist/config/env.js"
+    }
   }
 }

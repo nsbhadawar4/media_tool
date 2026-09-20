@@ -12,7 +12,10 @@ import { AppError } from '../../utils/AppError';
 import type {
   StorageService,
   UploadInput,
+  UploadUrlInput,
+  SignedUrlOptions,
   StoredObjectMeta,
+  ObjectStat,
   StreamRange,
   StreamResult,
 } from './StorageProvider';
@@ -23,6 +26,11 @@ export interface S3ProviderOptions {
   clientConfig: S3ClientConfig;
   /** Optional public base URL (custom domain / CDN) to build direct links from. */
   publicBaseUrl?: string | null;
+}
+
+/** Status code carried on an AWS SDK error, when it carries one. */
+function httpStatus(err: unknown): number | undefined {
+  return (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
 }
 
 /**
@@ -60,8 +68,7 @@ export class S3StorageProvider implements StorageService {
 
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key })).catch((err) => {
-      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
-      if (status !== 404) throw err;
+      if (httpStatus(err) !== 404) throw err;
     });
   }
 
@@ -70,8 +77,20 @@ export class S3StorageProvider implements StorageService {
       await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
       return true;
     } catch (err) {
-      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
-      if (status === 404) return false;
+      if (httpStatus(err) === 404) return false;
+      throw err;
+    }
+  }
+
+  async stat(key: string): Promise<ObjectStat | null> {
+    try {
+      const res = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return { key, size: res.ContentLength ?? 0, contentType: res.ContentType ?? null };
+    } catch (err) {
+      const status = httpStatus(err);
+      // 403 shows up instead of 404 on buckets that withhold ListBucket; both mean
+      // "nothing usable here" to a caller checking whether an upload landed.
+      if (status === 404 || status === 403) return null;
       throw err;
     }
   }
@@ -94,7 +113,7 @@ export class S3StorageProvider implements StorageService {
         totalSize,
       };
     } catch (err) {
-      const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      const status = httpStatus(err);
       if (status === 404 || status === 403) throw AppError.notFound('File not found in storage');
       throw err;
     }
@@ -107,8 +126,28 @@ export class S3StorageProvider implements StorageService {
   }
 
   /** Presigned GET URL — grants temporary direct access to an otherwise-private object. */
-  async getSignedUrl(key: string, expiresInSeconds = 3600): Promise<string | null> {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+  async getSignedUrl(key: string, options: SignedUrlOptions = {}): Promise<string | null> {
+    const { expiresInSeconds = 3600, downloadFilename, contentType } = options;
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      // Set on the signed response rather than on the object, so the same stored bytes
+      // can be served inline in a viewer and as a named download from another link.
+      ...(downloadFilename
+        ? { ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(downloadFilename)}` }
+        : {}),
+      ...(contentType ? { ResponseContentType: contentType } : {}),
+    });
+    return presignS3Url(this.client, command, { expiresIn: expiresInSeconds });
+  }
+
+  /**
+   * Presigned PUT URL. Content-Type is signed in, so the browser must send exactly the
+   * type that was declared when the URL was minted — it cannot quietly deposit something
+   * else at a key the server has already agreed to.
+   */
+  async getUploadUrl({ key, contentType, expiresInSeconds = 900 }: UploadUrlInput): Promise<string | null> {
+    const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType });
     return presignS3Url(this.client, command, { expiresIn: expiresInSeconds });
   }
 }

@@ -9,9 +9,23 @@ function normalizeBaseUrl(value: string): string {
   return value.replace(/\/+$/, '').replace(/\/api$/, '');
 }
 
-export const API_BASE_URL = normalizeBaseUrl(
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000',
-);
+const configuredBaseUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+/**
+ * Origin the API is reached on, or an empty string meaning "wherever this page came
+ * from". Empty is the production default: frontend and API are one Vercel deployment on
+ * one domain, so a relative `/api/...` is both correct and the only value that survives
+ * preview deployments, which each get a different URL. It also keeps the session cookie
+ * first-party, which is what lets it stay SameSite=Lax.
+ *
+ * Development keeps the split-origin default, since the API runs on its own port there.
+ * An explicit NEXT_PUBLIC_API_URL overrides both.
+ */
+export const API_BASE_URL = configuredBaseUrl
+  ? normalizeBaseUrl(configuredBaseUrl)
+  : process.env.NODE_ENV === 'production'
+    ? ''
+    : 'http://localhost:5000';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -39,16 +53,21 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Assembled by hand rather than through `new URL()`, because the base is empty when the
+ * API is same-origin and `new URL('/api/...')` with no base throws.
+ */
 function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = new URL(`${API_BASE_URL}${path}`);
+  const search = new URLSearchParams();
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== '') {
-        url.searchParams.set(key, String(value));
+        search.set(key, String(value));
       }
     }
   }
-  return url.toString();
+  const queryString = search.toString();
+  return `${API_BASE_URL}${path}${queryString ? `?${queryString}` : ''}`;
 }
 
 /**

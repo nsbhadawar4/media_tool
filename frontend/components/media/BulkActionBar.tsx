@@ -16,8 +16,8 @@ interface BulkActionBarProps {
 
 /**
  * Floating bar summarising the current selection and what can be done with it. Anchored to
- * the bottom of the viewport so it stays reachable while scrolling a long gallery, and
- * offset above the upload panel's corner so the two never overlap.
+ * the bottom of the viewport so it stays reachable while scrolling a long gallery, above the
+ * mobile tab bar, and offset from the upload panel so the two never overlap.
  */
 export function BulkActionBar({ selection, onDownload, onMove, onDelete, busyLabel }: BulkActionBarProps) {
   const { selectedCount, selectedItems, allSelected, selectAll, clear } = selection;
@@ -28,7 +28,7 @@ export function BulkActionBar({ selection, onDownload, onMove, onDelete, busyLab
   const isBusy = Boolean(busyLabel);
 
   return (
-    <div className="app-safe-bottom animate-slide-up pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 sm:bottom-6">
+    <div className="app-dock animate-slide-up pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4">
       <div className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-surface px-4 py-3 shadow-2xl">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-sm font-semibold tabular-nums text-accent">

@@ -70,3 +70,31 @@ export async function connectDatabase(): Promise<void> {
 export async function disconnectDatabase(): Promise<void> {
   await mongoose.disconnect();
 }
+
+/**
+ * Connection for serverless invocations.
+ *
+ * A Vercel Function keeps its module scope alive between requests on the same instance,
+ * so the connection is established once and reused. The *promise* is what gets cached,
+ * not the resolved connection: several requests can arrive on a cold instance before the
+ * first handshake completes, and caching the promise makes them all await that one
+ * handshake instead of opening a pool each. That matters against the platform's 1,024
+ * file-descriptor ceiling, which is shared across concurrent executions.
+ *
+ * A failed attempt clears the cache so the next request retries rather than being handed
+ * a permanently rejected promise.
+ */
+let connectionPromise: Promise<void> | null = null;
+
+export function connectDatabaseOnce(): Promise<void> {
+  // readyState 1 = connected, 2 = connecting. Mongoose already handles queueing in both.
+  if (mongoose.connection.readyState === 1) return Promise.resolve();
+
+  if (!connectionPromise) {
+    connectionPromise = connectDatabase().catch((err: unknown) => {
+      connectionPromise = null;
+      throw err;
+    });
+  }
+  return connectionPromise;
+}

@@ -89,3 +89,22 @@ export const uploadMedia = upload.fields([
   { name: 'files', maxCount: env.MAX_FILES_PER_UPLOAD },
   { name: 'poster', maxCount: 1 },
 ]);
+
+/**
+ * Deliberately below the 4.5 MB request body ceiling a serverless host imposes. A poster
+ * frame is a downscaled still — tens of kilobytes in practice — so this is a sanity
+ * bound, not a real constraint, and it keeps the one endpoint that still takes bytes
+ * through the API safely inside what the platform will carry.
+ */
+const POSTER_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Single poster image for POST /api/media/:id/thumbnail, used by the direct-to-bucket
+ * upload path. Reuses the filter above, which already recognises the `poster` fieldname
+ * and accepts only image types for it.
+ */
+export const uploadPosterImage = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: POSTER_MAX_BYTES, files: 1 },
+}).single('poster');

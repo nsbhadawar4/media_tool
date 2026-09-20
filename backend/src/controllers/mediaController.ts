@@ -200,6 +200,30 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
 
   const provider = getStorageProvider();
 
+  /**
+   * When storage can hand out a temporary direct link, send the browser there instead of
+   * relaying the bytes. Two reasons, both decisive on a serverless host: a function that
+   * pipes a video spends its whole runtime doing so and is billed for every byte, and a
+   * non-streamed response is capped at a few megabytes in the first place. The redirect
+   * keeps the file private — the signed URL is short-lived and minted only after the
+   * ownership check above — while the bytes travel straight from the bucket.
+   *
+   * Range requests need no special handling: the browser re-issues the Range against the
+   * redirect target, and S3/R2 serve partial content natively, so video seeking works.
+   */
+  const signedUrl = await provider.getSignedUrl(media.storageKey, {
+    ...(disposition === 'attachment' ? { downloadFilename: media.originalName } : {}),
+    contentType: media.mimeType,
+  });
+
+  if (signedUrl) {
+    // Private: the URL embeds a signature scoped to this viewer's request, so it must
+    // never be held in a shared cache, and must expire well before the signature does.
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.redirect(302, signedUrl);
+    return;
+  }
+
   // First call without a range just to learn the total size for parsing the Range header.
   const probe = await provider.getObjectStream(media.storageKey);
   probe.stream.destroy();
@@ -244,7 +268,19 @@ export const streamThumbnail = asyncHandler(async (req: Request, res: Response) 
   if (!media) throw AppError.notFound('File not found');
   if (!media.thumbnailKey) throw AppError.notFound('No thumbnail for this file');
 
-  const result = await getStorageProvider().getObjectStream(media.thumbnailKey);
+  const provider = getStorageProvider();
+
+  // Same reasoning as streamMedia, and it matters more here: a gallery page asks for
+  // dozens of these at once, so relaying each one would multiply function invocations
+  // against a file the bucket can serve directly.
+  const signedUrl = await provider.getSignedUrl(media.thumbnailKey, { contentType: 'image/webp' });
+  if (signedUrl) {
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.redirect(302, signedUrl);
+    return;
+  }
+
+  const result = await provider.getObjectStream(media.thumbnailKey);
 
   res.setHeader('Content-Type', 'image/webp');
   res.setHeader('Content-Length', result.totalSize);

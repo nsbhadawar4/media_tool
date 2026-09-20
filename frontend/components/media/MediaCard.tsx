@@ -58,7 +58,7 @@ export function MediaCard({
   return (
     <div
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-2xl border bg-surface shadow-sm transition duration-200',
+        'app-pressable group relative flex flex-col overflow-hidden rounded-2xl border bg-surface shadow-sm transition duration-200',
         isSelected
           ? 'border-accent ring-2 ring-accent/30'
           : 'border-border hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md',

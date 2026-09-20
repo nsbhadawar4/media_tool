@@ -4,7 +4,16 @@ import { LocalStorageProvider } from './LocalStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
 import type { StorageService } from './StorageProvider';
 
-export type { StorageService, UploadInput, StoredObjectMeta, StreamRange, StreamResult } from './StorageProvider';
+export type {
+  StorageService,
+  UploadInput,
+  UploadUrlInput,
+  SignedUrlOptions,
+  StoredObjectMeta,
+  ObjectStat,
+  StreamRange,
+  StreamResult,
+} from './StorageProvider';
 
 let cachedProvider: StorageService | null = null;
 

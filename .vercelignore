@@ -1,0 +1,24 @@
+# Files that must never be uploaded to a Vercel build.
+#
+# Git-tracked files are the usual source for a deployment, so most of this is already
+# handled by .gitignore. It matters for `vercel` CLI deploys, which upload the working
+# directory as it is on disk — including a local media library and a local database.
+
+node_modules
+
+# Local development data. .data/ is a full MongoDB data directory and uploads/ is the
+# local media library; both are large, and neither belongs in a deployment.
+backend/.data
+backend/uploads
+backend/tmp
+
+# Secrets. Production values come from Vercel Project Environment Variables.
+.env
+.env.*
+!.env.example
+**/.env.local
+
+# Build output, regenerated during the build.
+backend/dist
+frontend/.next
+*.tsbuildinfo

@@ -54,12 +54,166 @@ export interface UploadExtras {
 }
 
 /**
- * Uploads a single file with progress via XHR (fetch has no upload progress event).
- * The caller sends one file per request (see useUploadQueue), so a single failure never
- * blocks the rest and each file gets its own progress bar. Pass `signal` to allow
- * cancelling a specific in-flight upload from the UI.
+ * How the server wants this file delivered.
+ *
+ * `direct` hands back a presigned URL to PUT the bytes straight to object storage,
+ * which is the only way a file larger than a few megabytes can be uploaded at all when
+ * the API runs as a serverless function — request bodies there are capped well below
+ * the size of an ordinary photo. `proxy` means the active storage provider cannot issue
+ * such URLs (local development), so the file goes through the API as it always has.
+ *
+ * The server decides, not the client: one code path below covers both, so the local and
+ * deployed upload flows stay the same code rather than diverging.
  */
-export function uploadFile(
+type PresignResponse =
+  | { mode: 'proxy' }
+  | { mode: 'direct'; uploadUrl: string; contentType: string; uploadToken: string };
+
+/** Progress is reported against the PUT, which is all but a rounding error of the work. */
+const DIRECT_UPLOAD_PROGRESS_CEILING = 98;
+
+/** Wraps an XHR in a promise, reporting upload progress and honouring an AbortSignal. */
+function sendWithProgress(
+  xhr: XMLHttpRequest,
+  body: Document | XMLHttpRequestBodyInit,
+  onProgress: (percent: number) => void,
+  signal: AbortSignal | undefined,
+  onLoad: (xhr: XMLHttpRequest) => void,
+  reject: (reason: Error) => void,
+): void {
+  const handleAbort = () => xhr.abort();
+  signal?.addEventListener('abort', handleAbort);
+  const cleanup = () => signal?.removeEventListener('abort', handleAbort);
+
+  xhr.upload.onprogress = (event) => {
+    if (event.lengthComputable) {
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    }
+  };
+
+  xhr.onabort = () => {
+    cleanup();
+    reject(new UploadCancelledError());
+  };
+
+  xhr.onload = () => {
+    cleanup();
+    onLoad(xhr);
+  };
+
+  xhr.onerror = () => {
+    cleanup();
+    reject(new ApiError('Network error during upload', 0));
+  };
+
+  xhr.send(body);
+}
+
+/**
+ * Uploads one file, letting the server choose whether the bytes travel through the API
+ * or straight to object storage.
+ *
+ * The caller sends one file per call (see useUploadQueue), so a single failure never
+ * blocks the rest and each file gets its own progress bar. Pass `signal` to cancel a
+ * specific in-flight upload from the UI.
+ */
+export async function uploadFile(
+  file: File,
+  folderId: string | null,
+  onProgress: (percent: number) => void,
+  signal?: AbortSignal,
+  extras: UploadExtras = {},
+): Promise<Media> {
+  if (signal?.aborted) throw new UploadCancelledError();
+
+  const { data: plan } = await api.post<PresignResponse>('/api/media/presign', {
+    fileName: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    size: file.size,
+    folderId,
+  });
+
+  if (plan.mode === 'proxy') {
+    return uploadThroughApi(file, folderId, onProgress, signal, extras);
+  }
+
+  await putToStorage(plan, file, onProgress, signal);
+
+  const { data: media } = await api.post<Media>('/api/media/commit', {
+    uploadToken: plan.uploadToken,
+    duration: extras.duration ?? null,
+  });
+
+  /**
+   * A video's thumbnail can only come from the poster the browser captured: there is no
+   * ffmpeg on the server, and pulling the whole video back out of storage to derive a
+   * still would cost far more than sending this few-kilobyte image. Failing to attach it
+   * must not fail the upload — the file is already stored and recorded, and the gallery
+   * renders a placeholder for media with no thumbnail.
+   */
+  if (extras.poster) {
+    try {
+      const form = new FormData();
+      form.append('poster', extras.poster, 'poster.jpg');
+      const { data: withThumbnail } = await api.postForm<Media>(
+        `/api/media/${media.id}/thumbnail`,
+        form,
+      );
+      onProgress(100);
+      return withThumbnail;
+    } catch {
+      // Keep the successfully uploaded file; it simply has no thumbnail.
+    }
+  }
+
+  onProgress(100);
+  return media;
+}
+
+/** PUTs the raw file to the presigned storage URL, reporting progress as it goes. */
+function putToStorage(
+  plan: Extract<PresignResponse, { mode: 'direct' }>,
+  file: File,
+  onProgress: (percent: number) => void,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', plan.uploadUrl);
+
+    /**
+     * Signed into the URL, so it has to match exactly or storage rejects the PUT. Note
+     * this is the type the *server* resolved from the file extension, not file.type,
+     * which browsers report inconsistently for .mkv and Office formats.
+     */
+    xhr.setRequestHeader('Content-Type', plan.contentType);
+
+    // Deliberately not sent: this is a third-party origin, and the session cookie has no
+    // business there. The presigned URL carries its own, narrower authorisation.
+    xhr.withCredentials = false;
+
+    sendWithProgress(
+      xhr,
+      file,
+      (percent) => onProgress(Math.min(percent, DIRECT_UPLOAD_PROGRESS_CEILING)),
+      signal,
+      () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new ApiError(`Storage rejected the upload (${xhr.status})`, xhr.status));
+        }
+      },
+      reject,
+    );
+  });
+}
+
+/**
+ * The original multipart upload, used whenever storage cannot issue presigned URLs.
+ * Unchanged in behaviour: one file per request, per-file progress, itemised failures.
+ */
+function uploadThroughApi(
   file: File,
   folderId: string | null,
   onProgress: (percent: number) => void,

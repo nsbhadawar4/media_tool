@@ -66,7 +66,7 @@ export function MediaFilters({
 
       <div className="flex flex-wrap items-center gap-2">
         {showTypeFilter && onFileTypeChange && (
-          <div className="flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-hover p-1">
+          <div className="app-no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-hover p-1">
             {TYPE_FILTERS.map((filter) => (
               <button
                 key={filter.label}

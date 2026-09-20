@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
+import { BottomSheet, SheetItem } from './BottomSheet';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { cn } from '@/utils/cn';
 
 export interface DropdownMenuItem {
@@ -26,8 +28,10 @@ interface DropdownMenuProps {
   triggerSize?: 'icon' | 'auto';
   /** Non-interactive block above the items — an account summary, say. */
   header?: ReactNode;
-  /** Widen the menu when the labels need it. */
+  /** Widen the menu when the labels need it. Ignored on the mobile action sheet. */
   width?: number;
+  /** Heading for the mobile action sheet; the desktop popover has no title row. */
+  sheetTitle?: string;
 }
 
 const MENU_WIDTH = 176;
@@ -44,7 +48,9 @@ const HEADER_HEIGHT = 56;
 const TRIGGER_BASE =
   'flex items-center justify-center text-muted transition hover:bg-surface-hover hover:text-foreground';
 const TRIGGER_SIZE_CLASSES = {
-  icon: 'h-8 w-8 rounded-lg',
+  // Larger on touch, where a 32px target in a card footer is a miss waiting to happen;
+  // back to the original 32px from `lg` up, where there is a cursor.
+  icon: 'h-10 w-10 rounded-xl lg:h-8 lg:w-8 lg:rounded-lg',
   auto: 'rounded-xl',
 } as const;
 
@@ -66,7 +72,11 @@ export function DropdownMenu({
   triggerSize = 'icon',
   header,
   width,
+  sheetTitle,
 }: DropdownMenuProps) {
+  // A popover anchored to a 40px button is a desktop idiom; on a phone the same choices
+  // belong on a sheet at the bottom edge, where a thumb actually reaches.
+  const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -84,7 +94,7 @@ export function DropdownMenu({
 
   // Measured before paint so the menu never appears at the wrong spot for a frame.
   useLayoutEffect(() => {
-    if (!isOpen || !triggerRef.current) return;
+    if (!isOpen || isMobile || !triggerRef.current) return;
 
     const rect = triggerRef.current.getBoundingClientRect();
     const menuHeight = items.length * ITEM_HEIGHT + 8 + (hasHeader ? HEADER_HEIGHT : 0);
@@ -99,10 +109,11 @@ export function DropdownMenu({
     );
 
     setPosition({ top: Math.max(VIEWPORT_MARGIN, top), left });
-  }, [isOpen, align, items.length, menuWidth, hasHeader]);
+  }, [isOpen, isMobile, align, items.length, menuWidth, hasHeader]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    // The sheet brings its own dismissal, focus trap and scroll lock.
+    if (!isOpen || isMobile) return;
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -141,7 +152,7 @@ export function DropdownMenu({
       window.removeEventListener('resize', handleReflow);
       window.removeEventListener('scroll', handleReflow, true);
     };
-  }, [isOpen, close, items.length]);
+  }, [isOpen, isMobile, close, items.length]);
 
   useEffect(() => {
     if (activeIndex < 0 || !menuRef.current) return;
@@ -166,7 +177,28 @@ export function DropdownMenu({
         {trigger ?? <MoreVertical className="h-4 w-4" />}
       </button>
 
-      {isOpen &&
+      {isMobile ? (
+        <BottomSheet isOpen={isOpen} onClose={close} title={sheetTitle}>
+          {header}
+          <div role="menu" aria-orientation="vertical" className="pt-1">
+            {items.map((item) => (
+              <SheetItem
+                key={item.label}
+                icon={item.icon}
+                label={item.label}
+                danger={item.danger}
+                onClick={() => {
+                  close();
+                  item.onClick();
+                }}
+              />
+            ))}
+          </div>
+        </BottomSheet>
+      ) : null}
+
+      {!isMobile &&
+        isOpen &&
         position &&
         typeof document !== 'undefined' &&
         createPortal(

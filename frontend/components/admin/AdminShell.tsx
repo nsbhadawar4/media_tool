@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { MobileTabBar } from './MobileTabBar';
 
 export function AdminShell({
   children,
@@ -11,7 +13,9 @@ export function AdminShell({
   children: ReactNode;
   variant?: 'user' | 'admin';
 }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Re-keying the content on navigation restarts its enter animation, which is what makes
+  // a route change on a phone read as a screen transition rather than a repaint.
+  const pathname = usePathname();
 
   return (
     // app-viewport-h rather than h-screen: on iOS Safari 100vh is taller than the visible
@@ -25,22 +29,25 @@ export function AdminShell({
         Skip to content
       </a>
 
-      <Sidebar
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-        variant={variant}
-      />
+      <Sidebar variant={variant} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
+        <Topbar variant={variant} />
         <main
           id="main-content"
           tabIndex={-1}
-          className="app-safe-bottom min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-6 outline-none sm:px-6 lg:px-8"
+          // app-main-pad leaves room for the tab bar below `lg` and reproduces the previous
+          // safe-area-only padding from `lg` up; app-scroll stops a flick past the end of a
+          // gallery from dragging the whole page.
+          className="app-main-pad app-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 outline-none sm:px-6 lg:px-8"
         >
-          {children}
+          <div key={pathname} className="app-page-enter">
+            {children}
+          </div>
         </main>
       </div>
+
+      <MobileTabBar variant={variant} />
     </div>
   );
 }

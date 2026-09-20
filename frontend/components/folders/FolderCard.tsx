@@ -26,7 +26,7 @@ export function FolderCard({ folder, onRename, onMove, onDelete, onUpload }: Fol
   const itemLabel = `${folder.itemCount} ${folder.itemCount === 1 ? 'item' : 'items'}`;
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
+    <div className="app-pressable group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
       {/*
         The card's primary action is a real link covering the card rather than an onClick on
         the wrapper: that gets the folder into the keyboard order, gives it middle-click and

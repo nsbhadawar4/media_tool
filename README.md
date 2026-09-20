@@ -8,8 +8,12 @@ administrator manages accounts without ever seeing their contents.
 - **Backend**: Node.js, Express, TypeScript, MongoDB/Mongoose, JWT + HTTP-only cookies
 - **Storage**: pluggable — local disk (dev), Cloudflare R2, or Amazon S3, behind one interface
 
-Frontend and backend are two fully independent projects (`frontend/`, `backend/`) with their own
-`package.json`, so they can be developed, deployed and scaled separately.
+Frontend and backend are two independent projects (`frontend/`, `backend/`) with their own
+`package.json`, developed and run separately in development — Express on `:5000`, Next on `:3000`.
+
+For deployment they come back together: on Vercel the whole application ships as a single
+project on a single domain, with the Express app mounted inside a Next.js Route Handler so
+there is still only one implementation of the API. See [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 
@@ -34,9 +38,12 @@ media_tool/
 │   │           ├── trash/page.tsx
 │   │           ├── activity/page.tsx
 │   │           └── settings/page.tsx
+│   ├── app/api/[...path]/route.ts   # deployment entrypoint: hands /api/* to the Express app
 │   ├── components/{admin,folders,media,modals,ui}/
 │   ├── lib/{api,auth,theme,toast}/
+│   ├── lib/server/expressBridge.ts  # Web Request ⇄ Node req/res adapter for the above
 │   ├── hooks/, types/, utils/
+│   ├── next.config.ts         # file tracing across the workspace + server externals
 │   ├── proxy.ts               # fast cookie-presence redirect (Next 16's `middleware` rename)
 │   └── .env.local.example
 │
@@ -50,10 +57,12 @@ media_tool/
 │   │   ├── controllers/, routes/, validators/, utils/, types/
 │   │   ├── scripts/           # create-admin.ts, hash-password.ts, generate-thumbnails.ts
 │   │   ├── app.ts, server.ts
-│   ├── tests/                  # trash/recovery safety tests (real MongoDB + real files)
+│   ├── tests/                  # trash/recovery, owner isolation, and Vercel bridge tests
+│   ├── smoke-vercel.mts        # `npm run smoke`: end-to-end check of the deployed shape
 │   ├── uploads/                # local storage provider's files (dev only, gitignored)
 │   └── .env.example
 │
+├── DEPLOYMENT.md              # single-project Vercel deployment
 └── README.md
 ```
 
@@ -139,9 +148,9 @@ No manual schema setup is needed — Mongoose creates collections/indexes on fir
 
 The backend never stores files inside MongoDB — only metadata (`storageKey`, `size`,
 `mimeType`, etc). The actual bytes live behind a swappable `StorageService`
-(`backend/src/services/storage/`), with exactly five methods: `upload()`, `delete()`,
-`exists()`, `getUrl()` and `getSignedUrl()` (plus `getObjectStream()`, needed to actually
-serve private files with HTTP Range support — see the design note below).
+(`backend/src/services/storage/`): `upload()`, `delete()`, `exists()`, `stat()`,
+`getUrl()`, `getSignedUrl()` and `getUploadUrl()` (plus `getObjectStream()`, needed to
+actually serve private files with HTTP Range support — see the design note below).
 
 - **`local`** (default, for development) — files are written under `backend/uploads/`,
   organized by type first, then by folder:
@@ -169,6 +178,27 @@ Files are **never** served from a public bucket URL directly to the browser. Eve
 `/api/media/:id/raw` and `/api/media/:id/download` endpoints, each carrying a short-lived
 signed token scoped to that one file. This keeps the library private even if the
 underlying bucket is otherwise reachable.
+
+### How the bytes actually travel
+
+Which way a file moves depends on whether the provider can issue presigned URLs, and the
+server decides — the client has one code path for both.
+
+- **`local`**: uploads are posted to `/api/media/upload` as multipart, and downloads are
+  streamed back through the API. Nothing else is possible; there is no URL to sign.
+- **`r2` / `s3`**: uploads go `POST /api/media/presign` → browser `PUT`s straight to the
+  bucket → `POST /api/media/commit`. Serving redirects (`302`) to a short-lived presigned
+  `GET`. The bytes never pass through the API in either direction.
+
+That second path is what makes the app deployable on a serverless host at all, where a
+request body is capped at 4.5 MB and a function is a poor media server. The ownership
+check still happens first, on every request — the redirect is only issued afterwards, and
+the URL it points at expires.
+
+The presign step never takes a storage key from the client. The server derives the key,
+signs it into an upload token along with the resolved type, target folder and size
+ceiling, and `commit` re-checks all of it against what actually landed in the bucket —
+so a caller cannot register a file they did not upload, or one belonging to someone else.
 
 ---
 
@@ -217,10 +247,30 @@ The full API reference lives in [`backend/README.md`](backend/README.md).
 
 ### Production build
 
+From the repo root, which builds the backend first because the frontend's API route
+imports its compiled output:
+
+```bash
+npm run build      # backend (tsc) then frontend (next build)
+npm run typecheck  # both workspaces
+npm test           # backend suite, including the Vercel bridge tests
+npm run smoke      # end-to-end check of the deployed shape (needs npm run build first)
+```
+
+`npm run smoke` boots the built Next.js server and drives the real API through it, exactly
+as a Vercel deployment does — the Express app inside the Route Handler, one origin, no
+`app.listen()`. It uses a throwaway in-memory MongoDB and needs no credentials, so it
+touches neither Atlas nor a real bucket. It is kept out of `npm test` because it depends
+on a prior build and takes about a minute.
+
+To run the two as separate long-lived servers instead:
+
 ```bash
 cd backend && npm run build && npm start
 cd frontend && npm run build && npm start
 ```
+
+For deploying the whole thing as one Vercel project, see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 > **Note on `frontend/npm run typecheck`**: Next.js 16 generates a few global helper types
 > (`LayoutProps`, `PageProps`, …) into `.next/types` the first time you run `next dev`,
@@ -260,6 +310,9 @@ media streaming routes additionally accept a short-lived signed `?token=` instea
 | GET | `/media?folderId=&fileType=&search=&sort=&page=&limit=` | List with filters/sort/pagination |
 | GET | `/media/:id` | Single item |
 | POST | `/media/upload` | `multipart/form-data`: `files` (one or more) + optional `folderId`, `poster`, `duration` |
+| POST | `/media/presign` | `{ fileName, mimeType, size, folderId? }` → `{ mode: "direct", uploadUrl, contentType, uploadToken }`, or `{ mode: "proxy" }` when storage cannot issue upload URLs |
+| POST | `/media/commit` | `{ uploadToken, width?, height?, duration? }` — records a file already PUT to storage |
+| POST | `/media/:id/thumbnail` | `multipart/form-data`: `poster` — attaches a video's poster frame as its thumbnail |
 | PATCH | `/media/:id` | `{ originalName }` — rename |
 | POST | `/media/:id/move` | `{ folderId }` (`null` = unfiled) |
 | DELETE | `/media/:id` | Soft delete |
@@ -307,8 +360,16 @@ All responses use the envelope `{ success: true, data, meta? }` or
 ## 9. Security notes
 
 - Passwords are bcrypt-hashed (never stored or returned in plaintext).
-- Sessions are JWTs in **HTTP-only** cookies (`Secure` + configurable `SameSite` in production).
-- Login is rate-limited; the whole API has a general rate limiter.
+- Sessions are JWTs in **HTTP-only** cookies. `Secure` defaults to on in production and
+  on Vercel, rather than being something a missing `.env` line can quietly turn off.
+- Login is rate-limited; the whole API has a general rate limiter. The counters live in
+  memory, so on a serverless deployment — where many instances run at once — the effective
+  limit is multiplied by the instance count. See "Known limitations" in
+  [`DEPLOYMENT.md`](DEPLOYMENT.md) for how to make it a real ceiling.
+- `TRUST_PROXY` states how many proxies sit in front of the app, which is what decides the
+  address those limiters count against. It defaults to the true value per environment;
+  setting it higher would let a caller forge `X-Forwarded-For` and get a fresh quota per
+  request.
 - Uploads are validated by extension **and** mimetype, with a configurable max size/count.
 - Request bodies/params/queries are validated with `zod`; a custom sanitizer strips
   Mongo operator-injection keys (`$gt`, dotted paths) from `body`/`params`/`query`.

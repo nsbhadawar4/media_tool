@@ -7,6 +7,7 @@ import type {
   StorageService,
   UploadInput,
   StoredObjectMeta,
+  ObjectStat,
   StreamRange,
   StreamResult,
 } from './StorageProvider';
@@ -62,6 +63,16 @@ export class LocalStorageProvider implements StorageService {
     }
   }
 
+  async stat(key: string): Promise<ObjectStat | null> {
+    try {
+      const stat = await fsp.stat(this.resolveKey(key));
+      // The filesystem records no content type; callers fall back to the stored mimeType.
+      return { key, size: stat.size, contentType: null };
+    } catch {
+      return null;
+    }
+  }
+
   async getObjectStream(key: string, range?: StreamRange): Promise<StreamResult> {
     const full = this.resolveKey(key);
     let stat: fs.Stats;
@@ -97,6 +108,12 @@ export class LocalStorageProvider implements StorageService {
   async getSignedUrl(): Promise<string | null> {
     // No standalone file server for local dev storage, so there's nothing to sign.
     // Private files are served exclusively through the API's own token-guarded routes.
+    return null;
+  }
+
+  async getUploadUrl(): Promise<string | null> {
+    // Nothing for a browser to PUT to — local uploads go through the API's multipart
+    // endpoint, which is what the client falls back to when this returns null.
     return null;
   }
 }

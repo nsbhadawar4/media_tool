@@ -273,3 +273,152 @@ a,
     scroll-behavior: auto !important;
   }
 }
+
+/* ===========================================================================
+   Native mobile shell
+   Everything below is scoped to viewports narrower than `lg` (1024px) — the
+   width at which the sidebar appears. At `lg` and above every rule here either
+   does not apply or restores exactly what the desktop layout had before, so the
+   desktop design is untouched.
+=========================================================================== */
+
+/* Height of the bottom tab bar, excluding the home-indicator inset. */
+:root {
+  --app-tabbar-h: 4rem;
+}
+
+/*
+   Scroll padding for the main content column.
+   The desktop value is `env(safe-area-inset-bottom)` alone, which is what
+   `.app-safe-bottom` resolved to here before — on a desktop that is 0px, so the
+   desktop spacing is unchanged. Below `lg` it also clears the tab bar.
+*/
+.app-main-pad {
+  padding-bottom: calc(var(--app-tabbar-h) + 1.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .app-main-pad {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/*
+   Bottom-docked floating UI (upload progress, bulk action bar). `.app-dock-raised`
+   lifts the upload panel over the bulk bar by the same 6rem it used before. The
+   `lg` values reproduce the previous `sm:bottom-6` / `sm:bottom-30` exactly.
+*/
+.app-dock {
+  bottom: calc(var(--app-tabbar-h) + 1rem + env(safe-area-inset-bottom, 0px));
+}
+.app-dock-raised {
+  bottom: calc(var(--app-tabbar-h) + 7rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .app-dock {
+    bottom: 1.5rem;
+  }
+  .app-dock-raised {
+    bottom: 7.5rem;
+  }
+}
+
+/*
+   Rubber-band containment. Without this, flicking past the end of a gallery drags
+   the page behind it and the whole app visibly detaches from the top of the
+   screen — the single most "this is a web page" tell on iOS.
+*/
+.app-scroll {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Kills the 300ms tap delay without disabling pinch-zoom on content. */
+button,
+a,
+[role='button'],
+[role='menuitem'],
+[role='tab'] {
+  touch-action: manipulation;
+}
+
+/*
+   Chrome — nav bars, toolbars, tab labels — should not be selectable: a long-press
+   on a tab that pops a text-selection handle reads as a web page every time.
+   Content keeps normal selection.
+*/
+.app-no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/*
+   Touch feedback and chip rows, below `lg` only.
+
+   A pressed state is what tells a finger the tap registered — a pointer gets that from
+   hover, and a touch screen gets nothing at all unless the element says so. The scrollbar
+   rule keeps a chip row from painting a bar across the chips on a narrow screen.
+*/
+@media (max-width: 1023.98px) {
+  .app-pressable {
+    transition: transform 0.12s ease-out;
+  }
+  .app-pressable:active {
+    transform: scale(0.975);
+  }
+
+  .app-no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .app-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Sheets travel their own height, unlike the 8px nudge `slide-up` gives toasts. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/*
+   Route transition. Deliberately a short fade with a few pixels of travel rather
+   than a slide: a real push/pop needs to know the navigation's direction, and a
+   wrong-way slide is worse than none.
+*/
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 1023.98px) {
+  .app-page-enter {
+    animation: page-enter 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+/*
+   Dialog entry. On a phone the dialog arrives as a sheet from the bottom edge; from `lg`
+   up it scales in at the centre exactly as it did before.
+*/
+.app-modal-anim {
+  animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (min-width: 1024px) {
+  .app-modal-anim {
+    animation: scale-in 0.16s ease-out;
+  }
+}
