@@ -58,7 +58,7 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
           <ShieldCheck className="h-6 w-6" />
         </div>
         <h1 className="mt-4 text-xl font-semibold text-foreground">
-          {isAdminVariant ? 'Admin sign in' : 'Welcome back'}
+          {isAdminVariant ? 'Admin sign in' : 'Welcome back to login'}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {isAdminVariant ? 'Private area. Authorized access only.' : 'Sign in to your media library.'}
