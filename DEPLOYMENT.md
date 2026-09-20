@@ -128,6 +128,42 @@ cd .. && npm install
 The Install Command runs in the Root Directory (`frontend`), so the `cd ..` is what puts
 the install at the repository root where the workspaces are declared.
 
+### If the build fails on a missing native module
+
+A Linux build failing on something the local build never complains about — for example:
+
+```
+Cannot find module '../lightningcss.linux-x64-gnu'
+```
+
+means `package-lock.json` was last written on a machine of a different platform. Several
+dependencies here ship prebuilt native binaries as per-platform optional packages
+(`lightningcss`, `@tailwindcss/oxide` and `@next/swc` for the build, `sharp` at runtime),
+and `npm install` records only the ones it actually installed. A lockfile written on
+Windows therefore lists `…-win32-x64-msvc` and nothing else, and `npm ci` on Vercel — which
+installs strictly what the lockfile names — finds no Linux binary to use.
+
+Regenerate the lockfile so it describes every platform. The order matters: npm reuses the
+existing tree in `node_modules` if one is there, which reproduces the same one-platform
+result.
+
+```bash
+rm -rf node_modules frontend/node_modules backend/node_modules
+rm -f package-lock.json
+npm install --package-lock-only    # resolves from the registry: every platform
+npm install                        # installs this machine's binaries only
+```
+
+`--package-lock-only` is the step that matters: resolving without installing is what stops
+npm narrowing the result to the current platform. A normal `npm install` afterwards keeps
+the other platforms' entries, so this does not need repeating.
+
+Check before committing — this must print `true`:
+
+```bash
+node -e "console.log(Object.keys(require('./package-lock.json').packages).some(k => k.endsWith('lightningcss-linux-x64-gnu')))"
+```
+
 ---
 
 ## 4. Environment variables
