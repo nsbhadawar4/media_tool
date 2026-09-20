@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { Card } from '@/components/ui/Card';
 import { AuthField } from './AuthField';
 
 interface LoginFormProps {
@@ -52,7 +53,7 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
   };
 
   return (
-    <div className="w-full max-w-sm">
+    <Card className="w-full max-w-sm p-6 sm:p-8">
       <div className="flex flex-col items-center text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
           <ShieldCheck className="h-6 w-6" />
@@ -127,6 +128,6 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
           </Link>
         </p>
       )}
-    </div>
+    </Card>
   );
 }

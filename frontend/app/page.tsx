@@ -1,29 +1,33 @@
-import Link from 'next/link';
-import { ShieldCheck, Lock, FolderClosed } from 'lucide-react';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { SignupSuccessNotice } from '@/components/auth/SignupSuccessNotice';
 
+export const metadata: Metadata = {
+  title: 'Sign in — media_tool',
+};
+
+/**
+ * Signing in is the root of this app.
+ *
+ * Nothing here is public, so there is no landing page to show a signed-out visitor first —
+ * the form itself is the front door, and it lives at `/` so that is the only address
+ * anyone needs. `/login` still works and redirects here, for links and bookmarks that
+ * predate this.
+ *
+ * A visitor who still has a session never sees this: proxy.ts sends them to /dashboard
+ * before it renders.
+ */
 export default function HomePage() {
   return (
-    <main className="app-viewport-min-h flex flex-col items-center justify-center bg-background px-6 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-        <Lock className="h-7 w-7" />
-      </div>
-      <h1 className="mt-6 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">media_tool</h1>
-      <p className="mt-3 max-w-md text-balance text-sm text-muted sm:text-base">
-        A private personal library for photos, videos and documents. Nothing here is public — sign in to
-        continue.
-      </p>
-
-      <Link
-        href="/admin"
-        className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-medium text-accent-foreground shadow-sm transition hover:bg-accent-hover"
-      >
-        <ShieldCheck className="h-4 w-4" />
-        Go to Admin
-      </Link>
-
-      <div className="mt-14 flex items-center gap-2 text-xs text-muted">
-        <FolderClosed className="h-3.5 w-3.5" />
-        <span>Private &middot; Self-hosted &middot; Not indexed</span>
+    <main className="app-viewport-min-h flex items-center justify-center bg-background px-6 py-16">
+      <div className="w-full max-w-sm">
+        <Suspense fallback={null}>
+          <SignupSuccessNotice />
+        </Suspense>
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
       </div>
     </main>
   );

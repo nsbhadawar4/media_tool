@@ -45,7 +45,7 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
     try {
       await logout();
       toast.success('Signed out');
-      router.replace('/login');
+      router.replace('/');
     } catch {
       toast.error('Failed to sign out');
     }

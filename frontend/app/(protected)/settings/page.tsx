@@ -26,7 +26,7 @@ export default function SettingsPage() {
     try {
       await logout();
       toast.success('Signed out');
-      router.replace('/login');
+      router.replace('/');
     } catch {
       toast.error('Failed to sign out');
     }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Lock, Mail, Phone, UserRound, UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { Card } from '@/components/ui/Card';
 import { AuthField } from './AuthField';
 
 type FieldErrors = Partial<Record<'name' | 'email' | 'password' | 'confirmPassword' | 'mobile', string>>;
@@ -87,7 +88,7 @@ export function SignupForm() {
         mobile: values.mobile.trim() || undefined,
       });
       // The account exists but has no session; the login page says so and takes it from there.
-      router.replace('/login?registered=1');
+      router.replace('/?registered=1');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setErrors({ email: 'An account with this email already exists' });
@@ -100,7 +101,7 @@ export function SignupForm() {
   };
 
   return (
-    <div className="w-full max-w-sm">
+    <Card className="w-full max-w-sm p-6 sm:p-8">
       <div className="flex flex-col items-center text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
           <UserPlus className="h-6 w-6" />
@@ -190,10 +191,10 @@ export function SignupForm() {
 
       <p className="mt-6 text-center text-xs text-muted">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-accent transition hover:text-accent-hover">
+        <Link href="/" className="font-medium text-accent transition hover:text-accent-hover">
           Sign in
         </Link>
       </p>
-    </div>
+    </Card>
   );
 }

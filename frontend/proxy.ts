@@ -14,8 +14,15 @@ const PROTECTED_PREFIXES = [
   '/admin',
 ];
 
-/** Reached only while signed out; a live session is sent on to the app instead. */
-const AUTH_PAGES = ['/login', '/signup', '/admin/login'];
+/**
+ * Reached only while signed out; a live session is sent on to the app instead.
+ *
+ * `/` is in here because the sign-in form is the root of this app (see app/page.tsx).
+ * Without it, someone already signed in would land back on a login form instead of their
+ * dashboard. `/login` stays listed: it redirects to `/`, and catching it here means a
+ * signed-in visitor skips that hop entirely.
+ */
+const AUTH_PAGES = ['/', '/login', '/signup', '/admin/login'];
 
 /**
  * Fast, optimistic redirect based on cookie *presence* only — it never verifies the
@@ -37,7 +44,7 @@ export function proxy(request: NextRequest) {
     PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   if (isProtected && !hasSessionCookie) {
-    const loginUrl = new URL(pathname.startsWith('/admin') ? '/admin/login' : '/login', request.url);
+    const loginUrl = new URL(pathname.startsWith('/admin') ? '/admin/login' : '/', request.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -53,6 +60,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
     '/login',
     '/signup',
     '/dashboard/:path*',

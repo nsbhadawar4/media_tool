@@ -27,7 +27,7 @@ export function Sidebar({ variant = 'user' }: SidebarProps) {
     try {
       await logout();
       toast.success('Signed out');
-      router.replace('/login');
+      router.replace('/');
     } catch {
       toast.error('Failed to sign out');
     }
