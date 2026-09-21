@@ -80,6 +80,11 @@ const next = spawn('npx', ['next', 'start', '-p', String(PORT)], {
     MONGODB_URI: uri,
     JWT_SECRET: 'smoke-test-secret-value-not-used-anywhere-else',
     STORAGE_PROVIDER: 'local',
+    // This check deliberately uses no credentials and no real bucket, so it has to opt
+    // out of the refusal that local storage on a serverless host normally triggers. It
+    // still exercises the presign endpoint, which answers `mode: "proxy"` for a provider
+    // that cannot sign URLs — the same answer local development gets.
+    ALLOW_LOCAL_STORAGE_ON_SERVERLESS: '1',
     UPLOAD_DIR: '/tmp/media-tool-smoke-uploads',
     COOKIE_SECURE: 'false', // the smoke test speaks http; everything else stays production-shaped
   },

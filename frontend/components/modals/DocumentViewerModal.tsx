@@ -98,7 +98,17 @@ function TextPreview({ media }: { media: Media }) {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch(media.viewUrl, { credentials: 'include', signal: controller.signal })
+    /**
+     * Read through the API rather than following it to storage. Every other viewer here
+     * hands its URL to the browser as a resource — an <iframe>, an <img>, a download link
+     * — and the browser follows the redirect to the bucket transparently. This one reads
+     * the body itself, and a cross-origin read of a presigned URL is blocked by CORS, so
+     * it asks the API to relay the bytes instead. Text previews are capped at 2 MB above,
+     * so relaying them stays cheap.
+     */
+    const textUrl = `${media.viewUrl}${media.viewUrl.includes('?') ? '&' : '?'}proxy=1`;
+
+    fetch(textUrl, { credentials: 'include', signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Request failed (${response.status})`);
         return response.text();

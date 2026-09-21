@@ -112,6 +112,30 @@ The bucket CORS rule needs roughly this, with your own origin:
 ]
 ```
 
+### Media uploaded before the switch
+
+Changing `STORAGE_PROVIDER` changes where the app *looks* for every file, not only where
+it puts new ones. Records written while the provider was `local` hold keys that only ever
+existed in `backend/uploads` on one machine, so after the switch they resolve to nothing
+in the bucket and show as broken thumbnails. Nothing is lost — the database rows and the
+local files are both untouched — but the two no longer point at each other.
+
+Nothing does this automatically, and no deployment step depends on it. To repair those
+records, run the migration from the machine that still holds `backend/uploads`, with
+`backend/.env` pointing at the **same** MongoDB the deployment uses and at the bucket:
+
+```bash
+npm run migrate-storage              # dry run - reports what it would do
+npm run migrate-storage -- --apply   # upload the bytes, then repoint the records
+```
+
+It copies rather than moves (local originals stay where they are), never deletes a file
+or a record, skips anything already in the bucket, and is safe to re-run after a failure.
+Records whose bytes are not on that machine are reported and left alone.
+
+Skipping this entirely is a valid choice: new uploads work regardless, and the old records
+stay in the database as they are.
+
 ### MongoDB Atlas
 
 - Under **Network Access**, add `0.0.0.0/0`. Vercel Functions do not have fixed outbound
@@ -215,7 +239,14 @@ Set these on the Vercel project (**Settings → Environment Variables**), for Pr
 ### Required for Cloudflare R2
 
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`.
-Add `R2_PUBLIC_BASE_URL` only if the bucket is deliberately public.
+
+Add `R2_PUBLIC_BASE_URL` — or `R2_PUBLIC_URL`, which is accepted as an alias for it —
+**only** if the bucket is deliberately public. Leave both unset for a private bucket, the
+recommended setup: media is then reachable only through this API's ownership check.
+
+Find the first four in the Cloudflare dashboard: **R2 → Manage R2 API Tokens** issues an
+access key pair with *Object Read & Write* on the bucket, and the account id is in the
+R2 overview sidebar (it is also the subdomain of the S3 endpoint the dashboard shows).
 
 ### Required for Amazon S3
 

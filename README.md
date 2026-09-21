@@ -55,9 +55,10 @@ media_tool/
 │   │   ├── services/          # storage abstraction, folder/media/activity/token logic
 │   │   │   └── storage/       # StorageService + Local/S3(R2) implementations + factory
 │   │   ├── controllers/, routes/, validators/, utils/, types/
-│   │   ├── scripts/           # create-admin.ts, hash-password.ts, generate-thumbnails.ts
+│   │   ├── scripts/           # create-admin.ts, hash-password.ts, generate-thumbnails.ts,
+│   │   │                       # migrate-storage.ts (local -> R2/S3, opt-in, non-destructive)
 │   │   ├── app.ts, server.ts
-│   ├── tests/                  # trash/recovery, owner isolation, and Vercel bridge tests
+│   ├── tests/                  # trash/recovery, owner isolation, Vercel bridge, R2 config
 │   ├── smoke-vercel.mts        # `npm run smoke`: end-to-end check of the deployed shape
 │   ├── uploads/                # local storage provider's files (dev only, gitignored)
 │   └── .env.example
@@ -166,12 +167,18 @@ actually serve private files with HTTP Range support — see the design note bel
   Thumbnails sit in a flat prefix keyed off the original's unique generated name, so they
   don't have to be moved when their file's folder changes either. Nothing else to configure.
 - **`r2`** (Cloudflare R2) — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-  `R2_BUCKET_NAME` (and optionally `R2_PUBLIC_BASE_URL` if the bucket is bound to a custom domain).
+  `R2_BUCKET_NAME` (and optionally `R2_PUBLIC_BASE_URL`, or its accepted alias
+  `R2_PUBLIC_URL`, if the bucket is bound to a custom domain and deliberately public).
+  Keys use the same layout as the local tree above, so a bucket stays browsable.
 - **`s3`** (Amazon S3, or any S3-compatible service) — set `S3_REGION`, `S3_ACCESS_KEY_ID`,
   `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` (and `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE` for
   non-AWS S3-compatible services like MinIO).
 
-Switch providers anytime by changing `STORAGE_PROVIDER` — no application code changes needed.
+Switch providers anytime by changing `STORAGE_PROVIDER` — no application code changes
+needed. Note what that does *not* do: media already recorded under the old provider keeps
+its old keys, so its files stay where they are and the app will not find them in the new
+bucket. `npm run migrate-storage` copies those files across and repoints the records; it
+is opt-in, dry-run by default, and deletes nothing. See DEPLOYMENT.md §2.
 
 Files are **never** served from a public bucket URL directly to the browser. Every
 `<img>`/`<video>`/download link the frontend renders points at the backend's own
@@ -189,6 +196,15 @@ server decides — the client has one code path for both.
 - **`r2` / `s3`**: uploads go `POST /api/media/presign` → browser `PUT`s straight to the
   bucket → `POST /api/media/commit`. Serving redirects (`302`) to a short-lived presigned
   `GET`. The bytes never pass through the API in either direction.
+
+  One exception, and it is deliberate: a caller that reads a file's bytes *itself* rather
+  than handing the URL to the browser cannot follow that redirect, because a cross-origin
+  read of a presigned URL has no CORS headers to permit it (and for a credentialed request
+  cannot have them, since S3-style CORS never emits `Access-Control-Allow-Credentials`).
+  Such callers add `?proxy=1` to the view URL and the API relays the bytes instead. Only
+  the inline text-document preview does this today, and it is capped at 2 MB. Everything
+  the browser loads as a resource — `<img>`, `<video>`, the PDF `<iframe>`, download links
+  — follows the redirect normally and never touches the function.
 
 That second path is what makes the app deployable on a serverless host at all, where a
 request body is capped at 4.5 MB and a function is a poor media server. The ownership

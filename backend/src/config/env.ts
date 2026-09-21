@@ -83,6 +83,18 @@ const envSchema = z.object({
   TRUST_PROXY: z.string().default(isServerless ? '1' : ''),
 
   STORAGE_PROVIDER: z.enum(['local', 'r2', 's3']).default('local'),
+
+  /**
+   * Permits STORAGE_PROVIDER=local on a host where the filesystem does not persist,
+   * which the storage factory otherwise refuses outright.
+   *
+   * Exists for exactly one caller: smoke-vercel.mts, which runs the deployed shape
+   * (VERCEL=1, the API inside Next.js) against a throwaway database specifically so the
+   * check needs no credentials and no real bucket. Nothing else should set it — in a real
+   * deployment it re-enables the silent data loss the refusal exists to prevent, since
+   * every uploaded file would go to a disk that is discarded with the instance.
+   */
+  ALLOW_LOCAL_STORAGE_ON_SERVERLESS: boolish(false),
   // Directory the `local` storage provider writes to, relative to backend/.
   // LOCAL_STORAGE_DIR is the previous name for this and is still honoured below.
   UPLOAD_DIR: z.string().optional(),
@@ -92,7 +104,15 @@ const envSchema = z.object({
   R2_ACCESS_KEY_ID: optionalString,
   R2_SECRET_ACCESS_KEY: optionalString,
   R2_BUCKET_NAME: optionalString,
+  /**
+   * Public base URL for a bucket that is deliberately served publicly. Two spellings are
+   * accepted because both are in circulation: R2_PUBLIC_BASE_URL is this project's own
+   * name for it, and R2_PUBLIC_URL is what Cloudflare's dashboard and most R2 guides call
+   * it. Resolved into a single value below, so a deployment configured with either name
+   * behaves identically rather than silently falling back to API-streamed URLs.
+   */
   R2_PUBLIC_BASE_URL: optionalString,
+  R2_PUBLIC_URL: optionalString,
 
   S3_REGION: optionalString,
   S3_ACCESS_KEY_ID: optionalString,
@@ -153,6 +173,10 @@ function resolveTrustProxy(value: string): number | string | boolean {
 
 export const env = {
   ...raw,
+
+  /** Either spelling of the R2 public base URL; the project's own name wins if both are set. */
+  R2_PUBLIC_BASE_URL: raw.R2_PUBLIC_BASE_URL ?? raw.R2_PUBLIC_URL,
+
   isProduction: raw.NODE_ENV === 'production',
   isDevelopment: raw.NODE_ENV === 'development',
   isServerless,

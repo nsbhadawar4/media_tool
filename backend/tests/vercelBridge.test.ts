@@ -204,6 +204,18 @@ test('a streamed file arrives whole and byte-for-byte', async () => {
   const received = Buffer.from(await res.arrayBuffer());
   assert.equal(received.length, bytes.length, 'streamed body was truncated');
   assert.ok(received.equals(bytes), 'streamed body did not match the stored file');
+
+  /**
+   * `proxy=1` is what a caller reading the bytes itself (the text-document preview) uses
+   * to be served through the API rather than redirected to the bucket, whose presigned
+   * URLs carry no CORS headers. On a provider that cannot redirect anyway this must be a
+   * no-op — the param travels through route validation and reaches the same stream.
+   */
+  const proxied = await send(`/api/media/${media._id.toString()}/raw?token=${token}&proxy=1`);
+
+  assert.equal(proxied.status, 200);
+  assert.equal(proxied.headers.get('content-type'), 'image/jpeg');
+  assert.ok(Buffer.from(await proxied.arrayBuffer()).equals(bytes), 'proxied body did not match');
 });
 
 test('a Range request comes back as a 206 with only the requested bytes', async () => {

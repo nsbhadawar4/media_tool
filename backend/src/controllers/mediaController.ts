@@ -211,10 +211,23 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
    * Range requests need no special handling: the browser re-issues the Range against the
    * redirect target, and S3/R2 serve partial content natively, so video seeking works.
    */
-  const signedUrl = await provider.getSignedUrl(media.storageKey, {
-    ...(disposition === 'attachment' ? { downloadFilename: media.originalName } : {}),
-    contentType: media.mimeType,
-  });
+  /**
+   * A redirect is right for everything the browser loads as a resource — <img>, <video>,
+   * an iframe, a download link — and wrong for anything that reads the bytes itself with
+   * fetch(). Following the redirect makes that a cross-origin read of the bucket, which
+   * the response must opt into with CORS headers a presigned S3/R2 URL does not carry;
+   * for a credentialed request it cannot carry them at all, since S3-style CORS never
+   * emits Access-Control-Allow-Credentials. Such callers ask for `?proxy=1` instead and
+   * get the bytes relayed below, same-origin, exactly as local development already does.
+   */
+  const proxyRequested = req.query.proxy === '1' || req.query.proxy === 'true';
+
+  const signedUrl = proxyRequested
+    ? null
+    : await provider.getSignedUrl(media.storageKey, {
+        ...(disposition === 'attachment' ? { downloadFilename: media.originalName } : {}),
+        contentType: media.mimeType,
+      });
 
   if (signedUrl) {
     // Private: the URL embeds a signature scoped to this viewer's request, so it must
