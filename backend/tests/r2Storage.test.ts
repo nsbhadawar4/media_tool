@@ -23,13 +23,12 @@ const FAKE_ACCOUNT_ID = 'test-account';
 /**
  * Set before any application module loads. `src/config/env` reads process.env once, at
  * import time, so these have to be in place first — which is why every application
- * import in this file is dynamic. R2_PUBLIC_URL rather than R2_PUBLIC_BASE_URL is the
- * point of the alias test below.
+ * import in this file is dynamic.
  */
 process.env.MONGODB_URI ??= 'mongodb://127.0.0.1:27017/media_tool_tests_unused';
 process.env.JWT_SECRET ??= 'test-only-secret-not-used-outside-tests';
 process.env.NODE_ENV = 'test';
-process.env.R2_PUBLIC_URL = 'https://cdn.example.test';
+
 
 // Production's storage configuration, so the negotiation test below exercises the real
 // factory rather than a hand-built provider. The credentials are fake and never used
@@ -132,19 +131,16 @@ test('a presigned upload URL asks the browser for no header it cannot send', asy
   }
 });
 
-test('R2_PUBLIC_URL is honoured as an alias for R2_PUBLIC_BASE_URL', async () => {
-  const { env } = await import('../src/config/env');
-
-  // Set at the top of this file under the alias only; the app must still see it.
-  assert.equal(env.R2_PUBLIC_BASE_URL, 'https://cdn.example.test');
-
+test('R2_PUBLIC_BASE_URL, when set, becomes the direct URL for an object', async () => {
   const { S3StorageProvider } = await import('../src/services/storage/S3StorageProvider');
   const { buildR2ClientConfig } = await import('../src/services/storage');
 
+  // The opt-in case: a bucket deliberately published behind a custom domain. Trailing
+  // slash included, because a configured value routinely has one and must not double up.
   const provider = new S3StorageProvider({
     name: 'r2',
     bucket: 'test-bucket',
-    publicBaseUrl: env.R2_PUBLIC_BASE_URL ?? null,
+    publicBaseUrl: 'https://cdn.example.test/',
     clientConfig: buildR2ClientConfig(FAKE_CREDENTIALS),
   });
 

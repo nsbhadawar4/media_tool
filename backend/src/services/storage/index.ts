@@ -105,7 +105,23 @@ function buildProvider(): StorageService {
         clientConfig: {
           region: S3_REGION,
           credentials: { accessKeyId: S3_ACCESS_KEY_ID, secretAccessKey: S3_SECRET_ACCESS_KEY },
-          ...(S3_ENDPOINT ? { endpoint: S3_ENDPOINT, forcePathStyle: S3_FORCE_PATH_STYLE } : {}),
+          ...(S3_ENDPOINT
+            ? {
+                endpoint: S3_ENDPOINT,
+                forcePathStyle: S3_FORCE_PATH_STYLE,
+                /**
+                 * S3_ENDPOINT is only ever set to reach something that is not Amazon S3 —
+                 * MinIO, Backblaze, R2 by hand. The `aws-chunked` body framing with a
+                 * trailing checksum that the SDK applies by default is an AWS extension,
+                 * and an S3-compatible service is under no obligation to decode it; one
+                 * that does not will either reject the upload or store the framing as
+                 * part of the file. Amazon S3 itself, reached without a custom endpoint,
+                 * keeps the default. Same reasoning as buildR2ClientConfig above.
+                 */
+                requestChecksumCalculation: 'WHEN_REQUIRED' as const,
+                responseChecksumValidation: 'WHEN_REQUIRED' as const,
+              }
+            : {}),
         },
       });
     }

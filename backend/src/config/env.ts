@@ -105,14 +105,13 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: optionalString,
   R2_BUCKET_NAME: optionalString,
   /**
-   * Public base URL for a bucket that is deliberately served publicly. Two spellings are
-   * accepted because both are in circulation: R2_PUBLIC_BASE_URL is this project's own
-   * name for it, and R2_PUBLIC_URL is what Cloudflare's dashboard and most R2 guides call
-   * it. Resolved into a single value below, so a deployment configured with either name
-   * behaves identically rather than silently falling back to API-streamed URLs.
+   * Public base URL for a bucket deliberately served publicly (a custom domain or CDN
+   * bound to it). Optional, and best left unset: with no value the app has no direct URL
+   * to hand out, so every file is served through this API behind an ownership check, via
+   * short-lived presigned URLs. Setting it declares the bucket readable by anyone holding
+   * an object's address, and media URLs stop being access-controlled.
    */
   R2_PUBLIC_BASE_URL: optionalString,
-  R2_PUBLIC_URL: optionalString,
 
   S3_REGION: optionalString,
   S3_ACCESS_KEY_ID: optionalString,
@@ -173,10 +172,6 @@ function resolveTrustProxy(value: string): number | string | boolean {
 
 export const env = {
   ...raw,
-
-  /** Either spelling of the R2 public base URL; the project's own name wins if both are set. */
-  R2_PUBLIC_BASE_URL: raw.R2_PUBLIC_BASE_URL ?? raw.R2_PUBLIC_URL,
-
   isProduction: raw.NODE_ENV === 'production',
   isDevelopment: raw.NODE_ENV === 'development',
   isServerless,

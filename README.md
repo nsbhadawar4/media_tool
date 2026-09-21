@@ -166,10 +166,10 @@ actually serve private files with HTTP Range support — see the design note bel
   renaming or moving a folder in the UI never touches any already-uploaded file's path.
   Thumbnails sit in a flat prefix keyed off the original's unique generated name, so they
   don't have to be moved when their file's folder changes either. Nothing else to configure.
-- **`r2`** (Cloudflare R2) — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-  `R2_BUCKET_NAME` (and optionally `R2_PUBLIC_BASE_URL`, or its accepted alias
-  `R2_PUBLIC_URL`, if the bucket is bound to a custom domain and deliberately public).
-  Keys use the same layout as the local tree above, so a bucket stays browsable.
+- **`r2`** (Cloudflare R2) — set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+  and `R2_BUCKET_NAME`. `R2_PUBLIC_BASE_URL` is optional and normally left unset, so the
+  bucket stays private and files are served through this API instead (see below). Keys use
+  the same layout as the local tree above, so a bucket stays browsable.
 - **`s3`** (Amazon S3, or any S3-compatible service) — set `S3_REGION`, `S3_ACCESS_KEY_ID`,
   `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME` (and `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE` for
   non-AWS S3-compatible services like MinIO).

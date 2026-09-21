@@ -90,27 +90,53 @@ Production **must** use Cloudflare R2 or Amazon S3. This is not a preference:
 Create a **private** bucket. The app never needs it to be public: files are served through
 short-lived presigned URLs minted only after an ownership check.
 
-Recommended bucket settings:
+### Cloudflare R2, step by step
+
+1. **Create the bucket.** Cloudflare dashboard → **R2** → *Create bucket*. Any name; the
+   location hint can stay *Automatic*. Leave public access **disabled** — under
+   *Settings → Public Development URL*, do not enable it. The app does not want it, and
+   enabling it makes every object readable by anyone who learns its address.
+
+2. **Copy the account id.** It is shown in the R2 overview sidebar, and is also the
+   subdomain of the S3 endpoint the bucket page displays
+   (`https://<account-id>.r2.cloudflarestorage.com`). This is `R2_ACCOUNT_ID`.
+
+3. **Create an API token.** R2 → **Manage R2 API Tokens** → *Create API token*, with
+   permission **Object Read & Write**, scoped to this one bucket. The token page shows an
+   *Access Key ID* and a *Secret Access Key* — these are `R2_ACCESS_KEY_ID` and
+   `R2_SECRET_ACCESS_KEY`. The secret is shown once; if it is lost, issue a new token.
+   Do not use the *API Token* value itself, which is a different credential.
+
+4. **Add the CORS policy.** Bucket → **Settings → CORS policy** → *Add CORS policy*. The
+   browser uploads straight to the bucket, so without this every upload fails with a CORS
+   error in the console while the API reports nothing wrong. Nothing in the application
+   configures this; it is a property of the bucket.
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://media-tool.vercel.app"],
+       "AllowedMethods": ["PUT"],
+       "AllowedHeaders": ["content-type"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   `PUT` is the only method needed, and `content-type` the only header: the browser sends
+   exactly one request to the bucket per file, and reads nothing back from it. Downloads
+   and previews are redirects the browser follows as a resource, which CORS does not
+   apply to. Add each preview domain you want uploads to work from as a further entry in
+   `AllowedOrigins`; a deploy preview has its own hostname.
+
+5. **Set the environment variables** on the Vercel project — see §4 — and redeploy.
+
+Optional but recommended bucket settings:
 
 | Setting | Why |
 | --- | --- |
-| Private (no public access) | Media is per-user and private by design |
-| CORS: allow `PUT` from your domain | The browser uploads straight to the bucket |
-| Lifecycle rule: delete incomplete objects after ~1 day | Cleans up uploads that were presigned and started but never committed |
-| Versioning on | Protects against accidental deletion (see README §10) |
-
-The bucket CORS rule needs roughly this, with your own origin:
-
-```json
-[
-  {
-    "AllowedOrigins": ["https://media-tool.vercel.app"],
-    "AllowedMethods": ["PUT"],
-    "AllowedHeaders": ["content-type"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
+| Lifecycle rule: abort incomplete multipart uploads after ~1 day | Cleans up uploads that were presigned and started but never finished |
+| Object versioning | Protects against accidental deletion (see README §10) |
 
 ### Media uploaded before the switch
 
@@ -240,9 +266,10 @@ Set these on the Vercel project (**Settings → Environment Variables**), for Pr
 
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`.
 
-Add `R2_PUBLIC_BASE_URL` — or `R2_PUBLIC_URL`, which is accepted as an alias for it —
-**only** if the bucket is deliberately public. Leave both unset for a private bucket, the
-recommended setup: media is then reachable only through this API's ownership check.
+`R2_PUBLIC_BASE_URL` is optional and should be **left unset**, which is the recommended
+setup: with no public base URL the app has no direct link to hand out, so every file is
+served through this API's ownership check. Set it only for a bucket you have deliberately
+made public behind a custom domain.
 
 Find the first four in the Cloudflare dashboard: **R2 → Manage R2 API Tokens** issues an
 access key pair with *Object Read & Write* on the bucket, and the account id is in the
