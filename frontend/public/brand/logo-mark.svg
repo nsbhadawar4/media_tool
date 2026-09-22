@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="media_tool">
+  <!--
+    The source of truth for every icon this app ships. The favicon, the PWA icons, the
+    Apple touch icon and the in-app mark are all rasterised from this file by
+    scripts/generate-brand-assets.mjs, so they cannot drift apart.
+
+    The mark is a stack of media sheets with a play triangle on the front one: the stack
+    says "a library of things", the triangle says "media", and together they survive being
+    shrunk to 16px — which is the real constraint on a favicon. Anything with a lock, an
+    aperture or a wordmark turned to mush at that size.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B7BFF" />
+      <stop offset="0.55" stop-color="#6D5EF8" />
+      <stop offset="1" stop-color="#5B4CE8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="url(#tile)" />
+
+  <!--
+    Two sheets peeking out behind the front card, each narrower than the one in front of
+    it. The gaps matter as much as the shapes: drawn flush they merge into one silhouette
+    and the mark stops reading as a stack at all.
+  -->
+  <rect x="21" y="12.5" width="22" height="4" rx="2" fill="#FFFFFF" opacity="0.4" />
+  <rect x="16" y="18" width="32" height="4" rx="2" fill="#FFFFFF" opacity="0.65" />
+
+  <rect x="11" y="24" width="42" height="27" rx="6" fill="#FFFFFF" />
+
+  <!-- Nudged left of the card's geometric centre: a triangle's visual mass sits toward its
+       base, so a centred bounding box reads as pushed right. -->
+  <path d="M26.3 31 L26.3 44 L37.8 37.5 Z" fill="#5B4CE8" />
+</svg>

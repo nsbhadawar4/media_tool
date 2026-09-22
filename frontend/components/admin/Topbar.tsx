@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Lock, LogOut, Moon, Search, Settings, Sun, User } from 'lucide-react';
+import { ChevronDown, LogOut, Moon, Search, Settings, Sun, User } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/toast/ToastContext';
@@ -56,9 +57,7 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
           {/* Brand, below `lg` only — from `lg` up the sidebar already carries it, and the
               hamburger that used to sit here is gone now that navigation lives at the bottom. */}
           <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-              <Lock className="h-4 w-4" />
-            </span>
+            <Logo className="h-8 w-8 shrink-0" />
             <span className="truncate text-sm font-semibold text-foreground">
               media_tool
               {isAdminArea && <span className="ml-1 text-xs font-normal text-muted">admin</span>}

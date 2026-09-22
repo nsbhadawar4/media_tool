@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FolderClosed, Users, LogOut, Lock } from 'lucide-react';
+import { FolderClosed, Users, LogOut } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/toast/ToastContext';
 import { ADMIN_NAV, USER_NAV, isNavItemActive } from './navItems';
@@ -46,9 +47,8 @@ export function Sidebar({ variant = 'user' }: SidebarProps) {
     <div className="flex h-full flex-col bg-sidebar-bg text-sidebar-foreground">
       <div className="flex shrink-0 items-center px-5 py-5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-sidebar-active">
-            <Lock className="h-4 w-4" />
-          </div>
+          {/* The mark carries its own tile and colour, so it needs no container to sit in. */}
+          <Logo className="h-8 w-8 shrink-0" />
           <span className="truncate text-sm font-semibold text-sidebar-active">
             media_tool{isAdminArea && <span className="ml-1 text-xs font-normal opacity-70">admin</span>}
           </span>

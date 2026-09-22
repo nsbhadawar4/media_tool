@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, Mail } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
@@ -55,9 +56,7 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
   return (
     <Card className="w-full max-w-sm p-6 sm:p-8">
       <div className="flex flex-col items-center text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
+        <Logo className="h-14 w-14" />
         <h1 className="mt-4 text-xl font-semibold text-foreground">
           {isAdminVariant ? 'Admin sign in' : 'Welcome back to login'}
         </h1>

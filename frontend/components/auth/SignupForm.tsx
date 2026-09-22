@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Lock, Mail, Phone, UserRound, UserPlus } from 'lucide-react';
+import { Loader2, Lock, Mail, Phone, UserRound } from 'lucide-react';
+import { Logo } from '@/components/brand/Logo';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
@@ -103,9 +104,9 @@ export function SignupForm() {
   return (
     <Card className="w-full max-w-sm p-6 sm:p-8">
       <div className="flex flex-col items-center text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-          <UserPlus className="h-6 w-6" />
-        </div>
+        {/* The brand, not an action icon: this and the sign-in card are the app's front
+            door, and both should say which app it is before saying what to do here. */}
+        <Logo className="h-14 w-14" />
         <h1 className="mt-4 text-xl font-semibold text-foreground">Create your account</h1>
         <p className="mt-1.5 text-sm text-muted">Your own private space for photos, videos and documents.</p>
       </div>
