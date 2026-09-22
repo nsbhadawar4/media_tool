@@ -33,6 +33,19 @@ export const UploadErrorCode = {
   StorageUploadFailed: 'STORAGE_UPLOAD_FAILED',
   /** The write reported success but what came back was not what went in. */
   StorageVerificationFailed: 'STORAGE_VERIFICATION_FAILED',
+  /** The record is here; the object it names is not. */
+  StorageNotFound: 'STORAGE_NOT_FOUND',
+  /**
+   * The record was written against a different storage backend than the one this
+   * deployment runs, so its bytes were never in reach — not lost, just elsewhere.
+   *
+   * Its own code because it is the one failure here that is neither a fault nor a
+   * corruption: a record made while STORAGE_PROVIDER was `local` names a path on one
+   * machine's disk, and the same database read by a deployment running `gridfs` finds
+   * nothing at that key. Reported as "missing" it sends people looking for a bug in
+   * uploading; named, it points straight at the migration that fixes it.
+   */
+  StorageProviderMismatch: 'STORAGE_PROVIDER_MISMATCH',
   /** The bytes are stored, but the record describing them could not be written. */
   MediaRecordFailed: 'MEDIA_RECORD_FAILED',
   /** A valid image whose thumbnail could not be produced or stored. */

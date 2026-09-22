@@ -34,7 +34,7 @@ import { Media, type IMedia } from '../models/Media';
 import { getStorageProvider } from '../services/storage';
 import { generateThumbnail } from '../services/thumbnailService';
 
-type Verdict = 'ok' | 'missing' | 'size-mismatch' | 'checksum-mismatch' | 'unreadable';
+type Verdict = 'ok' | 'legacy-provider' | 'missing' | 'size-mismatch' | 'checksum-mismatch' | 'unreadable';
 
 interface Finding {
   media: IMedia;
@@ -59,6 +59,17 @@ async function hashStoredObject(storageKey: string): Promise<string> {
 async function inspect(media: IMedia): Promise<Finding> {
   const provider = getStorageProvider();
   const base = { media, thumbnailMissing: false };
+
+  /**
+   * Reported before anything is looked up, because "not found" would be a true answer to
+   * the wrong question. A record written while STORAGE_PROVIDER was `local` names a path
+   * on one machine's disk; read by a deployment using GridFS it resolves to nothing, and
+   * calling that missing sends people hunting for a data-loss bug when the bytes are
+   * sitting safely in backend/uploads waiting to be migrated.
+   */
+  if (media.storageProvider !== provider.name) {
+    return { ...base, verdict: 'legacy-provider', detail: `stored by "${media.storageProvider}"` };
+  }
 
   let stat;
   try {
@@ -151,7 +162,8 @@ async function main(): Promise<void> {
     findings.push(await inspect(media));
   }
 
-  const broken = findings.filter((f) => f.verdict !== 'ok');
+  const legacy = findings.filter((f) => f.verdict === 'legacy-provider');
+  const broken = findings.filter((f) => f.verdict !== 'ok' && f.verdict !== 'legacy-provider');
   const thumbnailGaps = findings.filter((f) => f.verdict === 'ok' && f.thumbnailMissing);
 
   for (const finding of broken) {
@@ -161,10 +173,30 @@ async function main(): Promise<void> {
     );
   }
 
+  for (const { media, detail } of legacy) {
+    console.log(`  legacy-provider    ${media._id.toString()}  ${media.originalName}  — ${detail}`);
+  }
+
   console.log(
-    `\n${findings.length - broken.length} intact, ${broken.length} with a problem, ` +
-      `${thumbnailGaps.length} missing only a preview`,
+    `\n${findings.length - broken.length - legacy.length} intact, ${broken.length} with a problem, ` +
+      `${legacy.length} on another storage backend, ${thumbnailGaps.length} missing only a preview`,
   );
+
+  if (legacy.length > 0) {
+    /**
+     * Said loudly, because it is the one finding here that looks like data loss and is not.
+     * These records name bytes that a different provider holds — most often a developer's
+     * `backend/uploads`, when one database is shared with a deployment that uses GridFS.
+     * The files are intact; they are simply somewhere this deployment cannot reach.
+     */
+    console.log(
+      `\n${legacy.length} record(s) were written against a different storage provider. Their bytes\n` +
+        'are not lost — they are wherever that provider put them. Run the migration from the\n' +
+        'machine that still holds them:\n\n' +
+        `    STORAGE_PROVIDER=${provider.name} npm run migrate-storage            # dry run\n` +
+        `    STORAGE_PROVIDER=${provider.name} npm run migrate-storage -- --apply\n`,
+    );
+  }
 
   if (fixThumbnails && thumbnailGaps.length > 0) {
     console.log('\nRegenerating previews…');
@@ -178,6 +210,8 @@ async function main(): Promise<void> {
     console.log('  (pass --fix-thumbnails to regenerate those previews)');
   }
 
+  // Deliberately excludes legacy-provider records: those are recoverable by migration,
+  // and trashing them would turn a fixable configuration gap into lost user data.
   const gone = broken.filter((f) => f.verdict === 'missing');
   if (trashMissing && gone.length > 0) {
     console.log('\nMoving records with no stored bytes to the trash…');

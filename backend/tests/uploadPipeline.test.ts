@@ -395,6 +395,100 @@ test('a failed upload can simply be retried', async () => {
 });
 
 /* -------------------------------------------------------------------------- */
+/* Media stored by a different provider                                        */
+/* -------------------------------------------------------------------------- */
+
+test('a file stored by another provider is reported as such, not as missing', async () => {
+  /**
+   * The production failure this whole audit started from, reduced to its essentials.
+   *
+   * One database shared between a developer running STORAGE_PROVIDER=local and a
+   * deployment running gridfs gives every locally uploaded file a record whose key names a
+   * path on one machine's disk. The deployment looks in GridFS, finds nothing, and reports
+   * the file missing — which is true of the place it looked and false about the file, and
+   * sends everyone hunting for a data-loss bug while the bytes sit safely in
+   * backend/uploads. Naming the condition is what points at the migration instead.
+   */
+  const png = await imageBuffer('png');
+  const { body } = await upload(alice, 'holiday.png', png, 'image/png');
+  const id = body.data!.uploaded[0]!.id;
+
+  // Exactly what a record written by a different deployment looks like here.
+  await Media.updateOne({ _id: id }, { storageProvider: 'gridfs' });
+
+  for (const route of ['raw', 'thumb'] as const) {
+    const res = await fetch(`${baseUrl}/api/media/${id}/${route}`, { headers: { cookie: alice.cookie } });
+
+    assert.equal(res.status, 404, `${route} should refuse it`);
+    assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+
+    const payload = (await res.json()) as { error: { message: string; code?: string } };
+    assert.equal(payload.error.code, 'STORAGE_PROVIDER_MISMATCH');
+    assert.match(payload.error.message, /different storage backend/i);
+    // The key names a path on someone else's machine; it has no business in a response.
+    assert.doesNotMatch(payload.error.message, /images\//);
+  }
+});
+
+test('the record itself is untouched — this is a retrieval problem, not a deletion', async () => {
+  // Nothing about this state should destroy anything: the bytes are recoverable by
+  // migration, and a record removed on sight would take the only pointer to them with it.
+  const png = await imageBuffer('png');
+  const { body } = await upload(alice, 'holiday.png', png, 'image/png');
+  const id = body.data!.uploaded[0]!.id;
+
+  await Media.updateOne({ _id: id }, { storageProvider: 'gridfs' });
+  await fetch(`${baseUrl}/api/media/${id}/raw`, { headers: { cookie: alice.cookie } });
+
+  const stillThere = await Media.findById(id);
+  assert.ok(stillThere, 'the record must survive a failed read');
+  assert.equal(stillThere.storageKey.length > 0, true);
+});
+
+/* -------------------------------------------------------------------------- */
+/* Listing by type                                                             */
+/* -------------------------------------------------------------------------- */
+
+test('the library can be listed by several types at once', async () => {
+  /**
+   * The Media page holds photos and videos and the Documents page holds neither. With a
+   * single-valued filter the Media page could ask for only one of its two types, so it
+   * asked for nothing — and listed every document in the library alongside the photos.
+   */
+  await upload(alice, 'holiday.png', await imageBuffer('png'), 'image/png');
+  await upload(alice, 'report.pdf', pdfBuffer(), 'application/pdf');
+
+  const both = await fetch(`${baseUrl}/api/media?fileType=image,video`, {
+    headers: { cookie: alice.cookie },
+  });
+  const bothBody = (await both.json()) as { data: Array<{ fileType: string }> };
+
+  assert.equal(both.status, 200);
+  assert.equal(bothBody.data.length, 1);
+  assert.equal(bothBody.data[0]!.fileType, 'image');
+
+  const documents = await fetch(`${baseUrl}/api/media?fileType=document`, {
+    headers: { cookie: alice.cookie },
+  });
+  const documentsBody = (await documents.json()) as { data: Array<{ fileType: string }> };
+  assert.equal(documentsBody.data.length, 1);
+  assert.equal(documentsBody.data[0]!.fileType, 'document');
+
+  // No filter still means the whole library, which is what the dashboard shows.
+  const everything = await fetch(`${baseUrl}/api/media`, { headers: { cookie: alice.cookie } });
+  assert.equal(((await everything.json()) as { data: unknown[] }).data.length, 2);
+});
+
+test('a type that does not exist is refused rather than ignored', async () => {
+  // Ignoring it would widen the request to the whole library — the strictest page in the
+  // app quietly becoming the loosest, over a typo.
+  const res = await fetch(`${baseUrl}/api/media?fileType=image,spreadsheet`, {
+    headers: { cookie: alice.cookie },
+  });
+  assert.equal(res.status, 400);
+});
+
+/* -------------------------------------------------------------------------- */
 /* Access control                                                              */
 /* -------------------------------------------------------------------------- */
 

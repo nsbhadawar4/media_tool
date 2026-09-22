@@ -4,7 +4,12 @@ import type { UploadCategory } from '@/utils/uploadAccept';
 
 export interface ListMediaParams {
   folderId?: string;
-  fileType?: FileType;
+  /**
+   * One type, or several. An array is serialised as `image,video`, which is what the
+   * endpoint expects — the Media page needs photos and videos in one query, and asking
+   * for a single type meant it could only ask for neither.
+   */
+  fileType?: FileType | readonly FileType[];
   search?: string;
   isDeleted?: boolean;
   sort?: SortOption;
@@ -28,7 +33,15 @@ export interface BulkResult {
 }
 
 export const mediaApi = {
-  list: (params: ListMediaParams = {}) => api.get<Media[]>('/api/media', { ...params }),
+  list: ({ fileType, ...params }: ListMediaParams = {}) =>
+    api.get<Media[]>('/api/media', {
+      ...params,
+      // Joined here rather than by widening the query serialiser: a comma-separated list
+      // is what this one parameter means, and nothing else should start stringifying
+      // arrays into query strings by accident.
+      // `Array.isArray` does not narrow a readonly array, so the string case leads.
+      fileType: typeof fileType === 'string' ? fileType : fileType?.join(','),
+    }),
   get: (id: string) => api.get<Media>(`/api/media/${id}`),
   rename: (id: string, originalName: string) => api.patch<Media>(`/api/media/${id}`, { originalName }),
   move: (id: string, folderId: string | null) => api.post<Media>(`/api/media/${id}/move`, { folderId }),

@@ -8,6 +8,7 @@ export default function MediaPage() {
       {/* Its grid shows photos and videos, and so does its upload: a document offered
           here is refused before anything is sent, and again by the server. */}
       <MediaLibraryView
+        allowedFileTypes={['image', 'video']}
         uploadCategory="media"
         emptyMessage="Upload photos and videos to see them here."
       />

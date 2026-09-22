@@ -28,6 +28,12 @@ interface MediaFiltersProps {
   onSortChange: (value: SortOption) => void;
   fileType?: FileType;
   onFileTypeChange?: (value: FileType | undefined) => void;
+  /**
+   * The types this view may show at all. The buttons narrow within it and can never widen
+   * past it — a "Documents" button on a page that holds photos and videos would return an
+   * empty grid and read as a bug.
+   */
+  availableFileTypes?: readonly FileType[];
   showTypeFilter?: boolean;
 }
 
@@ -37,6 +43,7 @@ export function MediaFilters({
   sort,
   onSortChange,
   fileType,
+  availableFileTypes,
   onFileTypeChange,
   showTypeFilter = true,
 }: MediaFiltersProps) {
@@ -67,7 +74,12 @@ export function MediaFilters({
       <div className="flex flex-wrap items-center gap-2">
         {showTypeFilter && onFileTypeChange && (
           <div className="app-no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-hover p-1">
-            {TYPE_FILTERS.map((filter) => (
+            {TYPE_FILTERS.filter(
+            (filter) =>
+              filter.value === undefined ||
+              !availableFileTypes ||
+              availableFileTypes.includes(filter.value),
+          ).map((filter) => (
               <button
                 key={filter.label}
                 type="button"

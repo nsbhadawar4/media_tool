@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FILE_TYPES } from '../config/constants';
+import { type FileType, FILE_TYPES } from '../config/constants';
 
 const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
@@ -41,7 +41,30 @@ export const sortOptions = [
 
 export const listMediaQuerySchema = z.object({
   folderId: objectId.optional(),
-  fileType: z.enum(FILE_TYPES).optional(),
+  /**
+   * One type, or several comma-separated ("image,video").
+   *
+   * A list because the Media page shows photos and videos together and the Documents page
+   * shows neither: with a single value it could only ask for one of the two, so it asked
+   * for nothing and listed documents alongside them. Kept as the same parameter, since a
+   * single value is just a list of one and every existing caller keeps working.
+   */
+  fileType: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(',')
+            .map((part) => part.trim())
+            .filter(Boolean)
+        : undefined,
+    )
+    .refine(
+      (types) => types === undefined || types.every((type) => (FILE_TYPES as readonly string[]).includes(type)),
+      { message: `fileType must be one or more of: ${FILE_TYPES.join(', ')}` },
+    )
+    .transform((types) => types as FileType[] | undefined),
   search: z.string().trim().optional(),
   isDeleted: z.coerce.boolean().optional().default(false),
   sort: z.enum(sortOptions).optional().default('newest'),
@@ -51,7 +74,30 @@ export const listMediaQuerySchema = z.object({
 
 export const searchQuerySchema = z.object({
   q: z.string().trim().optional().default(''),
-  fileType: z.enum(FILE_TYPES).optional(),
+  /**
+   * One type, or several comma-separated ("image,video").
+   *
+   * A list because the Media page shows photos and videos together and the Documents page
+   * shows neither: with a single value it could only ask for one of the two, so it asked
+   * for nothing and listed documents alongside them. Kept as the same parameter, since a
+   * single value is just a list of one and every existing caller keeps working.
+   */
+  fileType: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(',')
+            .map((part) => part.trim())
+            .filter(Boolean)
+        : undefined,
+    )
+    .refine(
+      (types) => types === undefined || types.every((type) => (FILE_TYPES as readonly string[]).includes(type)),
+      { message: `fileType must be one or more of: ${FILE_TYPES.join(', ')}` },
+    )
+    .transform((types) => types as FileType[] | undefined),
   sort: z.enum(sortOptions).optional().default('newest'),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().positive().max(200).optional().default(60),

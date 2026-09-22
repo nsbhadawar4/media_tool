@@ -1,6 +1,6 @@
 /**
  * Copies media that is still recorded against local disk into the storage provider that
- * is currently configured (Cloudflare R2 or S3), and repoints its database record.
+ * is currently configured (GridFS, Cloudflare R2 or S3), and repoints its database record.
  *
  * This exists because switching STORAGE_PROVIDER changes where the app *looks* for every
  * file, not just where it puts new ones. Records written while the provider was `local`

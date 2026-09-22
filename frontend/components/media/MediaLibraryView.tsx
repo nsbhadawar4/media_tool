@@ -32,6 +32,15 @@ interface MediaLibraryViewProps {
   folderId?: string;
   fixedFileType?: FileType;
   /**
+   * Everything this view is allowed to list. Omitted means the whole library, which is
+   * what the dashboard and the folder pages want.
+   *
+   * Separate from `fixedFileType` because the Media page holds two types rather than one:
+   * with only a single-type prop it could restrict to neither, so it restricted to nothing
+   * and listed documents beside the photos.
+   */
+  allowedFileTypes?: readonly FileType[];
+  /**
    * What this page's upload accepts, which is not always the same as what its grid shows.
    * The Media page lists photos and videos together, so it passes `media`; Documents shows
    * and takes one type, so it defaults to that. Omitted means "anything the library takes",
@@ -47,6 +56,7 @@ interface MediaLibraryViewProps {
 export function MediaLibraryView({
   folderId,
   fixedFileType,
+  allowedFileTypes,
   uploadCategory,
   emptyMessage,
 }: MediaLibraryViewProps) {
@@ -72,10 +82,24 @@ export function MediaLibraryView({
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [bulkLabel, setBulkLabel] = useState<string | null>(null);
 
+  /**
+   * What the grid actually asks for: the type chosen in the filter bar when there is one,
+   * and otherwise everything this view is allowed to show. Never nothing — an unfiltered
+   * request returns the whole library, documents included.
+   */
+  const visibleTypes = fileType ?? allowedFileTypes ?? (fixedFileType ? [fixedFileType] : undefined);
+
   const { data, isLoading, isPlaceholderData, isError, error, refetch } = useQuery({
-    queryKey: ['media', folderId ?? 'all', fileType ?? 'any', search, sort, page],
+    queryKey: ['media', folderId ?? 'all', String(visibleTypes ?? 'any'), search, sort, page],
     queryFn: () =>
-      mediaApi.list({ folderId, fileType, search: search || undefined, sort, page, limit: PAGE_SIZE }),
+      mediaApi.list({
+        folderId,
+        fileType: visibleTypes,
+        search: search || undefined,
+        sort,
+        page,
+        limit: PAGE_SIZE,
+      }),
     // Keeps the previous page on screen while the next one loads, so the grid never
     // collapses to a skeleton mid-browse.
     placeholderData: (previous) => previous,
@@ -87,7 +111,7 @@ export function MediaLibraryView({
 
   // Selecting items in one view then acting on them from another would be surprising, so
   // changing what the grid shows drops the selection.
-  const viewKey = `${folderId ?? 'all'}|${fileType ?? 'any'}|${search}|${sort}|${page}`;
+  const viewKey = `${folderId ?? 'all'}|${String(visibleTypes ?? 'any')}|${search}|${sort}|${page}`;
   const { clear: clearSelection } = selection;
   useEffect(() => {
     clearSelection();
@@ -305,6 +329,7 @@ export function MediaLibraryView({
           fileType={fileType}
           onFileTypeChange={fixedFileType ? undefined : (value) => setFileType(value)}
           showTypeFilter={!fixedFileType}
+          availableFileTypes={allowedFileTypes}
         />
         <div className="flex shrink-0 items-center gap-3">
           {!isLoading && (

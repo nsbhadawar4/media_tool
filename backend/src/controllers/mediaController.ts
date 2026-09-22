@@ -1,6 +1,6 @@
 import fsp from 'node:fs/promises';
 import type { Request, Response } from 'express';
-import { Media } from '../models/Media';
+import { Media, type IMedia } from '../models/Media';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
@@ -8,7 +8,9 @@ import { logActivity } from '../services/activityService';
 import { getStorageProvider } from '../services/storage';
 import { serializeMedia } from '../utils/mediaUrls';
 import * as mediaService from '../services/mediaService';
-import { UPLOAD_CATEGORIES, type UploadCategory } from '../config/constants';
+import { UPLOAD_CATEGORIES, type FileType, type UploadCategory } from '../config/constants';
+import { UploadErrorCode } from '../utils/uploadErrors';
+import { logger } from '../utils/logger';
 
 const SORT_MAP: Record<string, Record<string, 1 | -1>> = {
   newest: { createdAt: -1 },
@@ -26,7 +28,7 @@ function escapeRegex(value: string): string {
 export const listMedia = asyncHandler(async (req: Request, res: Response) => {
   const { folderId, fileType, search, isDeleted, sort, page, limit } = req.query as unknown as {
     folderId?: string;
-    fileType?: string;
+    fileType?: FileType[];
     search?: string;
     isDeleted?: boolean;
     sort: string;
@@ -38,7 +40,9 @@ export const listMedia = asyncHandler(async (req: Request, res: Response) => {
   // narrow this further, never widen it to another account's files.
   const filter: Record<string, unknown> = { ownerId: req.user!.id, isDeleted: isDeleted ?? false };
   if (folderId) filter.folderId = folderId;
-  if (fileType) filter.fileType = fileType;
+  // One value or several: `$in` covers both, so the Media page can ask for photos and
+  // videos in one query instead of settling for no filter at all.
+  if (fileType && fileType.length > 0) filter.fileType = { $in: fileType };
   if (search) filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
 
   const [items, total] = await Promise.all([
@@ -76,6 +80,38 @@ function parseUploadCategory(raw: unknown): UploadCategory | undefined {
     return raw as UploadCategory;
   }
   throw AppError.badRequest(`Unknown upload type: ${String(raw)}`);
+}
+
+/**
+ * Refuses to look for bytes that were never stored where this deployment keeps them.
+ *
+ * A media record names both a key and the provider that wrote it. When those disagree with
+ * the provider now configured, the key describes somewhere this process cannot reach — a
+ * path under `backend/uploads` on a developer's machine, read by a deployment whose files
+ * live in GridFS. Asking storage for it produces a plain "not found", which is true and
+ * says nothing: the file is not missing, it is elsewhere.
+ *
+ * This is not hypothetical. One database shared between a developer running
+ * STORAGE_PROVIDER=local and a deployment running gridfs produces exactly this for every
+ * file uploaded locally, and it presents as "Document unavailable" in production for files
+ * that open perfectly in development.
+ */
+function assertStoredHere(media: Pick<IMedia, 'storageProvider' | 'storageKey' | 'originalName'>): void {
+  const active = getStorageProvider().name;
+  if (media.storageProvider === active) return;
+
+  logger.warn(
+    `"${media.originalName}" was stored by the "${media.storageProvider}" provider but this ` +
+      `deployment uses "${active}" — its bytes are not reachable here (key: ${media.storageKey}). ` +
+      'See DEPLOYMENT.md on migrating existing media.',
+  );
+
+  throw new AppError(
+    'This file was uploaded to a different storage backend, so it cannot be opened here.',
+    404,
+    undefined,
+    UploadErrorCode.StorageProviderMismatch,
+  );
 }
 
 /** Parses the browser-reported video length, ignoring anything non-finite or implausible. */
@@ -266,6 +302,8 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
    * emits Access-Control-Allow-Credentials. Such callers ask for `?proxy=1` instead and
    * get the bytes relayed below, same-origin, exactly as local development already does.
    */
+  assertStoredHere(media);
+
   const proxyRequested = req.query.proxy === '1' || req.query.proxy === 'true';
 
   const signedUrl = proxyRequested
@@ -338,6 +376,8 @@ export const streamThumbnail = asyncHandler(async (req: Request, res: Response) 
     res.redirect(302, signedUrl);
     return;
   }
+
+  assertStoredHere(media);
 
   const result = await provider.getObjectStream(media.thumbnailKey);
 
