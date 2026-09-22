@@ -3,7 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { sessionEndedUrl } from '@/lib/auth/session';
 import { FullPageSpinner } from '@/components/ui/Spinner';
+import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { UploadProvider } from '@/lib/upload/UploadContext';
 
@@ -14,14 +16,24 @@ import { UploadProvider } from '@/lib/upload/UploadContext';
  * the app is open. The backend re-checks on every request regardless.
  */
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, sessionError, refresh } = useAuth();
   const router = useRouter();
 
+  // Only a session the server has actually rejected sends anyone away, and it leaves
+  // with the marker that stops proxy.ts sending them back — see lib/auth/session.ts.
+  // An unanswered check means the server is unreachable, which is rendered below
+  // instead: signing someone out over a backend that is merely down would be a lie.
+  const shouldRedirect = !isLoading && !user && sessionError !== 'unreachable';
+
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace('/');
+    if (shouldRedirect) {
+      router.replace(sessionError === 'rejected' ? sessionEndedUrl('/') : '/');
     }
-  }, [isLoading, user, router]);
+  }, [shouldRedirect, sessionError, router]);
+
+  if (!isLoading && !user && sessionError === 'unreachable') {
+    return <SessionCheckFailed onRetry={() => void refresh()} />;
+  }
 
   if (isLoading || !user) {
     return <FullPageSpinner />;

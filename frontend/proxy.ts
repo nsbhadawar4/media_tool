@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { SESSION_ENDED_PARAM, SESSION_ENDED_VALUE } from '@/lib/auth/session';
 
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
 
@@ -50,6 +51,23 @@ export function proxy(request: NextRequest) {
   }
 
   if (isAuthPage && hasSessionCookie) {
+    /**
+     * Unless the app has already been told this session is dead. Bouncing on cookie
+     * presence is an optimisation for someone who is still signed in; applied to a
+     * cookie the backend has rejected it is a trap, because the auth gate on the other
+     * side sends them right back here and neither party ever gives way — see
+     * lib/auth/session.ts. The marker is the app reporting a verified 401, so this
+     * stands aside and lets the sign-in form render.
+     */
+    if (request.nextUrl.searchParams.get(SESSION_ENDED_PARAM) === SESSION_ENDED_VALUE) {
+      // And the cookie goes with it. Leaving it in place would send the very next visit
+      // to `/` back into the same loop, and the backend's own clearing of it can't be
+      // relied on here: it only happens on a request that actually reaches the backend.
+      const response = NextResponse.next();
+      response.cookies.delete(SESSION_COOKIE_NAME);
+      return response;
+    }
+
     // Role is unknown here, so everyone goes to the user dashboard; an admin arriving
     // there can reach /admin from the sidebar.
     return NextResponse.redirect(new URL('/dashboard', request.url));

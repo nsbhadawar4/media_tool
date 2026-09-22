@@ -3,7 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { sessionEndedUrl } from '@/lib/auth/session';
 import { FullPageSpinner } from '@/components/ui/Spinner';
+import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
 
 /**
@@ -16,14 +18,23 @@ import { AdminShell } from '@/components/admin/AdminShell';
  * only produces a page with no data in it.
  */
 export default function AdminAreaLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, isLoading } = useAuth();
+  const { user, isAdmin, isLoading, sessionError, refresh } = useAuth();
   const router = useRouter();
 
+  // Same rule as the user-facing gate: a server that never answered is an outage to
+  // report, not a session to end, and a session the server *did* reject leaves with the
+  // marker that keeps proxy.ts from bouncing it back here. See lib/auth/session.ts.
+  const isUnreachable = !isLoading && !user && sessionError === 'unreachable';
+
   useEffect(() => {
-    if (isLoading) return;
-    if (!user) router.replace('/admin/login');
+    if (isLoading || isUnreachable) return;
+    if (!user) router.replace(sessionError === 'rejected' ? sessionEndedUrl('/admin/login') : '/admin/login');
     else if (!isAdmin) router.replace('/dashboard');
-  }, [isLoading, user, isAdmin, router]);
+  }, [isLoading, isUnreachable, user, isAdmin, sessionError, router]);
+
+  if (isUnreachable) {
+    return <SessionCheckFailed onRetry={() => void refresh()} />;
+  }
 
   if (isLoading || !user || !isAdmin) {
     return <FullPageSpinner />;
