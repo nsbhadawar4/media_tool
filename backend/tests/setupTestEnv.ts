@@ -14,6 +14,12 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.UPLOAD_DIR = path.join(os.tmpdir(), `media-tool-tests-${process.pid}`);
+/**
+ * Per-process for the same reason, one step further on: the suites run in parallel and
+ * several of them assert that a failed upload leaves no temp file behind. Sharing one
+ * scratch directory would have each of them watching the others' uploads go past.
+ */
+process.env.TMP_DIR = path.join(os.tmpdir(), `media-tool-tests-tmp-${process.pid}`);
 process.env.STORAGE_PROVIDER = 'local';
 
 // Each suite starts its own in-memory MongoDB and connects to that; this only has to

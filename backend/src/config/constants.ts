@@ -61,6 +61,28 @@ export const EXTENSION_TO_MIME: Record<string, string> = {
   '.txt': 'text/plain',
 };
 
+/**
+ * What a particular upload is allowed to contain.
+ *
+ * A file type describes one file; this describes the *intent* of the request that carried
+ * it, which is a separate fact the server cannot otherwise know. The Documents page and
+ * the Media page post to the same endpoint, so without this the server has no way to tell
+ * that a perfectly valid JPEG arrived somewhere only documents belong — and a valid file
+ * in the wrong place is exactly what "documents and images are not separated" means.
+ *
+ * `media` is its own value rather than two requests because the Media page holds photos
+ * and videos together; narrowing it to images would quietly remove video upload.
+ */
+export const UPLOAD_CATEGORIES = ['image', 'video', 'document', 'media'] as const;
+export type UploadCategory = (typeof UPLOAD_CATEGORIES)[number];
+
+export const FILE_TYPES_BY_UPLOAD_CATEGORY: Record<UploadCategory, readonly FileType[]> = {
+  image: ['image'],
+  video: ['video'],
+  document: ['document'],
+  media: ['image', 'video'],
+};
+
 export function fileTypeFromMime(mime: string): FileType | null {
   if ((IMAGE_MIME_TYPES as readonly string[]).includes(mime)) return 'image';
   if ((VIDEO_MIME_TYPES as readonly string[]).includes(mime)) return 'video';

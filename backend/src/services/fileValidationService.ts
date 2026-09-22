@@ -6,8 +6,10 @@ import sharp, { type Metadata } from 'sharp';
 import {
   ALLOWED_MIME_TYPES,
   EXTENSION_TO_MIME,
+  FILE_TYPES_BY_UPLOAD_CATEGORY,
   fileTypeFromMime,
   type FileType,
+  type UploadCategory,
 } from '../config/constants';
 import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
@@ -303,6 +305,49 @@ async function assertLegacyOfficeFile(filePath: string, mimeType: string): Promi
 }
 
 /**
+ * How much of the tail is searched for a PDF's end marker. Readers look in the last 1 KB;
+ * this is generous enough for the trailing whitespace some producers leave behind.
+ */
+const PDF_TAIL_BYTES = 2048;
+
+/**
+ * A PDF that is actually complete, not merely one that begins like a PDF.
+ *
+ * `%PDF-` is five bytes, and five bytes is not a document: a text file whose first line
+ * says `%PDF-1.4` passes a signature check, and so does a real PDF whose download was cut
+ * off halfway. Both are accepted by every check up to this point and unreadable by every
+ * viewer after it.
+ *
+ * Structure is what separates them. A conforming file ends with the cross-reference
+ * pointer and the `%%EOF` marker, in that order, and a file missing them is either
+ * truncated or never was one — which is the whole question being asked here.
+ */
+async function assertPdfStructure(filePath: string, size: number): Promise<void> {
+  const handle = await fsp.open(filePath, 'r');
+  try {
+    const length = Math.min(size, PDF_TAIL_BYTES);
+    const tail = Buffer.alloc(length);
+    await handle.read(tail, 0, length, size - length);
+    const text = tail.toString('latin1');
+
+    if (!text.includes('%%EOF')) {
+      throw invalid(
+        UploadErrorCode.CorruptFile,
+        'This PDF is incomplete — it has no end-of-file marker. It may have been truncated.',
+      );
+    }
+    if (!text.includes('startxref')) {
+      throw invalid(
+        UploadErrorCode.InvalidFileContent,
+        'This file starts like a PDF but has no cross-reference table, so it is not a readable PDF.',
+      );
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
  * Plain text, judged the way every file manager judges it: by the absence of binary.
  *
  * There is no signature to check, so without this a `.txt` extension would be the one way
@@ -394,6 +439,40 @@ async function digestAndHead(filePath: string): Promise<{ sha256: string; head: 
   return { sha256: hash.digest('hex'), head: Buffer.concat(headChunks) };
 }
 
+/**
+ * Enforces that a file belongs where it was uploaded.
+ *
+ * The server cannot infer this from the file — a JPEG is a perfectly valid JPEG wherever
+ * it arrives. It comes from the request saying which upload it is, and it has to be
+ * enforced here rather than trusted from the client, because the client stating its own
+ * constraint is not a constraint at all: the Documents page and the Media page post to the
+ * same endpoint, and anything that can post to one can post to the other.
+ *
+ * Called with the *validated* type, never the claimed one, so renaming a file cannot move
+ * it between categories either.
+ */
+export function assertUploadCategory(
+  category: UploadCategory | undefined,
+  fileType: FileType,
+  fileName: string,
+): void {
+  // No category means an upload with no such constraint — the dashboard and the folder
+  // pages take anything the library accepts, and always have.
+  if (!category) return;
+
+  const allowed = FILE_TYPES_BY_UPLOAD_CATEGORY[category];
+  if (allowed.includes(fileType)) return;
+
+  const message =
+    category === 'document'
+      ? 'Images are not allowed here. Please upload documents only.'
+      : fileType === 'document'
+        ? 'Documents are not allowed here. Please upload an image.'
+        : `"${fileName}" is a ${fileType} file, which cannot be uploaded here.`;
+
+  throw invalid(UploadErrorCode.WrongUploadCategory, message);
+}
+
 export interface ValidateUploadedFileInput {
   filePath: string;
   /** Already through assertSafeFilename; used only for its extension. */
@@ -475,6 +554,9 @@ export async function validateUploadedFile(input: ValidateUploadedFileInput): Pr
   let height: number | null = null;
 
   switch (mimeType) {
+    case 'application/pdf':
+      await assertPdfStructure(filePath, size);
+      break;
     case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
     case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
       await assertOoxmlPackage(filePath, size, mimeType);

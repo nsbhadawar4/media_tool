@@ -1,3 +1,4 @@
+import fsp from 'node:fs/promises';
 import type { Request, Response } from 'express';
 import { Media } from '../models/Media';
 import { AppError } from '../utils/AppError';
@@ -7,6 +8,7 @@ import { logActivity } from '../services/activityService';
 import { getStorageProvider } from '../services/storage';
 import { serializeMedia } from '../utils/mediaUrls';
 import * as mediaService from '../services/mediaService';
+import { UPLOAD_CATEGORIES, type UploadCategory } from '../config/constants';
 
 const SORT_MAP: Record<string, Record<string, 1 | -1>> = {
   newest: { createdAt: -1 },
@@ -61,6 +63,21 @@ export const getMedia = asyncHandler(async (req: Request, res: Response) => {
   sendSuccess(res, serializeMedia(media, req.user!.id));
 });
 
+/**
+ * Reads the upload's declared category, refusing anything that is not one of them.
+ *
+ * An unrecognised value is rejected rather than ignored. Falling back to "no category" on
+ * a typo would silently turn the strictest upload in the app into the loosest one, and a
+ * misspelled constant is exactly how that would happen.
+ */
+function parseUploadCategory(raw: unknown): UploadCategory | undefined {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  if (typeof raw === 'string' && (UPLOAD_CATEGORIES as readonly string[]).includes(raw)) {
+    return raw as UploadCategory;
+  }
+  throw AppError.badRequest(`Unknown upload type: ${String(raw)}`);
+}
+
 /** Parses the browser-reported video length, ignoring anything non-finite or implausible. */
 function parseDuration(raw: unknown): number | null {
   if (typeof raw !== 'string' || raw.trim() === '') return null;
@@ -75,41 +92,70 @@ export const uploadMedia = asyncHandler(async (req: Request, res: Response) => {
   const files = parts.files ?? [];
   const poster = parts.poster?.[0] ?? null;
 
-  if (files.length === 0) throw AppError.badRequest('No files were uploaded');
+  /**
+   * multer has already written every part to disk by the time this handler runs, and
+   * `saveUploadedMedia` only cleans up the files it is actually handed. So anything that
+   * throws before a file reaches it — an empty request, an unrecognised upload type — or
+   * any part the loop never passes on, such as a poster sent alongside several files,
+   * would otherwise stay in the temp directory forever. Tracking what was handed over and
+   * removing the rest is what makes "no orphan temp files" true on every path, not just
+   * the ones that were thought of.
+   */
+  const handedOff = new Set<string>();
+  const tempPaths = [...files.map((file) => file.path), ...(poster ? [poster.path] : [])];
+  const discardUnprocessed = async () => {
+    await Promise.all(
+      tempPaths
+        .filter((tempPath) => !handedOff.has(tempPath))
+        .map((tempPath) => fsp.unlink(tempPath).catch(() => undefined)),
+    );
+  };
 
-  const folderId = (req.body.folderId as string | undefined) ?? null;
-  const duration = parseDuration(req.body.duration);
+  try {
+    if (files.length === 0) throw AppError.badRequest('No files were uploaded');
 
-  const uploaded: ReturnType<typeof serializeMedia>[] = [];
-  const failed: Array<{ fileName: string; error: string }> = [];
+    const folderId = (req.body.folderId as string | undefined) ?? null;
+    const duration = parseDuration(req.body.duration);
+    const uploadCategory = parseUploadCategory(req.body.uploadType);
 
-  for (const file of files) {
-    try {
-      const media = await mediaService.saveUploadedMedia({
-        ownerId: req.user!.id,
-        file: { originalname: file.originalname, path: file.path, mimetype: file.mimetype, size: file.size },
-        folderId,
-        uploadedBy: req.user!.id,
-        // A poster belongs to exactly one video, so it only applies when this request
-        // carries a single file — which is how the frontend always uploads.
-        posterPath: files.length === 1 ? poster?.path ?? null : null,
-        duration: files.length === 1 ? duration : null,
-      });
-      uploaded.push(serializeMedia(media, req.user!.id));
-      await logActivity(req, {
-        action: 'media_uploaded',
-        targetType: 'media',
-        targetId: media._id,
-        targetName: media.originalName,
-        message: `Uploaded "${media.originalName}"`,
-        metadata: { folderId },
-      });
-    } catch (err) {
-      failed.push({ fileName: file.originalname, error: err instanceof Error ? err.message : 'Upload failed' });
+    const uploaded: ReturnType<typeof serializeMedia>[] = [];
+    const failed: Array<{ fileName: string; error: string }> = [];
+
+    for (const file of files) {
+      // A poster belongs to exactly one video, so it only applies when this request
+      // carries a single file — which is how the frontend always uploads.
+      const posterPath = files.length === 1 ? poster?.path ?? null : null;
+      handedOff.add(file.path);
+      if (posterPath) handedOff.add(posterPath);
+
+      try {
+        const media = await mediaService.saveUploadedMedia({
+          ownerId: req.user!.id,
+          file: { originalname: file.originalname, path: file.path, mimetype: file.mimetype, size: file.size },
+          folderId,
+          uploadedBy: req.user!.id,
+          posterPath,
+          duration: files.length === 1 ? duration : null,
+          uploadCategory,
+        });
+        uploaded.push(serializeMedia(media, req.user!.id));
+        await logActivity(req, {
+          action: 'media_uploaded',
+          targetType: 'media',
+          targetId: media._id,
+          targetName: media.originalName,
+          message: `Uploaded "${media.originalName}"`,
+          metadata: { folderId },
+        });
+      } catch (err) {
+        failed.push({ fileName: file.originalname, error: err instanceof Error ? err.message : 'Upload failed' });
+      }
     }
-  }
 
-  sendSuccess(res, { uploaded, failed }, failed.length > 0 && uploaded.length === 0 ? 400 : 201);
+    sendSuccess(res, { uploaded, failed }, failed.length > 0 && uploaded.length === 0 ? 400 : 201);
+  } finally {
+    await discardUnprocessed();
+  }
 });
 
 export const updateMedia = asyncHandler(async (req: Request, res: Response) => {

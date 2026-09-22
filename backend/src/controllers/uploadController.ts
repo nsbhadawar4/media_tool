@@ -18,7 +18,7 @@ import type { CommitUploadInput, PresignUploadInput } from '../validators/upload
  * is what lets one client code path serve both environments.
  */
 export const presignUpload = asyncHandler(async (req: Request, res: Response) => {
-  const { fileName, mimeType, size, folderId } = req.body as PresignUploadInput;
+  const { fileName, mimeType, size, folderId, uploadType } = req.body as PresignUploadInput;
 
   const target = await mediaService.prepareDirectUpload({
     ownerId: req.user!.id,
@@ -26,6 +26,7 @@ export const presignUpload = asyncHandler(async (req: Request, res: Response) =>
     mimeType,
     size,
     folderId: folderId ?? null,
+    uploadCategory: uploadType,
   });
 
   if (!target) {
@@ -52,7 +53,7 @@ export const presignUpload = asyncHandler(async (req: Request, res: Response) =>
  * belonging to somebody else, which would otherwise graft that file into their library.
  */
 export const commitUpload = asyncHandler(async (req: Request, res: Response) => {
-  const { uploadToken, width, height, duration } = req.body as CommitUploadInput;
+  const { uploadToken, uploadType, width, height, duration } = req.body as CommitUploadInput;
 
   let payload;
   try {
@@ -77,6 +78,7 @@ export const commitUpload = asyncHandler(async (req: Request, res: Response) => 
       folderId: payload.folderId,
       maxSize: payload.maxSize,
     },
+    uploadCategory: uploadType,
     width: width ?? null,
     height: height ?? null,
     duration: duration ?? null,

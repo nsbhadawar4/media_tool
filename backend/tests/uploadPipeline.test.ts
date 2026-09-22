@@ -34,6 +34,7 @@ import { Media } from '../src/models/Media';
 import { signSessionToken } from '../src/services/tokenService';
 import { getStorageProvider } from '../src/services/storage';
 import { UploadErrorCode } from '../src/utils/uploadErrors';
+import { watchTempFiles, type TempFileWatch } from './helpers/tempFiles';
 import {
   cleanupFixtures,
   docxBuffer,
@@ -45,6 +46,7 @@ import {
 let mongo: MongoMemoryServer;
 let server: Server;
 let baseUrl: string;
+let temp: TempFileWatch;
 
 interface Actor {
   id: string;
@@ -112,13 +114,6 @@ async function upload(
 /* Leak detection                                                              */
 /* -------------------------------------------------------------------------- */
 
-/** Files multer wrote, by its naming scheme — never anything else that lives in tmp. */
-const MULTER_TEMP = /^\d{13}-[0-9a-f]{32}/;
-
-async function countTempFiles(): Promise<number> {
-  const entries = await fsp.readdir(env.tmpDir).catch(() => [] as string[]);
-  return entries.filter((name) => MULTER_TEMP.test(name)).length;
-}
 
 /** Every object the local provider currently holds, so an orphan is visible as an increase. */
 async function countStoredObjects(): Promise<number> {
@@ -156,6 +151,8 @@ after(async () => {
 beforeEach(async () => {
   await Promise.all([Folder.deleteMany({}), Media.deleteMany({})]);
   await fsp.rm(env.localStorageRoot, { recursive: true, force: true });
+  // Started after the cleanup above, so each test asks only about its own leftovers.
+  temp = await watchTempFiles();
 });
 
 /* -------------------------------------------------------------------------- */
@@ -252,7 +249,7 @@ for (const [label, fileName, makeContents, contentType] of [
 
     assert.equal(await Media.countDocuments({}), 0, 'a refused upload must not be recorded');
     assert.equal(await countStoredObjects(), objectsBefore, 'a refused upload must store nothing');
-    assert.equal(await countTempFiles(), 0, 'the temp file must be cleaned up on the failure path');
+    assert.deepEqual(await temp.leaked(), [], 'the temp file must be cleaned up on the failure path');
   });
 }
 
@@ -291,7 +288,7 @@ test('storage refusing the write leaves no record and no temp file', async () =>
   assert.equal(status, 400, 'every file failed, so the request itself failed');
   assert.equal(body.data!.uploaded.length, 0);
   assert.equal(await Media.countDocuments({}), 0);
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 test('a stored object that does not verify is deleted, not recorded', async () => {
@@ -321,7 +318,7 @@ test('a stored object that does not verify is deleted, not recorded', async () =
     objectsBefore,
     'the object that failed verification must be removed, not orphaned',
   );
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 test('a record that cannot be written takes its stored object down with it', async () => {
@@ -347,7 +344,7 @@ test('a record that cannot be written takes its stored object down with it', asy
     objectsBefore,
     'bytes stored for a record that was never written are an orphan nothing will ever reclaim',
   );
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 test('an image whose preview cannot be generated is refused outright', async () => {
@@ -376,7 +373,7 @@ test('an image whose preview cannot be generated is refused outright', async () 
   assert.equal(body.data!.uploaded.length, 0);
   assert.equal(await Media.countDocuments({}), 0);
   assert.equal(await countStoredObjects(), objectsBefore);
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 test('a failed upload can simply be retried', async () => {
@@ -433,7 +430,7 @@ test('a folder belonging to someone else is not a place to upload into', async (
 
   assert.equal(status, 400);
   assert.equal(await Media.countDocuments({}), 0);
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 /* -------------------------------------------------------------------------- */

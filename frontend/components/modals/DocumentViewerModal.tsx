@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Maximize2, X } from 'lucide-react';
+import { Download, FileWarning, Maximize2, X } from 'lucide-react';
 import { iconForDocument } from '@/utils/fileIcons';
 import { formatBytes } from '@/utils/format';
 import type { Media } from '@/types/api';
@@ -73,18 +73,104 @@ export function DocumentViewerModal({ media, onClose }: { media: Media; onClose:
       </header>
 
       <div className="flex flex-1 items-center justify-center overflow-hidden px-4 pb-6">
-        {mode === 'pdf' && (
-          <iframe
-            src={media.viewUrl}
-            title={media.originalName}
-            className="h-full w-full max-w-5xl rounded-lg bg-white"
-          />
-        )}
+        {mode === 'pdf' && <PdfPreview media={media} />}
         {mode === 'text' && <TextPreview media={media} />}
         {mode === 'none' && <UnsupportedPreview media={media} />}
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Shows a PDF by fetching it and framing the bytes, rather than framing the API URL.
+ *
+ * The obvious version — `<iframe src={media.viewUrl}>` — fails, and fails in a way that
+ * points nowhere near the cause: the browser reports "localhost refused to connect" over
+ * an API that is running and answering perfectly well. What actually happens is that
+ * helmet sets `X-Frame-Options: SAMEORIGIN` on every API response, and in development the
+ * app is served from :3000 while the API answers on :5000. Different origin, so the
+ * browser refuses to render the frame at all. It happens to work in production only
+ * because the two share a domain there — which means the viewer was one deployment
+ * change away from breaking in production too, and gave no hint of why.
+ *
+ * Fetching the document and framing a blob: URL removes the question. A blob URL belongs
+ * to this document's own origin, so no framing policy applies, the bytes travel over the
+ * same authenticated request everything else uses, and local and production behave
+ * identically. `?proxy=1` asks the API to relay the bytes rather than redirect to storage,
+ * because a redirect to a presigned URL cannot be read by fetch (see streamMediaResponse).
+ */
+function PdfPreview({ media }: { media: Media }) {
+  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; url: string }>({
+    status: 'loading',
+    url: '',
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+
+    const source = `${media.viewUrl}${media.viewUrl.includes('?') ? '&' : '?'}proxy=1`;
+
+    fetch(source, { credentials: 'include', signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        return response.blob();
+      })
+      .then((blob) => {
+        // Typed explicitly: a blob URL carries whatever type the blob has, and the browser
+        // will not open a PDF viewer for application/octet-stream.
+        objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: 'application/pdf' }));
+        setState({ status: 'ready', url: objectUrl });
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setState({ status: 'error', url: '' });
+      });
+
+    return () => {
+      controller.abort();
+      // Revoked on unmount, or the blob stays in memory for as long as the tab is open.
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [media.viewUrl]);
+
+  if (state.status === 'error') return <UnavailablePreview media={media} />;
+
+  if (state.status === 'loading') {
+    return (
+      <div className="flex h-full w-full max-w-5xl items-center justify-center rounded-lg bg-white/5">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+      </div>
+    );
+  }
+
+  return (
+    <iframe src={state.url} title={media.originalName} className="h-full w-full max-w-5xl rounded-lg bg-white" />
+  );
+}
+
+/**
+ * Shown when the document's bytes cannot be retrieved at all — the record is there and the
+ * stored object is not. Distinct from UnsupportedPreview, which is a file this browser
+ * cannot render but which is perfectly present and downloadable; offering a download here
+ * would only produce a second failure.
+ */
+function UnavailablePreview({ media }: { media: Media }) {
+  return (
+    <div
+      role="alert"
+      className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-10 py-12 text-center"
+    >
+      <FileWarning className="h-14 w-14 text-danger" strokeWidth={1.5} />
+      <div>
+        <p className="text-sm font-medium text-foreground">Document unavailable</p>
+        <p className="mt-1 text-xs text-muted">{media.originalName}</p>
+        <p className="mt-3 text-xs text-muted">
+          This document could not be loaded. Its stored file may be missing or damaged.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -122,7 +208,7 @@ function TextPreview({ media }: { media: Media }) {
     return () => controller.abort();
   }, [media.viewUrl]);
 
-  if (state.status === 'error') return <UnsupportedPreview media={media} />;
+  if (state.status === 'error') return <UnavailablePreview media={media} />;
 
   return (
     <div className="h-full w-full max-w-4xl overflow-auto rounded-lg border border-border bg-surface p-5">

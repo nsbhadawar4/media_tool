@@ -18,6 +18,12 @@ export const UploadErrorCode = {
   InvalidFileType: 'INVALID_FILE_TYPE',
   /** Extension, reported type and actual bytes disagree — a renamed file. */
   InvalidFileContent: 'INVALID_FILE_CONTENT',
+  /**
+   * A valid, supported file, offered where that kind of file does not belong — an image
+   * through the Documents upload, a PDF through the Media upload. Distinct from
+   * InvalidFileType, which means the app does not accept the file anywhere.
+   */
+  WrongUploadCategory: 'WRONG_UPLOAD_CATEGORY',
   /** The right kind of file, but unreadable: truncated, damaged, or half-written. */
   CorruptFile: 'CORRUPT_FILE',
   EmptyFile: 'EMPTY_FILE',

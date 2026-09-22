@@ -101,7 +101,9 @@ function ThumbnailPlaceholder({
         */}
         {isBroken ? (
           <span className="max-w-full text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
-            File unavailable
+            {/* Named for what it is, since the two arrive by different routes: an image
+                whose bytes will not decode, or a document whose stored file is gone. */}
+            {media.fileType === 'image' ? 'Image unavailable' : 'Document unavailable'}
           </span>
         ) : (
           extension && (

@@ -14,13 +14,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/lib/toast/ToastContext';
 import { useUploadQueue, type UploadQueue } from '@/hooks/useUploadQueue';
 import { UploadProgressPanel } from '@/components/media/UploadProgressPanel';
-import { acceptFor } from '@/utils/uploadAccept';
+import { acceptFor, checkBatch, type UploadCategory } from '@/utils/uploadAccept';
 
 interface UploadContextValue {
   /** Queues files for `folderId`; null uploads to the library root. */
   addFiles: UploadQueue['addFiles'];
-  /** Opens the shared file picker with `folderId` as the destination. */
-  requestUpload: (folderId: string | null) => void;
+  /**
+   * Opens the shared file picker with `folderId` as the destination, optionally limited
+   * to one kind of file. The limit is checked again when the selection comes back, and
+   * again by the server — see utils/uploadAccept.
+   */
+  requestUpload: (folderId: string | null, uploadType?: UploadCategory) => void;
   /** Lifts the progress panel clear of the bulk-selection bar, which docks to the same edge. */
   setPanelRaised: (raised: boolean) => void;
 }
@@ -45,9 +49,10 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [isPanelRaised, setIsPanelRaised] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  // A ref, not state: it is only read back inside the change handler, and re-rendering the
-  // app the moment someone opens a file dialog would be pure waste.
+  // Refs, not state: they are only read back inside the change handler, and re-rendering
+  // the app the moment someone opens a file dialog would be pure waste.
   const targetFolderId = useRef<string | null>(null);
+  const targetUploadType = useRef<UploadCategory | undefined>(undefined);
 
   const queue = useUploadQueue({
     onFileUploaded: () => {
@@ -61,20 +66,31 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const { addFiles } = queue;
 
-  const requestUpload = useCallback((folderId: string | null) => {
+  const requestUpload = useCallback((folderId: string | null, uploadType?: UploadCategory) => {
     targetFolderId.current = folderId;
+    targetUploadType.current = uploadType;
+    if (inputRef.current) inputRef.current.accept = acceptFor(uploadType);
     inputRef.current?.click();
   }, []);
 
   const handleInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files ?? []);
-      if (files.length > 0) addFiles(files, targetFolderId.current);
+      const uploadType = targetUploadType.current;
+
+      // The whole selection stands or falls together — see checkBatch for why partial
+      // uploads are worse than none.
+      const verdict = checkBatch(files, uploadType);
+      if (!verdict.ok) {
+        toast.error(verdict.message!);
+      } else if (files.length > 0) {
+        addFiles(files, targetFolderId.current, uploadType);
+      }
       // Clearing the value lets the same file be picked again straight afterwards, which
       // otherwise fires no change event at all.
       event.target.value = '';
     },
-    [addFiles],
+    [addFiles, toast],
   );
 
   const value = useMemo(

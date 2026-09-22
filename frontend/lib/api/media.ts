@@ -1,5 +1,6 @@
 import { api, API_BASE_URL, ApiError } from './client';
 import type { FileType, Media, SortOption } from '@/types/api';
+import type { UploadCategory } from '@/utils/uploadAccept';
 
 export interface ListMediaParams {
   folderId?: string;
@@ -51,6 +52,14 @@ export interface UploadExtras {
   poster?: Blob | null;
   /** Video length in seconds, also read in the browser. */
   duration?: number | null;
+  /**
+   * Which upload this is, when the page it came from only takes one kind of file.
+   *
+   * Sent so the *server* can enforce it against the bytes it reads. The client checking
+   * first is a convenience; this is what makes the rule real, because anything that can
+   * post to one upload can post to any other.
+   */
+  uploadType?: UploadCategory;
 }
 
 /**
@@ -131,6 +140,7 @@ export async function uploadFile(
     mimeType: file.type || 'application/octet-stream',
     size: file.size,
     folderId,
+    uploadType: extras.uploadType,
   });
 
   if (plan.mode === 'proxy') {
@@ -141,6 +151,7 @@ export async function uploadFile(
 
   const { data: media } = await api.post<Media>('/api/media/commit', {
     uploadToken: plan.uploadToken,
+    uploadType: extras.uploadType,
     duration: extras.duration ?? null,
   });
 
@@ -229,6 +240,7 @@ function uploadThroughApi(
     const formData = new FormData();
     formData.append('files', file);
     if (folderId) formData.append('folderId', folderId);
+    if (extras.uploadType) formData.append('uploadType', extras.uploadType);
     // The server only accepts a poster whose extension maps to a known image type.
     if (extras.poster) formData.append('poster', extras.poster, 'poster.jpg');
     if (extras.duration) formData.append('duration', String(extras.duration));

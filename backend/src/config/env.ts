@@ -112,6 +112,18 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().optional(),
   LOCAL_STORAGE_DIR: z.string().optional(),
 
+  /**
+   * Scratch space for bytes on their way somewhere else. Defaults per environment (see
+   * `tmpDir` below) and is almost never worth setting.
+   *
+   * It exists because the default is one directory shared by every process on the machine,
+   * which the test suites cannot work with: they run in parallel and each asserts that its
+   * uploads leave no temp file behind, so one suite would see another's in-flight files and
+   * report a leak that is not there. Pointing each at its own directory makes that question
+   * answerable. Same reasoning as UPLOAD_DIR above.
+   */
+  TMP_DIR: z.string().optional(),
+
   R2_ACCOUNT_ID: optionalString,
   R2_ACCESS_KEY_ID: optionalString,
   R2_SECRET_ACCESS_KEY: optionalString,
@@ -223,7 +235,11 @@ export const env = {
    * thumbnail output). /tmp is the only writable path in a Vercel Function — everything
    * else in the bundle is read-only, so writing beside the source fails with EROFS.
    */
-  tmpDir: isServerless ? '/tmp' : path.resolve(process.cwd(), 'tmp'),
+  tmpDir: raw.TMP_DIR
+    ? path.resolve(raw.TMP_DIR)
+    : isServerless
+      ? '/tmp'
+      : path.resolve(process.cwd(), 'tmp'),
 } as const;
 
 export type Env = typeof env;

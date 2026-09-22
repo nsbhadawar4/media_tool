@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { uploadFile, UploadCancelledError, type UploadExtras } from '@/lib/api/media';
+import type { UploadCategory } from '@/utils/uploadAccept';
 import { ApiError } from '@/lib/api/client';
 import { guessFileTypeFromFile } from '@/utils/fileIcons';
 import { extractVideoPoster } from '@/utils/videoPoster';
@@ -13,6 +14,8 @@ export interface UploadQueueItem {
   /** The browser-reported MIME type, e.g. "image/png" — used to pick a queue-row icon/thumbnail. */
   mimeType: string;
   folderId: string | null;
+  /** Kept per item so a retry re-sends the constraint the upload was made under. */
+  uploadType?: UploadCategory;
   progress: number;
   /** `preparing` covers capturing a video's poster frame, which happens before any bytes are sent. */
   status: 'preparing' | 'uploading' | 'done' | 'error' | 'cancelled';
@@ -34,7 +37,7 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
   }, []);
 
   const runUpload = useCallback(
-    (id: string, file: File, folderId: string | null) => {
+    (id: string, file: File, folderId: string | null, uploadType?: UploadCategory) => {
       const controller = new AbortController();
       controllers.current.set(id, controller);
       pendingCount.current += 1;
@@ -59,7 +62,7 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
             folderId,
             (percent) => updateItem(id, { progress: percent }),
             controller.signal,
-            extras,
+            { ...extras, uploadType },
           );
         })
         .then((media) => {
@@ -86,7 +89,7 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
   );
 
   const addFiles = useCallback(
-    (files: File[], folderId: string | null) => {
+    (files: File[], folderId: string | null, uploadType?: UploadCategory) => {
       if (files.length === 0) return;
 
       const newItems: UploadQueueItem[] = files.map((file) => ({
@@ -96,12 +99,13 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
         fileSize: file.size,
         mimeType: file.type,
         folderId,
+        uploadType,
         progress: 0,
         status: 'uploading',
       }));
       setItems((prev) => [...prev, ...newItems]);
 
-      newItems.forEach((item) => runUpload(item.id, item.file, item.folderId));
+      newItems.forEach((item) => runUpload(item.id, item.file, item.folderId, item.uploadType));
     },
     [runUpload],
   );
@@ -116,7 +120,7 @@ export function useUploadQueue({ onFileUploaded, onAllSettled }: UseUploadQueueO
     (id: string) => {
       setItems((prev) => {
         const item = prev.find((i) => i.id === id);
-        if (item) runUpload(id, item.file, item.folderId);
+        if (item) runUpload(id, item.file, item.folderId, item.uploadType);
         return prev.map((i) => (i.id === id ? { ...i, status: 'uploading', progress: 0, error: undefined } : i));
       });
     },

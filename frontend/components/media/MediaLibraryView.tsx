@@ -14,7 +14,7 @@ import { MediaGrid, MediaGridSkeleton } from './MediaGrid';
 import { MediaFilters } from './MediaFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { UploadButton } from './UploadButton';
-import { labelFor, partitionByFileType, rejectionMessage } from '@/utils/uploadAccept';
+import { checkBatch, labelFor, type UploadCategory } from '@/utils/uploadAccept';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
 import { RenameModal } from '@/components/ui/RenameModal';
@@ -31,10 +31,25 @@ interface MediaLibraryViewProps {
   /** Restrict the grid (and default upload destination) to this folder. Omit to show/upload across the whole library. */
   folderId?: string;
   fixedFileType?: FileType;
+  /**
+   * What this page's upload accepts, which is not always the same as what its grid shows.
+   * The Media page lists photos and videos together, so it passes `media`; Documents shows
+   * and takes one type, so it defaults to that. Omitted means "anything the library takes",
+   * which is what the dashboard and the folder pages want.
+   *
+   * Sent with the upload and enforced by the server against the bytes — the check here is
+   * only so the answer is immediate.
+   */
+  uploadCategory?: UploadCategory;
   emptyMessage?: string;
 }
 
-export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: MediaLibraryViewProps) {
+export function MediaLibraryView({
+  folderId,
+  fixedFileType,
+  uploadCategory,
+  emptyMessage,
+}: MediaLibraryViewProps) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { addFiles, setPanelRaised } = useUploads();
@@ -105,16 +120,28 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
     return () => setPanelRaised(false);
   }, [selection.selectedCount, setPanelRaised]);
 
-  const handleFilesSelected = (files: File[]) => {
-    // A page pinned to one kind of file (Documents, for instance) drops anything else
-    // here rather than at the server, so the reason is obvious and nothing half-uploads.
-    const { accepted, rejected } = partitionByFileType(files, fixedFileType);
+  /**
+   * The category this page uploads under. Falls back to the type its grid is pinned to,
+   * so Documents needs to say nothing and pages that mix types opt in explicitly.
+   */
+  const activeUploadCategory: UploadCategory | undefined = uploadCategory ?? fixedFileType;
 
-    if (rejected.length > 0 && fixedFileType) {
-      toast.error(rejectionMessage(fixedFileType, rejected));
+  const handleFilesSelected = (files: File[]) => {
+    /**
+     * The whole selection is refused if any file does not belong here, rather than the
+     * offending files being dropped and the rest uploaded. Half-completing an action
+     * nobody asked to have split leaves someone believing files arrived that never did —
+     * and the server enforces the same rule anyway, so a partial upload would only move
+     * the failure later.
+     */
+    const verdict = checkBatch(files, activeUploadCategory);
+    if (!verdict.ok) {
+      toast.error(verdict.message!);
+      return;
     }
-    if (accepted.length > 0) {
-      addFiles(accepted, folderId ?? null);
+
+    if (files.length > 0) {
+      addFiles(files, folderId ?? null, activeUploadCategory);
     }
   };
 
@@ -285,7 +312,7 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
               {total} file{total === 1 ? '' : 's'}
             </p>
           )}
-          <UploadButton onFilesSelected={handleFilesSelected} fileType={fixedFileType} />
+          <UploadButton onFilesSelected={handleFilesSelected} uploadCategory={activeUploadCategory} />
         </div>
       </div>
 
@@ -309,7 +336,11 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
             // prompt — clearing the search is the way out of that one.
             emptyAction={
               searchInput ? undefined : (
-                <UploadButton onFilesSelected={handleFilesSelected} fileType={fixedFileType} label="Upload media" />
+                <UploadButton
+                  onFilesSelected={handleFilesSelected}
+                  uploadCategory={activeUploadCategory}
+                  label="Upload media"
+                />
               )
             }
             selection={selection}
@@ -324,8 +355,10 @@ export function MediaLibraryView({ folderId, fixedFileType, emptyMessage }: Medi
           <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent bg-surface px-10 py-8">
             <UploadCloud className="h-8 w-8 text-accent" />
             <p className="text-sm font-medium text-foreground">Drop files to upload</p>
-            {fixedFileType && (
-              <p className="text-xs text-muted">Only {labelFor(fixedFileType)} files are accepted here</p>
+            {activeUploadCategory && (
+              <p className="text-xs text-muted">
+                Only {labelFor(activeUploadCategory)} files are accepted here
+              </p>
             )}
           </div>
         </div>

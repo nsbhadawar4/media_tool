@@ -12,6 +12,7 @@ import {
   fileTypeFromMime,
   STORAGE_DIR_BY_FILE_TYPE,
   type FileType,
+  type UploadCategory,
 } from '../config/constants';
 import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
@@ -19,7 +20,11 @@ import { assertSafeFilename } from '../utils/filenameSafety';
 import { logger } from '../utils/logger';
 import { recalculateItemCount, purgeMediaRecords } from './folderService';
 import { generateThumbnail } from './thumbnailService';
-import { validateUploadedFile, validateStoredCopy } from './fileValidationService';
+import {
+  assertUploadCategory,
+  validateStoredCopy,
+  validateUploadedFile,
+} from './fileValidationService';
 import { verifyStoredObject } from './storageIntegrityService';
 import { UploadErrorCode } from '../utils/uploadErrors';
 
@@ -94,6 +99,11 @@ export interface SaveUploadedMediaInput {
   posterPath?: string | null;
   /** Video length in seconds, also read in the browser. */
   duration?: number | null;
+  /**
+   * Which upload this came from, when the caller is one that only takes a particular kind
+   * of file. Enforced against the validated type, so it cannot be satisfied by renaming.
+   */
+  uploadCategory?: UploadCategory;
 }
 
 /**
@@ -151,7 +161,7 @@ async function derivePreviewKey(
  * from this can retry it unchanged: there is no half-finished upload to clean up first.
  */
 export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<IMedia> {
-  const { file, folderId, ownerId, uploadedBy, posterPath, duration } = input;
+  const { file, folderId, ownerId, uploadedBy, posterPath, duration, uploadCategory } = input;
   const provider = getStorageProvider();
 
   /** What has to be removed from storage if a later step fails. */
@@ -177,6 +187,10 @@ export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<
       safeName,
       reportedMimeType: file.mimetype,
     });
+
+    // Checked against what the bytes turned out to be, not what was claimed, and before a
+    // single byte is stored.
+    assertUploadCategory(uploadCategory, validated.fileType, safeName);
 
     // Uploading into someone else's folder must be impossible, so the folder is looked up
     // by id *and* owner. A folder that exists but belongs to another account reads as absent.
@@ -515,6 +529,8 @@ export interface PrepareDirectUploadInput {
   /** Declared up front only to fail early — the real size is measured at register time. */
   size: number;
   folderId: string | null;
+  /** See SaveUploadedMediaInput. Rejected here too, before an upload URL is ever issued. */
+  uploadCategory?: UploadCategory;
 }
 
 export interface DirectUploadTarget {
@@ -537,7 +553,7 @@ export interface DirectUploadTarget {
 export async function prepareDirectUpload(
   input: PrepareDirectUploadInput,
 ): Promise<DirectUploadTarget | null> {
-  const { ownerId, fileName, mimeType, size, folderId } = input;
+  const { ownerId, fileName, mimeType, size, folderId, uploadCategory } = input;
 
   let safeName: string;
   try {
@@ -548,6 +564,13 @@ export async function prepareDirectUpload(
 
   const identity = resolveFileIdentity(safeName, mimeType);
   if (!identity) throw AppError.badRequest(`Unsupported file type for ${fileName}`);
+
+  /**
+   * Refused before an upload URL exists, so a file that does not belong here never gets
+   * anywhere to be put. The bytes are checked again on the way back in (registerDirectUpload)
+   * — this is the early answer, not the only one.
+   */
+  assertUploadCategory(uploadCategory, identity.fileType, safeName);
 
   if (size > env.maxFileSizeBytes) {
     throw AppError.tooLarge(`Files must be ${env.MAX_FILE_SIZE_MB} MB or smaller`);
@@ -613,6 +636,8 @@ export interface RegisterDirectUploadInput {
   uploadedBy: string;
   /** Contents of the upload token minted by prepareDirectUpload, already verified. */
   target: Omit<DirectUploadTarget, 'uploadUrl'>;
+  /** Re-checked against the stored bytes, since presign only saw the declared type. */
+  uploadCategory?: UploadCategory;
   width?: number | null;
   height?: number | null;
   duration?: number | null;
@@ -627,7 +652,7 @@ export interface RegisterDirectUploadInput {
  * so the object is measured here, and one that overruns is deleted rather than recorded.
  */
 export async function registerDirectUpload(input: RegisterDirectUploadInput): Promise<IMedia> {
-  const { ownerId, uploadedBy, target, width, height, duration } = input;
+  const { ownerId, uploadedBy, target, width, height, duration, uploadCategory } = input;
   const provider = getStorageProvider();
 
   /** Removed unless this function returns a record that describes it. */
@@ -702,6 +727,13 @@ export async function registerDirectUpload(input: RegisterDirectUploadInput): Pr
         });
       } catch (err) {
         await discardUpload('it failed validation');
+        throw err;
+      }
+
+      try {
+        assertUploadCategory(uploadCategory, validated.fileType, target.originalName);
+      } catch (err) {
+        await discardUpload('it does not belong to this upload');
         throw err;
       }
 

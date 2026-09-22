@@ -29,8 +29,10 @@ import { Folder } from '../src/models/Folder';
 import { Media } from '../src/models/Media';
 import { signSessionToken } from '../src/services/tokenService';
 import { getStorageProvider } from '../src/services/storage';
+import { watchTempFiles, type TempFileWatch } from './helpers/tempFiles';
 import {
   cleanupFixtures,
+  docxBuffer,
   imageBuffer,
   incompressibleImage,
   pdfBuffer,
@@ -40,6 +42,7 @@ import {
 let mongo: MongoMemoryServer;
 let server: Server;
 let baseUrl: string;
+let temp: TempFileWatch;
 
 interface Actor {
   id: string;
@@ -92,11 +95,6 @@ async function countOrphanChunks(): Promise<number> {
   return db.collection('media.chunks').countDocuments({ files_id: { $nin: fileIds } });
 }
 
-const MULTER_TEMP = /^\d{13}-[0-9a-f]{32}/;
-async function countTempFiles(): Promise<number> {
-  const entries = await fsp.readdir(env.tmpDir).catch(() => [] as string[]);
-  return entries.filter((name) => MULTER_TEMP.test(name)).length;
-}
 
 before(async () => {
   mongo = await MongoMemoryServer.create();
@@ -129,6 +127,8 @@ beforeEach(async () => {
     db.collection('media.files').deleteMany({}),
     db.collection('media.chunks').deleteMany({}),
   ]);
+  // Started after the cleanup above, so each test asks only about its own leftovers.
+  temp = await watchTempFiles();
 });
 
 test('an image stored in MongoDB comes back byte-for-byte', async () => {
@@ -199,7 +199,7 @@ for (const [label, fileName, makeContents, contentType] of [
     assert.equal(await Media.countDocuments({}), 0);
     assert.equal(await countStoredObjects(), 0, 'nothing may be written for a file that was refused');
     assert.equal(await countOrphanChunks(), 0);
-    assert.equal(await countTempFiles(), 0);
+    assert.deepEqual(await temp.leaked(), []);
   });
 }
 
@@ -229,7 +229,7 @@ test('an object that fails verification is removed from GridFS, chunks and all',
   assert.equal(await Media.countDocuments({}), 0);
   assert.equal(await countStoredObjects(), 0, 'the unverified object must be deleted');
   assert.equal(await countOrphanChunks(), 0, 'its chunks must go with it');
-  assert.equal(await countTempFiles(), 0);
+  assert.deepEqual(await temp.leaked(), []);
 });
 
 test('a record that cannot be written takes its GridFS file down with it', async () => {
@@ -250,6 +250,82 @@ test('a record that cannot be written takes its GridFS file down with it', async
   assert.equal(await Media.countDocuments({}), 0);
   assert.equal(await countStoredObjects(), 0);
   assert.equal(await countOrphanChunks(), 0);
+});
+
+test('a document is served with its own content type, never as a web page', async () => {
+  /**
+   * The failure this guards is not "no response" but "the wrong response": a viewer that
+   * gets `text/html` renders an error page, and a download that gets one writes it to disk
+   * under a .pdf name. Both look like a broken file rather than a refused request.
+   */
+  const pdf = pdfBuffer();
+  const { body } = await upload(alice, 'report.pdf', pdf, 'application/pdf');
+  const id = body.data!.uploaded[0]!.id;
+
+  const viewed = await fetch(`${baseUrl}/api/media/${id}/raw`, { headers: { cookie: alice.cookie } });
+  assert.equal(viewed.status, 200);
+  assert.match(viewed.headers.get('content-type') ?? '', /^application\/pdf/);
+  assert.match(viewed.headers.get('content-disposition') ?? '', /^inline/);
+  assert.deepEqual(Buffer.from(await viewed.arrayBuffer()), pdf);
+
+  const downloaded = await fetch(`${baseUrl}/api/media/${id}/download`, {
+    headers: { cookie: alice.cookie },
+  });
+  assert.equal(downloaded.status, 200);
+  assert.match(downloaded.headers.get('content-type') ?? '', /^application\/pdf/);
+  const disposition = downloaded.headers.get('content-disposition') ?? '';
+  assert.match(disposition, /^attachment/);
+  assert.match(disposition, /report\.pdf/);
+  assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), pdf);
+});
+
+test('a Word document keeps its own content type through the stream', async () => {
+  const docx = docxBuffer();
+  const { body } = await upload(alice, 'contract.docx', docx, 'application/octet-stream');
+  const id = body.data!.uploaded[0]!.id;
+
+  const res = await fetch(`${baseUrl}/api/media/${id}/raw`, { headers: { cookie: alice.cookie } });
+  assert.equal(
+    res.headers.get('content-type'),
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
+  assert.deepEqual(Buffer.from(await res.arrayBuffer()), docx);
+});
+
+test('a record whose stored bytes are gone answers 404 in JSON, not with a page', async () => {
+  /**
+   * Media written before uploads were verified can outlive its object, and nothing stops a
+   * file being removed from the database behind the app's back. What must not happen is
+   * an HTML error body arriving where a PDF was expected — the viewer would render it and
+   * the download would save it under the document's name.
+   */
+  const { body } = await upload(alice, 'report.pdf', pdfBuffer(), 'application/pdf');
+  const id = body.data!.uploaded[0]!.id;
+
+  // Remove the bytes, leave the record — exactly the state old media is in.
+  const media = await Media.findById(id);
+  await getStorageProvider().delete(media!.storageKey);
+
+  const res = await fetch(`${baseUrl}/api/media/${id}/raw`, { headers: { cookie: alice.cookie } });
+  assert.equal(res.status, 404);
+  assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+
+  const payload = (await res.json()) as { success: boolean; error: { message: string } };
+  assert.equal(payload.success, false);
+  assert.ok(payload.error.message.length > 0);
+});
+
+test("a document belongs to its owner alone", async () => {
+  const { body } = await upload(alice, 'private.pdf', pdfBuffer(), 'application/pdf');
+  const id = body.data!.uploaded[0]!.id;
+
+  for (const route of ['raw', 'download'] as const) {
+    const asBob = await fetch(`${baseUrl}/api/media/${id}/${route}`, { headers: { cookie: bob.cookie } });
+    assert.notEqual(asBob.status, 200, `${route} must not serve another account's document`);
+
+    const anonymous = await fetch(`${baseUrl}/api/media/${id}/${route}`);
+    assert.notEqual(anonymous.status, 200, `${route} must not serve a document to nobody`);
+  }
 });
 
 test("owner isolation holds when the bytes live in the database", async () => {

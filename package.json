@@ -22,7 +22,9 @@
     "verify-storage": "npm run verify-storage --workspace backend",
     "build": "npm run build:backend && npm run build:frontend",
     "typecheck": "npm run build:backend && npm run typecheck:backend && npm run typecheck:frontend",
-    "test": "npm run test --workspace backend",
+    "test": "npm run test --workspace backend && npm run test:frontend",
+    "test:backend": "npm run test --workspace backend",
+    "test:frontend": "tsx --test frontend/tests/uploadAccept.test.ts",
     "smoke": "npm run smoke:vercel --workspace backend",
     "lint": "npm run lint --workspace frontend"
   }

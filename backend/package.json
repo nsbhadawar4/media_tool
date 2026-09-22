@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:trash": "tsx --test tests/trashSafety.test.ts",
     "test:trash-api": "tsx --test tests/trashApi.test.ts",
-    "test": "tsx --test tests/trashSafety.test.ts tests/trashApi.test.ts tests/userIsolation.test.ts tests/fileValidation.test.ts tests/uploadPipeline.test.ts tests/gridfsUploadPipeline.test.ts tests/directUpload.test.ts tests/vercelBridge.test.ts tests/r2Storage.test.ts tests/s3Storage.test.ts tests/storageSelection.test.ts tests/gridfsStorage.test.ts tests/uploadLimits.test.ts tests/bucketDelete.test.ts tests/mediaUrls.test.ts tests/migrateStorage.test.ts",
+    "test": "tsx --test tests/trashSafety.test.ts tests/trashApi.test.ts tests/userIsolation.test.ts tests/fileValidation.test.ts tests/uploadCategory.test.ts tests/uploadPipeline.test.ts tests/gridfsUploadPipeline.test.ts tests/directUpload.test.ts tests/vercelBridge.test.ts tests/r2Storage.test.ts tests/s3Storage.test.ts tests/storageSelection.test.ts tests/gridfsStorage.test.ts tests/uploadLimits.test.ts tests/bucketDelete.test.ts tests/mediaUrls.test.ts tests/migrateStorage.test.ts",
     "create-admin": "tsx src/scripts/create-admin.ts",
     "migrate-to-users": "tsx src/scripts/migrate-to-users.ts",
     "migrate-to-atlas": "tsx src/scripts/migrate-to-atlas.ts",
@@ -23,7 +23,7 @@
     "test:isolation": "tsx --test tests/userIsolation.test.ts",
     "test:bridge": "tsx --test tests/vercelBridge.test.ts",
     "test:upload": "tsx --test tests/directUpload.test.ts tests/uploadPipeline.test.ts tests/gridfsUploadPipeline.test.ts",
-    "test:validation": "tsx --test tests/fileValidation.test.ts",
+    "test:validation": "tsx --test tests/fileValidation.test.ts tests/uploadCategory.test.ts",
     "test:r2": "tsx --test tests/r2Storage.test.ts",
     "test:storage": "tsx --test tests/r2Storage.test.ts tests/s3Storage.test.ts tests/storageSelection.test.ts tests/gridfsStorage.test.ts tests/gridfsStorage.test.ts tests/uploadLimits.test.ts tests/bucketDelete.test.ts tests/mediaUrls.test.ts tests/migrateStorage.test.ts"
   },
