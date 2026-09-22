@@ -21,10 +21,18 @@ export function sendSuccess<T>(
   });
 }
 
-export function sendError(res: Response, statusCode: number, message: string, details?: unknown) {
+export function sendError(
+  res: Response,
+  statusCode: number,
+  message: string,
+  details?: unknown,
+  code?: string,
+) {
   return res.status(statusCode).json({
     success: false,
     message,
-    error: { message, ...(details !== undefined ? { details } : {}) },
+    // `code` is optional and additive: a client that ignores it sees exactly the envelope
+    // it saw before, and one that reads it gets a cause that outlives the wording.
+    error: { message, ...(code ? { code } : {}), ...(details !== undefined ? { details } : {}) },
   });
 }

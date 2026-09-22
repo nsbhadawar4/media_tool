@@ -371,6 +371,27 @@ either field is wrong, because a deployment that cannot store a file is not serv
 app in any useful sense: every page still loads and every list is still empty, and the
 failure surfaces only when somebody tries to upload.
 
+### Checking stored files
+
+`npm run verify-storage` reports which media records still have the bytes they describe.
+Uploads can no longer create a record without a verified object behind it, but records
+written before that was true still exist, and nothing stops a file being removed from
+storage behind the app's back.
+
+```bash
+npm run verify-storage                      # report only, changes nothing
+npm run verify-storage -- --checksum        # also re-hash objects that recorded one
+npm run verify-storage -- --fix-thumbnails  # regenerate previews that are missing
+npm run verify-storage -- --trash-missing   # move records with no bytes to the trash
+```
+
+It never deletes a record or a stored object. `--trash-missing` moves records to the trash,
+which is reversible from the app, and even that is opt-in. Run it with `backend/.env`
+pointing at the database and storage you want to check.
+
+Media whose bytes are gone shows in the gallery as a **File unavailable** card rather than a
+broken image, so nothing has to be repaired for the app to stay readable.
+
 ### If uploads fail
 
 The browser shows the reason on the failed row in the upload panel. The three it will be:
@@ -420,6 +441,17 @@ function runs, which the app cannot see or explain. `r2`/`s3` are not affected.
 **Function bundle size.** The deployed function carries sharp's native binaries, the
 MongoDB driver and the AWS SDK. It is well inside the 250 MB limit today; adding large
 dependencies to the backend is what would threaten that.
+
+**An upload is rejected if its contents do not match its name.** The server reads the bytes
+rather than trusting the extension or the browser's Content-Type, and for images it decodes
+them: a file renamed to `.jpg`, a photo truncated by a dropped connection, or a ZIP renamed
+to `.docx` is refused with a message saying so. This is deliberate — each of those used to
+be stored successfully and then appear in the gallery as a card that never loads.
+
+**HEIC needs a sharp build with HEIF support.** iPhone photos are accepted only where sharp
+can decode them, which the prebuilt Linux binaries do. On a host whose sharp lacks it, HEIC
+uploads are refused rather than stored: a browser cannot display HEIC either, so storing one
+without a preview would produce exactly the broken tile the check exists to prevent.
 
 ---
 

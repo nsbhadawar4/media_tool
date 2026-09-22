@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Download, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileWarning, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react';
 import { formatBytes } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import type { Media } from '@/types/api';
@@ -36,6 +36,13 @@ export function ImageViewerModal({
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
+  /**
+   * Without this the spinner below simply never stops. An image the browser cannot fetch
+   * or decode fires `error`, never `load`, so the viewer would sit spinning over a file
+   * that is never going to appear — indistinguishable from a slow connection, and with no
+   * way to tell that closing it is the only thing left to do.
+   */
+  const [hasError, setHasError] = useState(false);
 
   // Pan bookkeeping lives in refs: it updates on every mousemove and must not re-render.
   const dragState = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
@@ -214,8 +221,18 @@ export function ImageViewerModal({
           </NavButton>
         )}
 
-        {!isLoaded && (
+        {!isLoaded && !hasError && (
           <div className="absolute h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+        )}
+
+        {hasError && (
+          <div role="alert" className="flex flex-col items-center gap-3 px-6 text-center text-white/70">
+            <FileWarning className="h-10 w-10" strokeWidth={1.5} />
+            <p className="text-sm font-medium text-white/90">File unavailable</p>
+            <p className="max-w-xs text-xs">
+              This image could not be loaded. Its stored file may be missing or damaged.
+            </p>
+          </div>
         )}
 
         {/* Signed, access-controlled media URLs; next/image would add nothing but a
@@ -225,13 +242,14 @@ export function ImageViewerModal({
           src={media.viewUrl}
           alt={media.originalName}
           onLoad={() => setIsLoaded(true)}
+          onError={() => setHasError(true)}
           onMouseDown={startDrag}
           onDoubleClick={() => (isZoomed ? resetZoom() : zoomTo(2))}
           className={cn(
             'max-h-full max-w-full select-none rounded-lg object-contain',
             // Transitions are disabled mid-drag so panning tracks the cursor exactly.
             isDragging ? 'transition-none' : 'transition-transform duration-200',
-            isLoaded ? 'opacity-100' : 'opacity-0',
+            isLoaded && !hasError ? 'opacity-100' : 'opacity-0',
             isZoomed ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in',
           )}
           style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}

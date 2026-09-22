@@ -92,10 +92,23 @@ function ThumbnailPlaceholder({
         {/* Icon comes from a fixed set of stable Lucide components, not created per render. */}
         {/* eslint-disable-next-line react-hooks/static-components */}
         <Icon className="h-9 w-9" strokeWidth={1.5} />
-        {extension && !isBroken && (
-          <span className="text-[10px] font-semibold uppercase leading-none tracking-wider">
-            {extension}
+        {/*
+          A warning mark on its own reads as "something about this file", which is not the
+          same as "these bytes are gone". Uploads can no longer produce this state, but
+          media stored before that was true still can, and so can a file removed from
+          storage behind the app's back — in both cases the only useful thing to say is
+          that the file is not there, in words.
+        */}
+        {isBroken ? (
+          <span className="max-w-full text-center text-[10px] font-semibold uppercase leading-tight tracking-wider">
+            File unavailable
           </span>
+        ) : (
+          extension && (
+            <span className="text-[10px] font-semibold uppercase leading-none tracking-wider">
+              {extension}
+            </span>
+          )
         )}
       </div>
     </div>

@@ -14,6 +14,15 @@ export interface IMedia extends Document {
   mimeType: string;
   fileType: FileType;
   size: number; // bytes
+  /**
+   * SHA-256 of the bytes as they were validated, before they were stored.
+   *
+   * Written by the upload pipeline after storage has been read back and matched against
+   * it, so its presence is a record that the stored object was verified rather than
+   * merely written. Optional because media predating this has none, and absence must read
+   * as "not checked", never as "checked and wrong".
+   */
+  checksum?: string | null;
   width?: number | null;
   height?: number | null;
   duration?: number | null; // seconds, for video
@@ -43,6 +52,7 @@ const mediaSchema = new Schema<IMedia>(
     mimeType: { type: String, required: true },
     fileType: { type: String, enum: FILE_TYPES, required: true, index: true },
     size: { type: Number, required: true },
+    checksum: { type: String, default: null },
     width: { type: Number, default: null },
     height: { type: Number, default: null },
     duration: { type: Number, default: null },

@@ -4,7 +4,6 @@ import fsp from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { Types } from 'mongoose';
-import sharp from 'sharp';
 import { Media, type IMedia } from '../models/Media';
 import { Folder } from '../models/Folder';
 import { getStorageProvider, storageFailure } from './storage';
@@ -20,6 +19,9 @@ import { assertSafeFilename } from '../utils/filenameSafety';
 import { logger } from '../utils/logger';
 import { recalculateItemCount, purgeMediaRecords } from './folderService';
 import { generateThumbnail } from './thumbnailService';
+import { validateUploadedFile, validateStoredCopy } from './fileValidationService';
+import { verifyStoredObject } from './storageIntegrityService';
+import { UploadErrorCode } from '../utils/uploadErrors';
 
 export interface UploadedFileInput {
   originalname: string;
@@ -78,16 +80,6 @@ async function folderIsOwned(ownerId: string, folderId: string | null): Promise<
   return folder !== null;
 }
 
-async function readImageDimensions(filePath: string): Promise<{ width: number | null; height: number | null }> {
-  try {
-    const metadata = await sharp(filePath).metadata();
-    return { width: metadata.width ?? null, height: metadata.height ?? null };
-  } catch {
-    // HEIC or an unusual encoder sharp can't probe — not fatal, dimensions are optional.
-    return { width: null, height: null };
-  }
-}
-
 export interface SaveUploadedMediaInput {
   file: UploadedFileInput;
   folderId: string | null;
@@ -104,89 +96,187 @@ export interface SaveUploadedMediaInput {
   duration?: number | null;
 }
 
+/**
+ * Derives the preview a file of this type must have before it is allowed into the library.
+ *
+ * Images must have one. The gallery falls back to the full-size original when a thumbnail
+ * is missing, so an image that cannot be thumbnailed becomes a tile pointing at bytes the
+ * browser is no more able to decode than sharp was - a broken card, from an upload that
+ * reported success. Refusing here is what makes that state unreachable.
+ *
+ * Videos need not. Their still comes from the browser, there is no ffmpeg to recover one,
+ * and a video without a thumbnail renders as a video placeholder rather than as a broken
+ * image - an honest state the client already handles. Documents never get one at all.
+ *
+ * Must run before the file is stored: the provider consumes its source, so the pixels are
+ * gone by the time the upload returns.
+ */
+async function derivePreviewKey(
+  fileType: FileType,
+  sourcePath: string,
+  posterPath: string | null,
+  storedName: string,
+): Promise<string | null> {
+  if (fileType === 'image') {
+    const key = await generateThumbnail({ sourcePath, storedName });
+    if (!key) {
+      throw AppError.internal(
+        'A preview could not be generated for this image, so it was not saved. Please try again.',
+        UploadErrorCode.PreviewGenerationFailed,
+      );
+    }
+    return key;
+  }
+
+  if (fileType === 'video' && posterPath) {
+    // Not fatal: a browser that could not capture a still still uploaded a valid video.
+    return generateThumbnail({ sourcePath: posterPath, storedName });
+  }
+
+  return null;
+}
+
+/**
+ * Stores one uploaded file, or leaves nothing behind.
+ *
+ * The order is the point:
+ *
+ *   validate the bytes -> derive the preview -> store -> read back and verify -> record
+ *
+ * Every earlier version of this created the media record as soon as the provider's write
+ * returned, which is what let a file that was never really stored - or was never really an
+ * image - become a permanent broken tile. Nothing is recorded now until the object has
+ * been located, measured and read back against the checksum taken before it was written,
+ * and any failure after the write removes what was written. A caller that gets an error
+ * from this can retry it unchanged: there is no half-finished upload to clean up first.
+ */
 export async function saveUploadedMedia(input: SaveUploadedMediaInput): Promise<IMedia> {
   const { file, folderId, ownerId, uploadedBy, posterPath, duration } = input;
+  const provider = getStorageProvider();
 
-  // Both temp files are abandoned on every failure path below, so clean them up together.
-  const discardTempFiles = async () => {
+  /** What has to be removed from storage if a later step fails. */
+  let storedKey: string | null = null;
+  let thumbnailKey: string | null = null;
+
+  try {
+    let safeName: string;
+    try {
+      safeName = assertSafeFilename(file.originalname);
+    } catch (err) {
+      throw AppError.badRequest(
+        err instanceof Error ? err.message : 'Invalid filename',
+        undefined,
+        UploadErrorCode.InvalidFileType,
+      );
+    }
+
+    // Reads the actual bytes. Everything downstream uses what this returns, never the
+    // extension or the client's content type - see fileValidationService.
+    const validated = await validateUploadedFile({
+      filePath: file.path,
+      safeName,
+      reportedMimeType: file.mimetype,
+    });
+
+    // Uploading into someone else's folder must be impossible, so the folder is looked up
+    // by id *and* owner. A folder that exists but belongs to another account reads as absent.
+    if (!(await folderIsOwned(ownerId, folderId))) {
+      throw AppError.notFound('Target folder not found');
+    }
+
+    const { key, storedName } = buildStorageKey(validated.fileType, folderId, safeName);
+
+    thumbnailKey = await derivePreviewKey(validated.fileType, file.path, posterPath ?? null, storedName);
+
+    let stored;
+    try {
+      stored = await provider.upload({
+        key,
+        sourcePath: file.path,
+        contentType: validated.mimeType,
+      });
+    } catch (err) {
+      throw storageFailure('store the file', err, UploadErrorCode.StorageUploadFailed);
+    }
+    storedKey = stored.key;
+
+    await verifyStoredObject({
+      key: storedKey,
+      expectedSize: validated.size,
+      expectedSha256: validated.sha256,
+      expectedContentType: validated.mimeType,
+    });
+
+    if (thumbnailKey) {
+      // Its bytes were never in hand here - generateThumbnail wrote and uploaded them - so
+      // there is no checksum to compare. That it exists and reads is what the gallery needs.
+      const thumbnailStat = await provider.stat(thumbnailKey);
+      await verifyStoredObject({ key: thumbnailKey, expectedSize: thumbnailStat?.size ?? 0 });
+    }
+
+    let media: IMedia;
+    try {
+      media = await Media.create({
+        ownerId: new Types.ObjectId(ownerId),
+        folderId: folderId ?? null,
+        originalName: safeName,
+        storedName,
+        storageKey: stored.key,
+        storageProvider: provider.name,
+        url: provider.getUrl(stored.key),
+        mimeType: validated.mimeType,
+        fileType: validated.fileType,
+        size: validated.size,
+        checksum: validated.sha256,
+        width: validated.width,
+        height: validated.height,
+        duration: validated.fileType === 'video' ? (duration ?? null) : null,
+        thumbnailKey,
+        uploadedBy: new Types.ObjectId(uploadedBy),
+      });
+    } catch (err) {
+      logger.error(`Could not record uploaded media ${stored.key}`, err);
+      throw AppError.internal(
+        'The file was stored but could not be recorded, so the upload was cancelled. Please try again.',
+        UploadErrorCode.MediaRecordFailed,
+      );
+    }
+
+    /**
+     * Past the point of no return: the file is stored, verified and recorded, which is what
+     * this upload promised. The folder's counter and cover image are derived conveniences -
+     * the counter is recomputed elsewhere anyway - so failing them must not undo a good
+     * upload, and must not trigger the rollback below either.
+     */
+    if (folderId) {
+      try {
+        await recalculateItemCount(ownerId, folderId);
+        await Folder.updateOne({ _id: folderId, ownerId, coverImage: null }, { coverImage: media._id });
+      } catch (err) {
+        logger.warn(`Uploaded ${media._id.toString()} but could not update folder ${folderId}`, err);
+      }
+    }
+
+    return media;
+  } catch (err) {
+    // Nothing partially uploaded survives a failure - no orphaned object for a record that
+    // was never written, and no thumbnail for an original that is not there.
+    if (storedKey) {
+      const orphan = storedKey;
+      await provider.delete(orphan).catch((cleanupError: unknown) => {
+        logger.error(`Could not roll back stored object ${orphan}`, cleanupError);
+      });
+    }
+    if (thumbnailKey) {
+      await provider.delete(thumbnailKey).catch(() => undefined);
+    }
+    throw err;
+  } finally {
+    // Runs on every path, including the successful one - where the provider has already
+    // consumed the original and this simply finds nothing to remove.
     await fsp.unlink(file.path).catch(() => undefined);
     if (posterPath) await fsp.unlink(posterPath).catch(() => undefined);
-  };
-
-  let safeName: string;
-  try {
-    safeName = assertSafeFilename(file.originalname);
-  } catch (err) {
-    await discardTempFiles();
-    throw AppError.badRequest(err instanceof Error ? err.message : 'Invalid filename');
   }
-
-  const identity = resolveFileIdentity(safeName, file.mimetype);
-  if (!identity) {
-    await discardTempFiles();
-    throw AppError.badRequest(`Unsupported file type for ${file.originalname}`);
-  }
-  const { mimeType: resolvedMimeType, fileType } = identity;
-
-  // Uploading into someone else's folder must be impossible, so the folder is looked up
-  // by id *and* owner. A folder that exists but belongs to another account reads as absent.
-  if (!(await folderIsOwned(ownerId, folderId))) {
-    await discardTempFiles();
-    throw AppError.notFound('Target folder not found');
-  }
-
-  const { key, storedName } = buildStorageKey(fileType, folderId, safeName);
-
-  let dimensions: { width: number | null; height: number | null } = { width: null, height: null };
-  if (fileType === 'image') {
-    dimensions = await readImageDimensions(file.path);
-  }
-
-  // Must run before the upload below: the storage provider *moves* its source file, so
-  // reading pixels from `file.path` afterwards would find nothing there.
-  let thumbnailKey: string | null = null;
-  if (fileType === 'image') {
-    thumbnailKey = await generateThumbnail({ sourcePath: file.path, storedName });
-  } else if (fileType === 'video' && posterPath) {
-    thumbnailKey = await generateThumbnail({ sourcePath: posterPath, storedName });
-    // generateThumbnail reads the poster but never removes it, so drop it here either way.
-    await fsp.unlink(posterPath).catch(() => undefined);
-  }
-
-  const provider = getStorageProvider();
-  let stored;
-  try {
-    stored = await provider.upload({ key, sourcePath: file.path, contentType: resolvedMimeType });
-  } catch (err) {
-    // A failed upload leaves multer's temp file behind; without this it accumulates in tmp/.
-    await discardTempFiles();
-    throw err;
-  }
-
-  const media = await Media.create({
-    ownerId: new Types.ObjectId(ownerId),
-    folderId: folderId ?? null,
-    originalName: safeName,
-    storedName,
-    storageKey: stored.key,
-    storageProvider: provider.name,
-    url: provider.getUrl(stored.key),
-    mimeType: resolvedMimeType,
-    fileType,
-    size: stored.size,
-    width: dimensions.width,
-    height: dimensions.height,
-    duration: fileType === 'video' ? (duration ?? null) : null,
-    thumbnailKey,
-    uploadedBy: new Types.ObjectId(uploadedBy),
-  });
-
-  if (folderId) {
-    await recalculateItemCount(ownerId, folderId);
-    await Folder.updateOne({ _id: folderId, ownerId, coverImage: null }, { coverImage: media._id });
-  }
-
-  return media;
 }
 
 export async function renameMedia(ownerId: string, id: string, originalName: string): Promise<IMedia> {
@@ -540,93 +630,157 @@ export async function registerDirectUpload(input: RegisterDirectUploadInput): Pr
   const { ownerId, uploadedBy, target, width, height, duration } = input;
   const provider = getStorageProvider();
 
-  // Distinguished from `stat` returning null, which means the object genuinely is not
-  // there: a throw here is storage itself refusing to answer, and re-reporting that as
-  // "please try again" would have the user retry forever against a broken bucket.
-  let stat;
-  try {
-    stat = await provider.stat(target.key);
-  } catch (err) {
-    throw storageFailure('confirm the upload', err);
-  }
-  if (!stat) {
-    throw AppError.badRequest('The uploaded file was not found in storage. Please try again.');
-  }
-
-  if (stat.size > target.maxSize) {
-    await provider.delete(target.key).catch(() => undefined);
-    throw AppError.tooLarge(`Files must be ${env.MAX_FILE_SIZE_MB} MB or smaller`);
-  }
-
-  if (stat.size === 0) {
-    await provider.delete(target.key).catch(() => undefined);
-    throw AppError.badRequest('The uploaded file was empty');
-  }
-
-  // Re-checked rather than trusted from the token: the folder may have been deleted, or
-  // moved to the trash, in the time the browser spent uploading.
-  if (!(await folderIsOwned(ownerId, target.folderId))) {
-    await provider.delete(target.key).catch(() => undefined);
-    throw AppError.notFound('Target folder not found');
-  }
-
-  /**
-   * Images get a thumbnail and pixel dimensions derived from the stored object, exactly
-   * as the through-the-API path derives them from the temp file — same sharp call, same
-   * results — so a photo's metadata does not depend on which way it was uploaded.
-   *
-   * Videos get neither here. Deriving a still would mean pulling the whole file back
-   * through the function, so the client posts the poster frame it already captured to
-   * /:id/thumbnail instead. A null thumbnail is a first-class state either way: the
-   * gallery falls back to the full image or a placeholder, so this never costs an upload.
-   */
+  /** Removed unless this function returns a record that describes it. */
   let thumbnailKey: string | null = null;
-  let derived: { width: number | null; height: number | null } = { width: null, height: null };
+  let localCopy: string | null = null;
+  let succeeded = false;
 
-  if (target.fileType === 'image') {
-    const localCopy = await downloadToTemp(target.key, target.storedName, stat.size);
+  const discardUpload = async (reason: string) => {
+    logger.warn(`Discarding direct upload ${target.key}: ${reason}`);
+    await provider.delete(target.key).catch(() => undefined);
+  };
+
+  try {
+    let stat;
+    try {
+      stat = await provider.stat(target.key);
+    } catch (err) {
+      throw storageFailure('confirm the upload', err, UploadErrorCode.StorageVerificationFailed);
+    }
+
+    if (!stat) {
+      throw AppError.badRequest(
+        'The uploaded file was not found in storage. Please try again.',
+        undefined,
+        UploadErrorCode.StorageUploadFailed,
+      );
+    }
+
+    /**
+     * The size check is not a formality. Nothing stops a client PUTting more bytes than it
+     * declared - the presigned URL constrains the key and the content type, not the length.
+     */
+    if (stat.size > target.maxSize) {
+      await discardUpload('larger than the size it was authorised for');
+      throw AppError.tooLarge(
+        `Files must be ${env.MAX_FILE_SIZE_MB} MB or smaller`,
+        UploadErrorCode.FileTooLarge,
+      );
+    }
+    if (stat.size === 0) {
+      await discardUpload('empty');
+      throw AppError.badRequest('The uploaded file was empty', undefined, UploadErrorCode.EmptyFile);
+    }
+
+    // Re-checked rather than trusted from the token: the folder may have been deleted, or
+    // moved to the trash, in the time the browser spent uploading.
+    if (!(await folderIsOwned(ownerId, target.folderId))) {
+      await discardUpload('its target folder no longer exists');
+      throw AppError.notFound('Target folder not found');
+    }
+
+    /**
+     * Bytes that never passed through this server still have to be examined, or a direct
+     * upload would be the way around every check the through-the-API path applies: a
+     * renamed text file would become an image record and a permanently broken tile, which
+     * is exactly the failure this whole pipeline exists to make unreachable.
+     *
+     * Pulling the object back is the only way to see it. Past the ceiling that is not
+     * affordable, and the file is accepted on the strength of the signed token's declared
+     * type - a deliberate, bounded trade, not an oversight: only the account that was
+     * granted the upload can reach that path, and the ceiling is far above any photo.
+     */
+    localCopy = await downloadToTemp(target.key, target.storedName, stat.size);
+
+    let validated = null;
     if (localCopy) {
       try {
-        derived = await readImageDimensions(localCopy);
+        validated = await validateStoredCopy({
+          filePath: localCopy,
+          safeName: target.originalName,
+          reportedMimeType: target.mimeType,
+        });
+      } catch (err) {
+        await discardUpload('it failed validation');
+        throw err;
+      }
+
+      if (validated.fileType !== target.fileType) {
+        await discardUpload(`its contents are ${validated.fileType}, not ${target.fileType}`);
+        throw AppError.badRequest(
+          'This file does not match the type it was uploaded as.',
+          undefined,
+          UploadErrorCode.InvalidFileContent,
+        );
+      }
+
+      if (validated.fileType === 'image') {
         thumbnailKey = await generateThumbnail({
           sourcePath: localCopy,
           storedName: target.storedName,
         });
-      } finally {
-        // generateThumbnail consumes only the thumbnail it writes, not this copy.
-        await fsp.unlink(localCopy).catch(() => undefined);
+        if (!thumbnailKey) {
+          await discardUpload('no preview could be generated for it');
+          throw AppError.internal(
+            'A preview could not be generated for this image, so it was not saved. Please try again.',
+            UploadErrorCode.PreviewGenerationFailed,
+          );
+        }
       }
     }
+
+    let media: IMedia;
+    try {
+      media = await Media.create({
+        ownerId: new Types.ObjectId(ownerId),
+        folderId: target.folderId ?? null,
+        originalName: target.originalName,
+        storedName: target.storedName,
+        storageKey: target.key,
+        storageProvider: provider.name,
+        url: provider.getUrl(target.key),
+        // From the bytes when they could be read, from the signed token when they could not.
+        mimeType: validated?.mimeType ?? target.mimeType,
+        fileType: validated?.fileType ?? target.fileType,
+        size: stat.size,
+        checksum: validated?.sha256 ?? null,
+        // Measured server-side where possible; the client's values are the fallback.
+        width: validated?.width ?? width ?? null,
+        height: validated?.height ?? height ?? null,
+        duration: target.fileType === 'video' ? (duration ?? null) : null,
+        thumbnailKey,
+        uploadedBy: new Types.ObjectId(uploadedBy),
+      });
+    } catch (err) {
+      logger.error(`Could not record direct upload ${target.key}`, err);
+      await discardUpload('its record could not be written');
+      throw AppError.internal(
+        'The file was stored but could not be recorded, so the upload was cancelled. Please try again.',
+        UploadErrorCode.MediaRecordFailed,
+      );
+    }
+
+    succeeded = true;
+
+    if (target.folderId) {
+      try {
+        await recalculateItemCount(ownerId, target.folderId);
+        await Folder.updateOne(
+          { _id: target.folderId, ownerId, coverImage: null },
+          { coverImage: media._id },
+        );
+      } catch (err) {
+        logger.warn(`Recorded ${media._id.toString()} but could not update its folder`, err);
+      }
+    }
+
+    return media;
+  } finally {
+    if (localCopy) await fsp.unlink(localCopy).catch(() => undefined);
+    // A thumbnail derived for a record that was never written would otherwise sit in the
+    // bucket forever with nothing referring to it.
+    if (!succeeded && thumbnailKey) await provider.delete(thumbnailKey).catch(() => undefined);
   }
-
-  const media = await Media.create({
-    ownerId: new Types.ObjectId(ownerId),
-    folderId: target.folderId ?? null,
-    originalName: target.originalName,
-    storedName: target.storedName,
-    storageKey: target.key,
-    storageProvider: provider.name,
-    url: provider.getUrl(target.key),
-    mimeType: target.mimeType,
-    fileType: target.fileType,
-    size: stat.size,
-    // Measured server-side where possible; the client's values are the fallback.
-    width: derived.width ?? width ?? null,
-    height: derived.height ?? height ?? null,
-    duration: target.fileType === 'video' ? (duration ?? null) : null,
-    thumbnailKey,
-    uploadedBy: new Types.ObjectId(uploadedBy),
-  });
-
-  if (target.folderId) {
-    await recalculateItemCount(ownerId, target.folderId);
-    await Folder.updateOne(
-      { _id: target.folderId, ownerId, coverImage: null },
-      { coverImage: media._id },
-    );
-  }
-
-  return media;
 }
 
 /**

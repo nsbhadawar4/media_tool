@@ -20,7 +20,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     if (err.statusCode >= 500) {
       logger.error(`${req.method} ${req.originalUrl} failed: ${err.message}`);
     }
-    sendError(res, err.statusCode, err.message, err.details);
+    sendError(res, err.statusCode, err.message, err.details, err.code);
     return;
   }
 

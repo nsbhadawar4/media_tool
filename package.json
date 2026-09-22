@@ -19,6 +19,7 @@
     "migrate-to-users": "npm run migrate-to-users --workspace backend",
     "migrate-to-atlas": "npm run migrate-to-atlas --workspace backend",
     "migrate-storage": "npm run migrate-storage --workspace backend",
+    "verify-storage": "npm run verify-storage --workspace backend",
     "build": "npm run build:backend && npm run build:frontend",
     "typecheck": "npm run build:backend && npm run typecheck:backend && npm run typecheck:frontend",
     "test": "npm run test --workspace backend",

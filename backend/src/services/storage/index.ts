@@ -255,7 +255,7 @@ export function isStorageConfigured(): boolean {
  * account id, to whoever happens to be signed in. The full error goes to the log, where
  * the operator and only the operator can read it.
  */
-export function storageFailure(action: string, err: unknown): AppError {
+export function storageFailure(action: string, err: unknown, code?: string): AppError {
   // A configuration error already carries the better message; do not bury it.
   if (err instanceof AppError) return err;
 
@@ -267,5 +267,6 @@ export function storageFailure(action: string, err: unknown): AppError {
   return AppError.unavailable(
     `File storage is unavailable${condition}, so the server could not ${action}. ` +
       "Check the deployment's storage credentials and bucket name — see DEPLOYMENT.md §4.",
+    code,
   );
 }
