@@ -105,6 +105,22 @@ body {
   color: var(--accent-foreground);
 }
 
+/*
+ * Tailwind v4's preflight sets `cursor: default` on buttons, where v3 left the browser's
+ * own `pointer`. Every button in the app lost its hand cursor as a result — the shared
+ * Button, the dropdown triggers, the card tiles, the icon buttons in the viewers.
+ *
+ * Restored here rather than by adding `cursor-pointer` in each of those places: it is one
+ * rule instead of dozens, and it covers buttons written later without anyone having to
+ * remember. Disabled buttons are excluded so `disabled:cursor-not-allowed` keeps working,
+ * and utilities still win over this anyway — a button that asks for a different cursor
+ * gets it.
+ */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer;
+}
+
 /* Thin, unobtrusive scrollbars that still match the theme */
 * {
   scrollbar-width: thin;
