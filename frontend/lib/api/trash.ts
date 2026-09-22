@@ -36,6 +36,15 @@ export interface PermanentDeleteResult {
   failed: Array<{ id: string; name: string; error: string }>;
 }
 
+/** Outcome of deleting a selection: reported per item, since a stale one must not stop the rest. */
+export interface BulkPermanentDeleteResult {
+  succeeded: Array<{ id: string; name: string; type: 'folder' | 'media' }>;
+  failed: Array<{ id: string; error: string }>;
+  deletedFolders: number;
+  deletedMedia: number;
+  freedBytes: number;
+}
+
 export interface RestoreResult {
   type: 'folder' | 'media';
   restoredFolders?: number;
@@ -50,4 +59,6 @@ export const trashApi = {
   restore: (id: string) => api.post<RestoreResult>(`/api/trash/${id}/restore`),
   permanentlyDelete: (id: string, confirm: string) =>
     api.delete<PermanentDeleteResult>(`/api/trash/${id}/permanent`, { confirm }),
+  permanentlyDeleteMany: (ids: string[], confirm: string) =>
+    api.delete<BulkPermanentDeleteResult>('/api/trash/permanent', { ids, confirm }),
 };

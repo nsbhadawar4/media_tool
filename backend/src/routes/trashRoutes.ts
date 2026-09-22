@@ -7,6 +7,7 @@ import {
   restoreTrashItem,
   previewPermanentDelete,
   permanentlyDeleteTrashItem,
+  permanentlyDeleteTrashItems,
   PERMANENT_DELETE_CONFIRMATION,
 } from '../controllers/trashController';
 
@@ -23,12 +24,28 @@ const permanentDeleteBodySchema = z.object({
   }),
 });
 
+/** Same gate as a single delete, over a list of ids. */
+const bulkPermanentDeleteBodySchema = permanentDeleteBodySchema.extend({
+  ids: z
+    .array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id'))
+    .min(1, 'Select at least one item to delete')
+    // Bounded so one request cannot ask for an unbounded amount of storage work; the
+    // client deletes a page at a time, which is well inside this.
+    .max(200, 'Delete at most 200 items at a time'),
+});
+
 const router = Router();
 router.use(requireAuth);
 
 router.get('/', listTrash);
 router.get('/:id/deletion-preview', validate({ params: idParamSchema }), previewPermanentDelete);
 router.post('/:id/restore', validate({ params: idParamSchema }), restoreTrashItem);
+/**
+ * Registered ahead of `/:id/permanent` for clarity rather than necessity - the two differ
+ * in segment count and could not be confused - so the bulk route stays visible next to the
+ * single one it shares its logic with.
+ */
+router.delete('/permanent', validate({ body: bulkPermanentDeleteBodySchema }), permanentlyDeleteTrashItems);
 router.delete(
   '/:id/permanent',
   validate({ params: idParamSchema, body: permanentDeleteBodySchema }),

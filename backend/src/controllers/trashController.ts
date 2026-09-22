@@ -152,19 +152,31 @@ export const previewPermanentDelete = asyncHandler(async (req: Request, res: Res
  * the exact confirmation phrase, and the item must already be in the trash, so nothing
  * visible in the gallery can be destroyed in a single step.
  */
-export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { confirm } = req.body as { confirm?: string };
+interface PermanentDeleteOutcome {
+  type: 'folder' | 'media';
+  name: string;
+  deletedFolders: number;
+  deletedMedia: number;
+  freedBytes: number;
+  failed: Array<{ id: string; name: string; error: string }>;
+}
 
-  if (confirm !== PERMANENT_DELETE_CONFIRMATION) {
-    throw AppError.badRequest(
-      `Permanent deletion must be confirmed by sending confirm: "${PERMANENT_DELETE_CONFIRMATION}"`,
-    );
-  }
+/**
+ * Destroys one trashed item, whichever kind it is, and records what it cost.
+ *
+ * Shared by the single and bulk endpoints so the two cannot drift: a deletion carried out
+ * one at a time and the same deletion carried out as part of a selection must free the
+ * same bytes, write the same activity entry, and refuse the same protected folders.
+ *
+ * Looks the item up by id *and* owner, so another account's id reads as absent rather
+ * than as forbidden — and can never be deleted through either route.
+ */
+async function permanentlyDeleteOne(req: Request, id: string): Promise<PermanentDeleteOutcome> {
+  const ownerId = req.user!.id;
 
-  const folder = await Folder.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
+  const folder = await Folder.findOne({ _id: id, ownerId, isDeleted: true });
   if (folder) {
-    const result = await folderService.permanentlyDeleteFolder(req.user!.id, id);
+    const result = await folderService.permanentlyDeleteFolder(ownerId, id);
 
     await logActivity(req, {
       action: 'folder_permanently_deleted',
@@ -182,19 +194,12 @@ export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res:
       },
     });
 
-    if (result.failed.length > 0) {
-      throw AppError.internal(
-        `${result.failed.length} file(s) could not be removed from storage and are still in the trash. Nothing else was deleted.`,
-      );
-    }
-
-    sendSuccess(res, { type: 'folder', deleted: true, ...result });
-    return;
+    return { type: 'folder', name: folder.name, ...result };
   }
 
-  const media = await Media.findOne({ _id: id, ownerId: req.user!.id, isDeleted: true });
+  const media = await Media.findOne({ _id: id, ownerId, isDeleted: true });
   if (media) {
-    const { freedBytes } = await mediaService.permanentlyDeleteMedia(req.user!.id, id);
+    const { freedBytes } = await mediaService.permanentlyDeleteMedia(ownerId, id);
 
     await logActivity(req, {
       action: 'media_permanently_deleted',
@@ -205,9 +210,95 @@ export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res:
       metadata: { freedBytes },
     });
 
-    sendSuccess(res, { type: 'media', deleted: true, deletedMedia: 1, deletedFolders: 0, freedBytes, failed: [] });
-    return;
+    return {
+      type: 'media',
+      name: media.originalName,
+      deletedFolders: 0,
+      deletedMedia: 1,
+      freedBytes,
+      failed: [],
+    };
   }
 
   throw AppError.notFound('Trashed item not found');
+}
+
+export const permanentlyDeleteTrashItem = asyncHandler(async (req: Request, res: Response) => {
+  const { confirm } = req.body as { confirm?: string };
+
+  if (confirm !== PERMANENT_DELETE_CONFIRMATION) {
+    throw AppError.badRequest(
+      `Permanent deletion must be confirmed by sending confirm: "${PERMANENT_DELETE_CONFIRMATION}"`,
+    );
+  }
+
+  const outcome = await permanentlyDeleteOne(req, req.params.id);
+
+  if (outcome.failed.length > 0) {
+    throw AppError.internal(
+      `${outcome.failed.length} file(s) could not be removed from storage and are still in the trash. Nothing else was deleted.`,
+    );
+  }
+
+  const { name: _name, ...result } = outcome;
+  sendSuccess(res, { ...result, deleted: true });
+});
+
+/**
+ * Permanently deletes several trashed items in one request.
+ *
+ * Per item rather than all-or-nothing, matching every other bulk endpoint here: a
+ * selection made from a list is routinely stale by the time it is acted on — something
+ * restored in another tab, a folder already swept up by deleting its parent — and
+ * refusing the whole batch over one such entry would make the feature useless exactly
+ * when it is most wanted. What went and what did not is reported item by item.
+ *
+ * The confirmation phrase is required once for the request, not once per item: it exists
+ * so that destroying something is deliberate, and confirming the same selection nine times
+ * would train people to type it without reading.
+ */
+export const permanentlyDeleteTrashItems = asyncHandler(async (req: Request, res: Response) => {
+  const { ids, confirm } = req.body as { ids: string[]; confirm?: string };
+
+  if (confirm !== PERMANENT_DELETE_CONFIRMATION) {
+    throw AppError.badRequest(
+      `Permanent deletion must be confirmed by sending confirm: "${PERMANENT_DELETE_CONFIRMATION}"`,
+    );
+  }
+
+  const succeeded: Array<{ id: string; name: string; type: 'folder' | 'media' }> = [];
+  const failed: Array<{ id: string; error: string }> = [];
+  let deletedFolders = 0;
+  let deletedMedia = 0;
+  let freedBytes = 0;
+
+  for (const id of ids) {
+    try {
+      const outcome = await permanentlyDeleteOne(req, id);
+
+      // A folder whose storage would not let go of some of its files stays in the trash;
+      // counting it as deleted would tell the user bytes were freed that were not.
+      if (outcome.failed.length > 0) {
+        failed.push({
+          id,
+          error: `${outcome.failed.length} file(s) could not be removed from storage; this item is still in the trash.`,
+        });
+        continue;
+      }
+
+      succeeded.push({ id, name: outcome.name, type: outcome.type });
+      deletedFolders += outcome.deletedFolders;
+      deletedMedia += outcome.deletedMedia;
+      freedBytes += outcome.freedBytes;
+    } catch (err) {
+      failed.push({ id, error: err instanceof Error ? err.message : 'Could not be deleted' });
+    }
+  }
+
+  sendSuccess(
+    res,
+    { succeeded, failed, deletedFolders, deletedMedia, freedBytes },
+    // Nothing at all went through: the request failed, and the status should say so.
+    succeeded.length === 0 && failed.length > 0 ? 400 : 200,
+  );
 });

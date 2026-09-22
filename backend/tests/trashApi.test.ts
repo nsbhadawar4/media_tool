@@ -29,6 +29,8 @@ import { Folder } from '../src/models/Folder';
 import { Media } from '../src/models/Media';
 import { signSessionToken } from '../src/services/tokenService';
 import * as folderService from '../src/services/folderService';
+import * as mediaService from '../src/services/mediaService';
+import { PERMANENT_DELETE_CONFIRMATION } from '../src/controllers/trashController';
 
 let mongo: MongoMemoryServer;
 let server: Server;
@@ -121,6 +123,155 @@ async function trashedFolderWithPhoto() {
   await folderService.softDeleteFolder(ownerId, folder._id.toString());
   return { folder, photo };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Deleting a selection                                                        */
+/* -------------------------------------------------------------------------- */
+
+test('DELETE /api/trash/permanent destroys every selected item and its bytes', async () => {
+  const first = await makeMedia('one.jpg', null, 256);
+  const second = await makeMedia('two.jpg', null, 512);
+  await mediaService.softDeleteMedia(ownerId, first._id.toString());
+  await mediaService.softDeleteMedia(ownerId, second._id.toString());
+
+  const { status, payload } = await callApi<{
+    succeeded: unknown[];
+    failed: unknown[];
+    deletedMedia: number;
+    freedBytes: number;
+  }>('DELETE', '/api/trash/permanent', {
+    ids: [first._id.toString(), second._id.toString()],
+    confirm: PERMANENT_DELETE_CONFIRMATION,
+  });
+
+  assert.equal(status, 200);
+  assert.equal(payload.data!.succeeded.length, 2);
+  assert.equal(payload.data!.failed.length, 0);
+  assert.equal(payload.data!.deletedMedia, 2);
+  assert.equal(payload.data!.freedBytes, 768);
+
+  // The records and the bytes both, since this is the one operation that erases either.
+  assert.equal(await Media.countDocuments({}), 0);
+  assert.equal(fileExists(first.storageKey), false);
+  assert.equal(fileExists(second.storageKey), false);
+});
+
+test('a selection is refused without the confirmation phrase', async () => {
+  const photo = await makeMedia('kept.jpg', null);
+  await mediaService.softDeleteMedia(ownerId, photo._id.toString());
+
+  for (const confirm of [undefined, 'yes', 'delete permanently']) {
+    const { status } = await callApi('DELETE', '/api/trash/permanent', {
+      ids: [photo._id.toString()],
+      confirm,
+    });
+    assert.equal(status, 400, `"${String(confirm)}" must not be accepted`);
+  }
+
+  assert.equal(await Media.countDocuments({}), 1, 'nothing may be destroyed by a refused request');
+});
+
+test('one stale id does not stop the rest of the selection', async () => {
+  /**
+   * A selection made from a list is routinely out of date by the time it is acted on —
+   * something restored in another tab, a folder already swept up by deleting its parent.
+   * Refusing the whole batch over one such entry would make the feature useless exactly
+   * when it is most wanted, so each item is reported on its own.
+   */
+  const photo = await makeMedia('real.jpg', null, 128);
+  await mediaService.softDeleteMedia(ownerId, photo._id.toString());
+  const vanished = new mongoose.Types.ObjectId().toString();
+
+  const { status, payload } = await callApi<{
+    succeeded: Array<{ id: string }>;
+    failed: Array<{ id: string; error: string }>;
+    deletedMedia: number;
+  }>('DELETE', '/api/trash/permanent', {
+    ids: [vanished, photo._id.toString()],
+    confirm: PERMANENT_DELETE_CONFIRMATION,
+  });
+
+  assert.equal(status, 200);
+  assert.equal(payload.data!.succeeded.length, 1);
+  assert.equal(payload.data!.succeeded[0]!.id, photo._id.toString());
+  assert.equal(payload.data!.failed.length, 1);
+  assert.equal(payload.data!.failed[0]!.id, vanished);
+  assert.ok(payload.data!.failed[0]!.error.length > 0);
+  assert.equal(await Media.countDocuments({}), 0);
+});
+
+test('a selection that is entirely stale is reported as a failed request', async () => {
+  // Nothing went through, so a 200 would tell the client the deletion succeeded.
+  const { status, payload } = await callApi<{ succeeded: unknown[]; failed: unknown[] }>(
+    'DELETE',
+    '/api/trash/permanent',
+    { ids: [new mongoose.Types.ObjectId().toString()], confirm: PERMANENT_DELETE_CONFIRMATION },
+  );
+
+  assert.equal(status, 400);
+  assert.equal(payload.data!.succeeded.length, 0);
+  assert.equal(payload.data!.failed.length, 1);
+});
+
+test('a live item cannot be destroyed through the bulk route either', async () => {
+  // The single route already refuses this; the bulk one shares its lookup, and this is
+  // what pins that they cannot drift apart.
+  const photo = await makeMedia('visible.jpg', null);
+
+  const { payload } = await callApi<{ succeeded: unknown[]; failed: unknown[] }>(
+    'DELETE',
+    '/api/trash/permanent',
+    { ids: [photo._id.toString()], confirm: PERMANENT_DELETE_CONFIRMATION },
+  );
+
+  assert.equal(payload.data!.succeeded.length, 0);
+  assert.equal(await Media.countDocuments({}), 1);
+  assert.equal(fileExists(photo.storageKey), true);
+});
+
+test("another account's trashed item is not deletable by id", async () => {
+  const stranger = await User.create({
+    email: 'stranger-bulk@example.com',
+    name: 'Stranger',
+    passwordHash: 'not-used-by-these-tests',
+  });
+  const theirs = await Media.create({
+    ownerId: stranger._id,
+    folderId: null,
+    originalName: 'private.jpg',
+    storedName: 'private.jpg',
+    storageKey: 'photos/unfiled/private.jpg',
+    storageProvider: 'local',
+    mimeType: 'image/jpeg',
+    fileType: 'image',
+    size: 64,
+    isDeleted: true,
+    deletedAt: new Date(),
+  });
+
+  const { payload } = await callApi<{ succeeded: unknown[]; failed: unknown[] }>(
+    'DELETE',
+    '/api/trash/permanent',
+    { ids: [theirs._id.toString()], confirm: PERMANENT_DELETE_CONFIRMATION },
+  );
+
+  assert.equal(payload.data!.succeeded.length, 0);
+  assert.equal(await Media.countDocuments({ _id: theirs._id }), 1, "another account's file must survive");
+});
+
+test('an empty or oversized selection is rejected before anything runs', async () => {
+  const empty = await callApi('DELETE', '/api/trash/permanent', {
+    ids: [],
+    confirm: PERMANENT_DELETE_CONFIRMATION,
+  });
+  assert.equal(empty.status, 400);
+
+  const tooMany = await callApi('DELETE', '/api/trash/permanent', {
+    ids: Array.from({ length: 201 }, () => new mongoose.Types.ObjectId().toString()),
+    confirm: PERMANENT_DELETE_CONFIRMATION,
+  });
+  assert.equal(tooMany.status, 400);
+});
 
 test('GET /api/trash lists deleted folders with what they contain', async () => {
   const { folder } = await trashedFolderWithPhoto();
