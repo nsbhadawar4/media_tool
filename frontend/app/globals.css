@@ -376,20 +376,27 @@ a,
 }
 
 /*
-   Touch feedback and chip rows, below `lg` only.
+   Press feedback, at every width.
 
-   A pressed state is what tells a finger the tap registered — a pointer gets that from
-   hover, and a touch screen gets nothing at all unless the element says so. The scrollbar
-   rule keeps a chip row from painting a bar across the chips on a narrow screen.
+   A touch screen gets nothing from hover, so this began as a phone-only affordance. A
+   pointer does get hover — but not a *pressed* state, and a card that lifts on hover and
+   then does nothing at all on mousedown feels unresponsive in a way that is hard to name.
+   Slighter here than on touch, because a pointer already had feedback and only needs the
+   click acknowledged.
 */
+.app-pressable {
+  transition: transform 0.12s ease-out;
+}
+.app-pressable:active {
+  transform: scale(0.99);
+}
 @media (max-width: 1023.98px) {
-  .app-pressable {
-    transition: transform 0.12s ease-out;
-  }
+  /* Deeper on touch, where this is the only feedback a tap ever gets. */
   .app-pressable:active {
     transform: scale(0.975);
   }
 
+  /* Keeps a horizontally scrolling chip row from painting a bar across the chips. */
   .app-no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -427,10 +434,35 @@ a,
     transform: translateY(0);
   }
 }
-@media (max-width: 1023.98px) {
-  .app-page-enter {
-    animation: page-enter 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+/*
+   Applied at every width. It was scoped to phones when the mobile shell was added, on the
+   reasoning that the desktop layout should be left exactly as it was — but the result was
+   that navigating on a desktop was an instant repaint while the same navigation on a phone
+   eased in, and the two stopped feeling like one application. The travel is small enough
+   that a wide layout does not appear to lurch.
+*/
+.app-page-enter {
+  animation: page-enter 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/*
+   Content arriving in place of its skeleton.
+
+   Shorter than the route transition and with no travel: the layout is already settled by
+   the time this runs, so moving it again would read as a second navigation. Without it the
+   swap from skeleton to real content is a hard cut — the one moment in the app where
+   something visibly snaps.
+*/
+@keyframes content-enter {
+  from {
+    opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
+}
+.app-content-enter {
+  animation: content-enter 0.18s ease-out;
 }
 
 /*

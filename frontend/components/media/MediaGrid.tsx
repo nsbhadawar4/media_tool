@@ -21,7 +21,13 @@ interface MediaGridProps {
   selection?: MediaSelection;
 }
 
-/** Shared by the grid and its loading skeleton so the two line up exactly. */
+/**
+ * Shared by the grid and its loading skeleton so the two line up exactly.
+ *
+ * `app-content-enter` is on the grid alone, not the skeleton: it is the arrival of the
+ * real content that would otherwise be a hard cut, and fading the skeleton in as well
+ * would only delay the thing being waited for.
+ */
 export const MEDIA_GRID_CLASSES =
   'grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
 
@@ -50,7 +56,7 @@ export function MediaGrid({
   const isSelectionActive = (selection?.selectedCount ?? 0) > 0;
 
   return (
-    <div className={MEDIA_GRID_CLASSES}>
+    <div className={`${MEDIA_GRID_CLASSES} app-content-enter`}>
       {media.map((item) => (
         <MediaCard
           key={item.id}

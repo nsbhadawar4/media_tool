@@ -285,7 +285,7 @@ export default function TrashPage() {
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
             Folders ({folders.length})
           </h2>
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
             {folders.map((folder) => (
               <TrashFolderRow
                 key={folder._id}
@@ -317,7 +317,7 @@ export default function TrashPage() {
               the trash.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+            <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
               {visibleMedia.map((item) => (
                 <TrashMediaRow
                   key={item.id}

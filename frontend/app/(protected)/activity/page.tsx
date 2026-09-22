@@ -81,7 +81,7 @@ export default function ActivityPage() {
       ) : logs.length === 0 ? (
         <EmptyState icon={Activity} title="No activity yet" description="Actions you take will be recorded here." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
           {logs.map((log) => (
             <div key={log._id} className="flex items-start gap-3 border-b border-border px-4 py-3.5 last:border-b-0">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">

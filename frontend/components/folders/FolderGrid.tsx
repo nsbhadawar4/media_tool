@@ -17,7 +17,13 @@ interface FolderGridProps {
   emptyAction?: ReactNode;
 }
 
-/** Shared by the grid and its skeleton so the two line up exactly. */
+/**
+ * Shared by the grid and its loading skeleton so the two line up exactly.
+ *
+ * `app-content-enter` is on the grid alone, not the skeleton: it is the arrival of the
+ * real content that would otherwise be a hard cut, and fading the skeleton in as well
+ * would only delay the thing being waited for.
+ */
 export const FOLDER_GRID_CLASSES =
   'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
 
@@ -42,7 +48,7 @@ export function FolderGrid({
   }
 
   return (
-    <div className={FOLDER_GRID_CLASSES}>
+    <div className={`${FOLDER_GRID_CLASSES} app-content-enter`}>
       {folders.map((folder) => (
         <FolderCard
           key={folder._id}

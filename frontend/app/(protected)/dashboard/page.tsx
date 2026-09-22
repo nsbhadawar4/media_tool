@@ -85,7 +85,14 @@ export default function DashboardPage() {
       {statsQuery.isError ? (
         <ErrorState error={statsQuery.error} onRetry={() => statsQuery.refetch()} subject="your library stats" />
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <div
+          className={cn(
+            'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6',
+            // Only once the real figures arrive: fading the skeleton in as well would
+            // just delay the thing being waited for.
+            !statsQuery.isLoading && stats && 'app-content-enter',
+          )}
+        >
           {statsQuery.isLoading || !stats ? (
             Array.from({ length: 6 }).map((_, index) => <StatCardSkeleton key={index} />)
           ) : (
@@ -156,7 +163,7 @@ export default function DashboardPage() {
             ) : recentUploads.length === 0 ? (
               <EmptyState icon={ImageIcon} title="No uploads yet" description="Files you upload will appear here." />
             ) : (
-              <div className={RECENT_TILE_GRID}>
+              <div className={cn(RECENT_TILE_GRID, 'app-content-enter')}>
                 {recentUploads.map((media) => {
                   const Icon = iconForFileType(media.fileType, media.mimeType);
                   // Same colour language as the gallery tiles, minus the badge: these
@@ -225,7 +232,10 @@ export default function DashboardPage() {
               </div>
             ) : (
               recentActivity.map((log) => (
-                <div key={log._id} className="flex items-start gap-3 border-b border-border px-5 py-3 last:border-b-0">
+                <div
+                  key={log._id}
+                  className="app-content-enter flex items-start gap-3 border-b border-border px-5 py-3 last:border-b-0"
+                >
                   <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
                     <ActivityIcon action={log.action} className="h-3.5 w-3.5" />
                   </div>
