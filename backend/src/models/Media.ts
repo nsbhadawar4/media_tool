@@ -9,7 +9,7 @@ export interface IMedia extends Document {
   originalName: string;
   storedName: string; // sanitized/unique name used on disk or in the bucket
   storageKey: string; // full key/path within the storage provider
-  storageProvider: 'local' | 'r2' | 's3';
+  storageProvider: 'local' | 'r2' | 's3' | 'gridfs';
   url: string | null; // public URL when the provider serves one directly (else null -> stream via API)
   mimeType: string;
   fileType: FileType;
@@ -38,7 +38,7 @@ const mediaSchema = new Schema<IMedia>(
     originalName: { type: String, required: true, trim: true },
     storedName: { type: String, required: true },
     storageKey: { type: String, required: true },
-    storageProvider: { type: String, enum: ['local', 'r2', 's3'], required: true },
+    storageProvider: { type: String, enum: ['local', 'r2', 's3', 'gridfs'], required: true },
     url: { type: String, default: null },
     mimeType: { type: String, required: true },
     fileType: { type: String, enum: FILE_TYPES, required: true, index: true },

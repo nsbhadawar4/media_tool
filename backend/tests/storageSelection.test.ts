@@ -158,6 +158,16 @@ test('an R2_ACCOUNT_ID that is no kind of account id is refused with a hint', as
   assert.match(result, /R2_ACCOUNT_ID/);
 });
 
+test('gridfs needs no configuration of its own, and is allowed on a serverless host', async () => {
+  /**
+   * The point of it: MONGODB_URI is already required for the app to start, so there is no
+   * second set of variables to get half-right, and unlike `local` the bytes land somewhere
+   * that survives the instance. What it costs instead is the request body cap — see
+   * tests/uploadLimits.test.ts.
+   */
+  assert.equal(await selectProviderWith({ STORAGE_PROVIDER: 'gridfs', VERCEL: '1' }), 'OK:gridfs');
+});
+
 test('local storage on a serverless host is refused, not quietly accepted', async () => {
   /**
    * The failure this whole change exists to prevent. A Vercel Function's filesystem is

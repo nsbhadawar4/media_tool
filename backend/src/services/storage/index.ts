@@ -2,6 +2,7 @@ import type { S3ClientConfig } from '@aws-sdk/client-s3';
 import { env } from '../../config/env';
 import { AppError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import { GridFsStorageProvider } from './GridFsStorageProvider';
 import { LocalStorageProvider } from './LocalStorageProvider';
 import { S3StorageProvider } from './S3StorageProvider';
 import type { StorageService } from './StorageProvider';
@@ -108,6 +109,14 @@ function buildProvider(): StorageService {
         );
       }
       return new LocalStorageProvider();
+
+    /**
+     * Nothing to configure: it uses MONGODB_URI, which the app cannot start without, so
+     * there is no combination of variables that can leave this one half-set. That is most
+     * of the point of it — see GridFsStorageProvider for what it costs instead.
+     */
+    case 'gridfs':
+      return new GridFsStorageProvider();
 
     case 'r2': {
       const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_BASE_URL } = env;

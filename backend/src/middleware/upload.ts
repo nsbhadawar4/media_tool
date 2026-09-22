@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import multer, { type FileFilterCallback } from 'multer';
@@ -8,8 +9,18 @@ import { assertSafeFilename } from '../utils/filenameSafety';
 import { AppError } from '../utils/AppError';
 
 const storage = multer.diskStorage({
+  /**
+   * Created here rather than assumed, because nothing else creates it.
+   *
+   * multer opens the destination file directly, so a missing directory is an ENOENT on
+   * the first upload and nothing before that point ever touches it — a fresh checkout,
+   * or any host whose temp path does not already exist, fails on the first file with an
+   * error naming a path rather than a cause. Recursive mkdir on a directory that is
+   * already there is a no-op, so this costs one cheap syscall per file against writing
+   * the file itself.
+   */
   destination: (_req, _file, cb) => {
-    cb(null, env.tmpDir);
+    fs.mkdir(env.tmpDir, { recursive: true }, (err) => cb(err, env.tmpDir));
   },
   filename: (_req, file, cb) => {
     const unique = crypto.randomBytes(16).toString('hex');

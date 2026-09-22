@@ -90,13 +90,31 @@ function buildNodeRequest(request: Request, socket: Socket): IncomingMessage {
   req.httpVersionMajor = 1;
   req.httpVersionMinor = 1;
 
+  /**
+   * `complete` is the flag Node's HTTP parser sets when a message body has fully arrived,
+   * and nothing sets it for a request assembled by hand. Left false it is read as a
+   * truncated request: `IncomingMessage._destroy` checks it and, finding it unset, marks
+   * the request aborted and emits `'aborted'` — on every request, at teardown, after the
+   * body has long since been delivered intact.
+   *
+   * Almost nothing listens for that event, which is why this stayed invisible. Multer
+   * does: it treats `'aborted'` as the client hanging up mid-upload, discards the file it
+   * has just finished writing and fails the request. So every multipart upload through
+   * this bridge returned a 500 over a body that arrived perfectly — the poster frame that
+   * gives a video its thumbnail, and every upload at all on a deployment whose storage
+   * cannot presign.
+   */
   if (request.body) {
     const body = Readable.fromWeb(request.body as Parameters<typeof Readable.fromWeb>[0]);
     body.on('data', (chunk: Buffer) => req.push(chunk));
-    body.on('end', () => req.push(null));
+    body.on('end', () => {
+      req.complete = true;
+      req.push(null);
+    });
     body.on('error', (err: Error) => req.destroy(err));
   } else {
     // Body-parsing middleware waits for EOF even on a GET, so it has to arrive.
+    req.complete = true;
     req.push(null);
   }
 

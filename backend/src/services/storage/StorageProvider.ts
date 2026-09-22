@@ -51,10 +51,11 @@ export interface UploadUrlInput {
 /**
  * Storage abstraction so the rest of the app never talks to a disk or a bucket directly.
  * Implementations: LocalStorageProvider (dev), S3StorageProvider (also used for R2, which
- * is S3-API-compatible). Swapping STORAGE_PROVIDER in .env is the only thing that changes.
+ * is S3-API-compatible), GridFsStorageProvider (files in MongoDB, for a deployment with
+ * no bucket). Swapping STORAGE_PROVIDER in .env is the only thing that changes.
  */
 export interface StorageService {
-  readonly name: 'local' | 'r2' | 's3';
+  readonly name: 'local' | 'r2' | 's3' | 'gridfs';
 
   /** Persist a file that multer already wrote to a temp path, under `key`. */
   upload(input: UploadInput): Promise<StoredObjectMeta>;

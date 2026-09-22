@@ -7,8 +7,9 @@
  * this covers the whole thing wired together and served from one origin, which is the
  * part no unit test can speak for.
  *
- * Runs against a throwaway in-memory MongoDB and local storage, so it needs no
- * credentials and touches neither Atlas nor a real bucket.
+ * Runs against a throwaway in-memory MongoDB, with files stored in that same database
+ * (STORAGE_PROVIDER=gridfs), so it needs no credentials and touches neither Atlas nor a
+ * real bucket — and still uploads and serves a real file.
  *
  * Requires a prior `npm run build`. Deliberately not part of `npm test`: it depends on
  * that build and takes about a minute.
@@ -18,7 +19,17 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+
+/**
+ * Loaded through require, not import.
+ *
+ * This file is ESM (.mts) and sharp's ESM entry uses import attributes, which Node 20 —
+ * the version Vercel builds on — does not parse. The application never meets this because
+ * it compiles to CommonJS; only this script does. The CJS build is the same library.
+ */
+const sharp = createRequire(import.meta.url)('sharp') as typeof import('sharp');
 
 const PORT = 3999;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -79,12 +90,11 @@ const next = spawn('npx', ['next', 'start', '-p', String(PORT)], {
     NODE_ENV: 'production',
     MONGODB_URI: uri,
     JWT_SECRET: 'smoke-test-secret-value-not-used-anywhere-else',
-    STORAGE_PROVIDER: 'local',
-    // This check deliberately uses no credentials and no real bucket, so it has to opt
-    // out of the refusal that local storage on a serverless host normally triggers. It
-    // still exercises the presign endpoint, which answers `mode: "proxy"` for a provider
-    // that cannot sign URLs — the same answer local development gets.
-    ALLOW_LOCAL_STORAGE_ON_SERVERLESS: '1',
+    // Files go into the throwaway database below, which needs no credentials and no real
+    // bucket — so this check can upload a real file end to end while staying free of
+    // both. It is also a configuration a serverless deployment can genuinely run, unlike
+    // the local provider this used to force on with ALLOW_LOCAL_STORAGE_ON_SERVERLESS.
+    STORAGE_PROVIDER: 'gridfs',
     UPLOAD_DIR: '/tmp/media-tool-smoke-uploads',
     COOKIE_SECURE: 'false', // the smoke test speaks http; everything else stays production-shaped
   },
@@ -158,7 +168,8 @@ try {
   const listBody = await list.json();
   log('GET /api/folders returns it', list.status === 200 && listBody.data.folders.length === 1);
 
-  // 6. Presign — the new direct-upload negotiation (local storage answers "proxy").
+  // 6. Presign — the direct-upload negotiation. A provider that cannot hand out upload
+  //    URLs answers "proxy", which is what puts the bytes through the API in step 7.
   const presign = await fetch(`${BASE}/api/media/presign`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -167,15 +178,65 @@ try {
   const presignBody = await presign.json();
   log('POST /api/media/presign', presign.status === 200 && presignBody.data.mode === 'proxy', JSON.stringify(presignBody.data));
 
-  // 7. Unauthenticated access is still refused.
+  /**
+   * 7. A real file, all the way through and back.
+   *
+   * The step that exercises everything the others skip: a multipart body across the
+   * Express bridge, multer's temp file, sharp deriving a thumbnail, the storage provider
+   * writing both, and then the bytes being served back out. Uploading was the one thing a
+   * passing smoke run could previously say nothing about.
+   */
+  const png = await sharp({
+    create: { width: 64, height: 48, channels: 3, background: { r: 200, g: 40, b: 90 } },
+  })
+    .png()
+    .toBuffer();
+
+  const form = new FormData();
+  form.append('files', new Blob([png], { type: 'image/png' }), 'smoke.png');
+  const upload = await fetch(`${BASE}/api/media/upload`, { method: 'POST', headers: { cookie }, body: form });
+  const uploadBody = await upload.json();
+  const uploaded = uploadBody.data?.uploaded?.[0];
+  log(
+    'POST /api/media/upload stores a real file',
+    upload.status === 201 && uploaded?.size === png.length,
+    `${upload.status} ${JSON.stringify(uploadBody).slice(0, 140)}`,
+  );
+
+  if (uploaded) {
+    const raw = await fetch(`${BASE}/api/media/${uploaded.id}/raw`, { headers: { cookie } });
+    const served = Buffer.from(await raw.arrayBuffer());
+    log(
+      'GET /api/media/:id/raw returns the same bytes',
+      raw.status === 200 && served.equals(png),
+      `${raw.status} ${served.length} of ${png.length} bytes`,
+    );
+
+    // A range request is how a browser seeks in a video; the provider's own off-by-one
+    // here would be invisible in the full read above.
+    const ranged = await fetch(`${BASE}/api/media/${uploaded.id}/raw`, {
+      headers: { cookie, range: 'bytes=0-9' },
+    });
+    const rangedBytes = Buffer.from(await ranged.arrayBuffer());
+    log(
+      'GET /api/media/:id/raw honours a Range header',
+      ranged.status === 206 && rangedBytes.equals(png.subarray(0, 10)),
+      `${ranged.status} ${rangedBytes.length} bytes`,
+    );
+
+    const thumb = await fetch(`${BASE}/api/media/${uploaded.id}/thumb`, { headers: { cookie } });
+    log('GET /api/media/:id/thumb serves the derived thumbnail', thumb.status === 200, String(thumb.status));
+  }
+
+  // 8. Unauthenticated access is still refused.
   const denied = await fetch(`${BASE}/api/folders`);
   log('GET /api/folders without a session is 401', denied.status === 401, String(denied.status));
 
-  // 8. The frontend itself is still served from the same origin.
+  // 9. The frontend itself is still served from the same origin.
   const page = await fetch(`${BASE}/login`);
   log('GET /login serves the Next.js app', page.status === 200 && (await page.text()).includes('<!DOCTYPE html>'));
 
-  // 9. Logout clears the cookie.
+  // 10. Logout clears the cookie.
   const logout = await fetch(`${BASE}/api/auth/logout`, { method: 'POST', headers: { cookie } });
   log('POST /api/auth/logout', logout.status === 200, String(logout.status));
 } catch (err) {

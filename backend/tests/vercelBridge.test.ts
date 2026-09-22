@@ -174,6 +174,39 @@ test('a validation failure keeps its 400 and its details', async () => {
   assert.equal(body.success, false);
 });
 
+test('a multipart upload is not mistaken for a client that hung up', async () => {
+  /**
+   * The regression this exists for was invisible from every other angle.
+   *
+   * `IncomingMessage._destroy` reads `req.complete` to decide whether the request ended
+   * or was cut short, and nothing sets that flag on a request assembled by hand — so at
+   * teardown Node marked every request aborted and emitted `'aborted'`. Almost nothing
+   * listens for it. Multer does, and treats it as the browser hanging up mid-upload: it
+   * threw away the file it had just finished writing and failed the request with a 500,
+   * over a body that had arrived whole.
+   *
+   * JSON bodies were unaffected, which is why the rest of this file passed throughout. On
+   * a deployment whose storage cannot presign it broke every upload there is; on one that
+   * can, it broke the poster frame a video needs for its thumbnail — quietly, because the
+   * client is built to keep a video whose thumbnail failed.
+   */
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+
+  const form = new FormData();
+  form.append('files', new Blob([png], { type: 'image/png' }), 'bridge.png');
+
+  const res = await authed('/api/media/upload', { method: 'POST', body: form });
+  const body = await res.json();
+
+  assert.equal(res.status, 201, `expected the upload to succeed, got ${JSON.stringify(body)}`);
+  assert.equal(body.data.uploaded.length, 1);
+  assert.equal(body.data.uploaded[0].originalName, 'bridge.png');
+  assert.equal(body.data.uploaded[0].size, png.length, 'every byte of the body must survive the crossing');
+});
+
 test('a streamed file arrives whole and byte-for-byte', async () => {
   // The local storage provider cannot issue signed URLs, so this takes the streaming
   // path — the one that writes to the response in chunks rather than in one go.

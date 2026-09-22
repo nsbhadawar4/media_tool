@@ -12,6 +12,18 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
  */
 export const isServerless = process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
 
+/**
+ * Largest request body a Vercel Function accepts, minus room for the multipart envelope
+ * around the file (boundaries, the filename, the other form fields).
+ *
+ * Only binds when the bytes have to travel through the API — a provider that can presign
+ * sends them straight to the bucket and never meets this. It matters because the platform
+ * enforces it *before* the function runs: without checking first, an oversized upload is
+ * refused by Vercel with a response this app never produced and cannot explain, so the
+ * user sees a bare failure on a file that was simply too big.
+ */
+export const PROXY_UPLOAD_LIMIT_BYTES = Math.floor(4.5 * 1024 * 1024) - 64 * 1024;
+
 /** Coerces the loose strings people actually put in .env files into booleans. */
 const boolish = (def: boolean) =>
   z
@@ -82,7 +94,7 @@ const envSchema = z.object({
    */
   TRUST_PROXY: z.string().default(isServerless ? '1' : ''),
 
-  STORAGE_PROVIDER: z.enum(['local', 'r2', 's3']).default('local'),
+  STORAGE_PROVIDER: z.enum(['local', 'r2', 's3', 'gridfs']).default('local'),
 
   /**
    * Permits STORAGE_PROVIDER=local on a host where the filesystem does not persist,
@@ -190,6 +202,16 @@ export const env = {
   trustProxy: resolveTrustProxy(raw.TRUST_PROXY),
 
   maxFileSizeBytes: raw.MAX_FILE_SIZE_MB * 1024 * 1024,
+
+  /**
+   * The ceiling that actually applies to an upload whose bytes pass through this API,
+   * which is the lower of what the operator configured and what the platform will carry.
+   * Providers that hand the browser a presigned URL are not subject to it; `gridfs` and
+   * `local` are, because for them there is nowhere else for the bytes to go.
+   */
+  proxyUploadMaxBytes: isServerless
+    ? Math.min(raw.MAX_FILE_SIZE_MB * 1024 * 1024, PROXY_UPLOAD_LIMIT_BYTES)
+    : raw.MAX_FILE_SIZE_MB * 1024 * 1024,
 
   /** Absolute path used by the local storage provider. */
   localStorageRoot: path.isAbsolute(uploadDir)

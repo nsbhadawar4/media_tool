@@ -77,18 +77,59 @@ project, one domain, one API implementation — see §1.
 
 ## 2. Before the first deploy
 
-### Object storage is required
+### Somewhere to put files is required
 
-Production **must** use Cloudflare R2 or Amazon S3. This is not a preference:
+`STORAGE_PROVIDER=local` cannot be used here, and the app refuses to start it rather than
+letting it fail later: a serverless filesystem is read-only apart from `/tmp`, and `/tmp`
+is discarded with the instance. Left to run it would accept an upload, show a thumbnail,
+and lose the file an hour later — the worst kind of failure, because nothing reports it.
 
-- A serverless filesystem is ephemeral, so `STORAGE_PROVIDER=local` would lose every
-  uploaded file, at an unpredictable moment.
-- A Vercel Function's request body is capped at **4.5 MB**. Uploading an ordinary phone
-  photo through the API is impossible. Setting `STORAGE_PROVIDER` to `r2` or `s3` switches
-  uploads to presigned direct-to-bucket transfers, which the cap does not apply to.
+There are two ways to satisfy this, and they trade against each other.
 
-Create a **private** bucket. The app never needs it to be public: files are served through
-short-lived presigned URLs minted only after an ownership check.
+| | `r2` / `s3` | `gridfs` |
+| --- | --- | --- |
+| Where files live | A bucket | MongoDB, beside the records |
+| To set up | An account, a bucket, an API token, a CORS policy | Nothing — it uses `MONGODB_URI` |
+| Largest file | `MAX_FILE_SIZE_MB` (default 500 MB) | **~4.4 MB** |
+| Total capacity | Effectively unlimited | Whatever the database tier allows — 512 MB on an Atlas free cluster, shared with everything else |
+| Cost | R2 is free to 10 GB, but Cloudflare wants a card on file | Included |
+
+**Object storage is the better answer** wherever it is available. It is not merely bigger:
+it hands the browser a presigned URL so the bytes go straight to the bucket, bypassing the
+**4.5 MB** cap Vercel puts on a request body. `gridfs` has no such URL to give, so every
+byte travels through the function and that cap becomes the file size limit. `presign`
+enforces it up front and says so, rather than letting the platform reject the upload with
+a response this app never sees.
+
+**`gridfs` is the answer when opening a storage account is the blocker.** It is a real
+option, not a stopgap: the bytes are as durable and as backed-up as everything else in the
+database, and nothing about the app behaves differently. It is sized for a private library
+of a few hundred photos, not for video.
+
+Moving between them later is a supported operation, not a migration project — see
+*Media uploaded before the switch* below.
+
+Create a **private** bucket if you go the R2/S3 route. The app never needs it to be public:
+files are served through short-lived presigned URLs minted only after an ownership check.
+
+### MongoDB GridFS, step by step
+
+1. Set `STORAGE_PROVIDER=gridfs` in the Vercel project (§4).
+2. Redeploy.
+
+That is the whole procedure. There is no second credential to issue and no CORS policy to
+write, because nothing but this API ever touches the bytes. `/api/health` will report
+`"storage": "configured"` — for this provider that is answered by `MONGODB_URI` alone, so
+if the database is up, storage is up.
+
+Worth knowing before choosing it:
+
+- **Uploads over ~4.4 MB are refused**, with a message saying why. Phone photos are
+  usually under it; video is usually not.
+- **Files count against the database's storage**, so `db.stats()` and the Atlas storage
+  gauge grow with the library. On a free M0 cluster that is 512 MB in total.
+- **Backups now include the media.** Convenient, and it makes a database dump much larger.
+- Files live in the `media.files` and `media.chunks` collections. Nothing else uses them.
 
 ### Cloudflare R2, step by step
 
@@ -260,7 +301,7 @@ Set these on the Vercel project (**Settings → Environment Variables**), for Pr
 | `MONGODB_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/media_tool?retryWrites=true&w=majority` — URL-encode `@ : / ? # %` in the password |
 | `JWT_SECRET` | `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `NODE_ENV` | `production` |
-| `STORAGE_PROVIDER` | `r2` or `s3` |
+| `STORAGE_PROVIDER` | `r2` or `s3` (object storage), or `gridfs` (files in MongoDB — see §2) |
 
 ### Required for Cloudflare R2
 
@@ -278,7 +319,12 @@ R2 overview sidebar (it is also the subdomain of the S3 endpoint the dashboard s
 ### Required for Amazon S3
 
 `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`.
-`S3_ENDPOINT` and `S3_FORCE_PATH_STYLE` are for S3-compatible providers.
+`S3_ENDPOINT` and `S3_FORCE_PATH_STYLE` are for S3-compatible providers — Backblaze B2,
+MinIO, or R2 addressed by hand.
+
+### Required for GridFS
+
+Nothing. `STORAGE_PROVIDER=gridfs` uses `MONGODB_URI`, which is already required.
 
 ### Deliberately left unset
 
@@ -364,9 +410,12 @@ video's thumbnail is the poster frame the browser captured at upload time and po
 `/api/media/:id/thumbnail`. A browser that cannot produce one leaves the video with a
 placeholder — unchanged from how this already worked.
 
-**Uploads are capped at 4.5 MB when `STORAGE_PROVIDER=local`.** This configuration is not
-supported in production for the reasons in §2, but if it is set anyway, the client falls
-back to uploading through the API and the platform limit applies.
+**Uploads are capped at ~4.4 MB whenever storage cannot presign** — `gridfs`, or `local`
+where it is force-enabled. Those providers have no URL for the browser to PUT to, so the
+bytes travel through the function and Vercel's 4.5 MB request body limit applies, less a
+little for the multipart envelope. `presign` rejects an oversized file up front with a
+message naming the limit; the alternative is the platform refusing the request before the
+function runs, which the app cannot see or explain. `r2`/`s3` are not affected.
 
 **Function bundle size.** The deployed function carries sharp's native binaries, the
 MongoDB driver and the AWS SDK. It is well inside the 250 MB limit today; adding large

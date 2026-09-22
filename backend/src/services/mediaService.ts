@@ -412,6 +412,11 @@ async function downloadToTemp(
   }
 }
 
+/** One decimal place, with a trailing ".0" trimmed — "4.4", not "4.44" or "4". */
+function formatMegabytes(bytes: number): string {
+  return (Math.round((bytes / (1024 * 1024)) * 10) / 10).toString();
+}
+
 export interface PrepareDirectUploadInput {
   ownerId: string;
   fileName: string;
@@ -480,7 +485,26 @@ export async function prepareDirectUpload(
   } catch (err) {
     throw storageFailure('prepare an upload', err);
   }
-  if (!uploadUrl) return null;
+
+  if (!uploadUrl) {
+    /**
+     * Proxy mode: this provider has no URL for the browser to PUT to, so the bytes come
+     * through the API and the platform's request body cap is the real ceiling — lower
+     * than MAX_FILE_SIZE_MB, and worth saying here.
+     *
+     * The alternative is silence: the platform rejects an oversized body before the
+     * function is even invoked, so the app never sees the request and the user gets a
+     * failure with no explanation attached to a file that was only ever too large.
+     */
+    if (size > env.proxyUploadMaxBytes) {
+      throw AppError.tooLarge(
+        `Files must be ${formatMegabytes(env.proxyUploadMaxBytes)} MB or smaller on this ` +
+          'deployment, because they are stored through the API rather than uploaded straight ' +
+          'to a bucket. Object storage (STORAGE_PROVIDER=r2 or s3) removes this limit.',
+      );
+    }
+    return null;
+  }
 
   return {
     uploadUrl,
