@@ -28,6 +28,8 @@ import { Folder } from '../src/models/Folder';
 import { Media } from '../src/models/Media';
 import { signSessionToken, signUploadToken } from '../src/services/tokenService';
 import * as folderService from '../src/services/folderService';
+import { getStorageProvider } from '../src/services/storage';
+import { AppError } from '../src/utils/AppError';
 
 let mongo: MongoMemoryServer;
 let server: Server;
@@ -103,6 +105,80 @@ test('a provider that cannot presign reports proxy mode rather than failing', as
   // development is told to upload through the API, not handed an error.
   assert.equal(res.status, 200);
   assert.equal(body.data.mode, 'proxy');
+});
+
+/**
+ * Storage that answers with an error is not the caller's problem, and must not be
+ * reported as one.
+ *
+ * This is the production failure that motivated it: with the bucket's credentials
+ * rejected, every upload came back as "Internal server error" — the global handler's
+ * stand-in for an unexpected fault — so the file, the folder and the browser all looked
+ * like plausible suspects while the actual cause was a variable in the deployment's
+ * dashboard. A 503 naming the condition is the difference between guessing and fixing.
+ */
+async function withFailingStorage<T>(err: Error, run: () => Promise<T>): Promise<T> {
+  const provider = getStorageProvider() as { getUploadUrl?: unknown };
+  const original = Object.getOwnPropertyDescriptor(provider, 'getUploadUrl');
+  provider.getUploadUrl = async () => {
+    throw err;
+  };
+  try {
+    return await run();
+  } finally {
+    if (original) Object.defineProperty(provider, 'getUploadUrl', original);
+    else delete provider.getUploadUrl;
+  }
+}
+
+test('storage refusing to sign an upload is a 503 that names the condition', async () => {
+  // Shaped exactly like the SDK's own: the name is the condition, the message is prose.
+  const rejected = new Error('The Access Key Id you provided does not exist in our records.');
+  rejected.name = 'InvalidAccessKeyId';
+
+  const { status, body } = await withFailingStorage(rejected, async () => {
+    const res = await post('/api/media/presign', alice, {
+      fileName: 'holiday.jpg',
+      mimeType: 'image/jpeg',
+      size: 1024,
+      folderId: null,
+    });
+    return { status: res.status, body: await res.json() };
+  });
+
+  assert.equal(status, 503, 'a broken bucket is the deployment being unavailable, not a bad request');
+  assert.match(body.error.message, /InvalidAccessKeyId/, 'the condition must survive to the client');
+  assert.doesNotMatch(
+    body.error.message,
+    /Access Key Id you provided/,
+    "the SDK's prose can carry the endpoint, and with it the account id",
+  );
+});
+
+test('a misconfigured deployment says which variable is missing, verbatim', async () => {
+  /**
+   * The path an unconfigured production deployment actually takes: the storage factory
+   * refuses to build a provider and the endpoint is the first thing to notice. The
+   * factory's message is the most useful string in the system at that moment — it names
+   * the variable — so nothing between here and the browser may replace or summarise it.
+   */
+  const unconfigured = AppError.unavailable(
+    'STORAGE_PROVIDER=r2 requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and ' +
+      'R2_BUCKET_NAME. Not set: R2_BUCKET_NAME. See DEPLOYMENT.md §4.',
+  );
+
+  const { status, body } = await withFailingStorage(unconfigured, async () => {
+    const res = await post('/api/media/presign', alice, {
+      fileName: 'holiday.jpg',
+      mimeType: 'image/jpeg',
+      size: 1024,
+      folderId: null,
+    });
+    return { status: res.status, body: await res.json() };
+  });
+
+  assert.equal(status, 503);
+  assert.equal(body.error.message, unconfigured.message);
 });
 
 test('presign refuses a file type the app does not accept', async () => {

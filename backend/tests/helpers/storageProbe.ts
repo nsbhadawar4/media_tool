@@ -14,7 +14,11 @@ async function main(): Promise<void> {
     const { getStorageProvider } = await import('../../src/services/storage');
     process.stdout.write(`OK:${getStorageProvider().name}`);
   } catch (err) {
-    process.stdout.write(`ERR:${err instanceof Error ? err.message : String(err)}`);
+    // The status is reported alongside the message because it is the part that decides
+    // whether an operator ever reads that message: anything the global handler does not
+    // recognise as an AppError becomes a bare "Internal server error" in production.
+    const status = (err as { statusCode?: number })?.statusCode ?? 0;
+    process.stdout.write(`ERR:${status}:${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

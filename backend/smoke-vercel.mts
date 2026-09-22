@@ -111,7 +111,11 @@ try {
   // 1. Health — proves the route handler loaded the backend and connected to Mongo.
   const health = await fetch(`${BASE}/api/health`);
   const healthBody = await health.json();
-  log('GET /api/health', health.status === 200 && healthBody.database === 'connected', JSON.stringify(healthBody));
+  log(
+    'GET /api/health',
+    health.status === 200 && healthBody.database === 'connected' && healthBody.storage === 'configured',
+    JSON.stringify(healthBody),
+  );
 
   // 2. Signup — a POST with a JSON body through the bridge.
   const email = `smoke-${Date.now()}@example.com`;

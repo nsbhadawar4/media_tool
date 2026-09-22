@@ -37,4 +37,14 @@ export class AppError extends Error {
   static internal(message = 'Internal server error') {
     return new AppError(message, 500);
   }
+  /**
+   * The deployment cannot serve this request as configured — a dependency is missing or
+   * misconfigured rather than the request being wrong. Separate from `internal` because
+   * the message is meant to be read: a 500 is deliberately opaque in production, which is
+   * right for an unexpected fault and useless for one whose cause is a variable nobody
+   * set.
+   */
+  static unavailable(message: string) {
+    return new AppError(message, 503);
+  }
 }

@@ -111,7 +111,16 @@ export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressP
                     <ProgressBar value={item.progress} />
                   </div>
                 )}
-                {item.status === 'error' && <p className="mt-0.5 truncate text-[11px] text-danger">{item.error}</p>}
+                {/*
+                  Wrapped, not truncated. The file name above it is a label the user
+                  already knows and can lose the end of harmlessly; this is the only
+                  account of why the upload failed, and clipping it to one panel width
+                  turned "storage credentials were rejected — check X" into a sentence
+                  that stopped before it said anything.
+                */}
+                {item.status === 'error' && (
+                  <p className="wrap-break-word mt-0.5 text-[11px] text-danger">{item.error}</p>
+                )}
                 {item.status === 'cancelled' && <p className="mt-0.5 text-[11px] text-muted">Cancelled</p>}
               </div>
 

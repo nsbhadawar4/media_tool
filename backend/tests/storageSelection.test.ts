@@ -94,6 +94,70 @@ test('R2 missing a credential fails by naming every variable it needs', async ()
   }
 });
 
+test('the error singles out which variable is missing, not just which are required', async () => {
+  /**
+   * Four variable names in one sentence is a list to diff by eye against a dashboard,
+   * which is exactly where a typo'd name survives a careful read. Naming the one that is
+   * absent turns that into a single fact to act on.
+   */
+  const result = await selectProviderWith({
+    STORAGE_PROVIDER: 'r2',
+    ...R2_CREDENTIALS,
+    R2_BUCKET_NAME: '',
+  });
+
+  assert.match(result, /Not set: R2_BUCKET_NAME/);
+});
+
+/**
+ * Every configuration failure here must reach the operator as a 503 carrying its own
+ * message. The global error handler replaces an unrecognised error with a bare "Internal
+ * server error" in production — correct for an unexpected fault, and the reason a
+ * perfectly self-explanatory misconfiguration used to reach the user as five words that
+ * name nothing. An upload is where these are hit, so this is what stands between
+ * "uploads are broken" and "R2_BUCKET_NAME is not set".
+ */
+for (const [label, overrides] of [
+  ['a missing credential', { STORAGE_PROVIDER: 'r2', ...R2_CREDENTIALS, R2_BUCKET_NAME: '' }],
+  ['local storage on a serverless host', { STORAGE_PROVIDER: 'local', VERCEL: '1' }],
+  ['an unusable account id', { STORAGE_PROVIDER: 'r2', ...R2_CREDENTIALS, R2_ACCOUNT_ID: 'https://dash.cloudflare.com/x y' }],
+] as const) {
+  test(`${label} is reported as a readable 503, not an opaque 500`, async () => {
+    const result = await selectProviderWith(overrides);
+    assert.match(result, /^ERR:503:/, `expected a 503 carrying its own message, got: ${result}`);
+  });
+}
+
+test('R2_ACCOUNT_ID pasted as the S3 endpoint still works', async () => {
+  /**
+   * The account id is only ever shown inside that endpoint, so the endpoint is what gets
+   * copied. Left unnormalised it produced
+   * `https://https://<id>.r2.cloudflarestorage.com.r2.cloudflarestorage.com` and every
+   * request against it failed with an SDK error naming neither the variable nor the
+   * mistake.
+   */
+  const result = await selectProviderWith({
+    STORAGE_PROVIDER: 'r2',
+    ...R2_CREDENTIALS,
+    R2_ACCOUNT_ID: `https://${R2_CREDENTIALS.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  });
+
+  assert.equal(result, 'OK:r2');
+});
+
+test('an R2_ACCOUNT_ID that is no kind of account id is refused with a hint', async () => {
+  // The other thing on that dashboard page is the API token, which is a different
+  // credential and not an id at all.
+  const result = await selectProviderWith({
+    STORAGE_PROVIDER: 'r2',
+    ...R2_CREDENTIALS,
+    R2_ACCOUNT_ID: 'https://dash.cloudflare.com/some/bucket page',
+  });
+
+  assert.match(result, /^ERR:/);
+  assert.match(result, /R2_ACCOUNT_ID/);
+});
+
 test('local storage on a serverless host is refused, not quietly accepted', async () => {
   /**
    * The failure this whole change exists to prevent. A Vercel Function's filesystem is

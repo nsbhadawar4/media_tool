@@ -7,7 +7,7 @@ import { Types } from 'mongoose';
 import sharp from 'sharp';
 import { Media, type IMedia } from '../models/Media';
 import { Folder } from '../models/Folder';
-import { getStorageProvider } from './storage';
+import { getStorageProvider, storageFailure } from './storage';
 import {
   EXTENSION_TO_MIME,
   fileTypeFromMime,
@@ -464,10 +464,22 @@ export async function prepareDirectUpload(
 
   const { key, storedName } = buildStorageKey(identity.fileType, folderId, safeName);
 
-  const uploadUrl = await getStorageProvider().getUploadUrl({
-    key,
-    contentType: identity.mimeType,
-  });
+  /**
+   * The first point at which a deployment's storage configuration is actually exercised,
+   * and therefore where a missing variable or a rejected credential surfaces. Reported as
+   * what it is rather than as an unexplained fault — an upload that fails here has nothing
+   * to do with the file the user picked, and telling them "Internal server error" sends
+   * them retrying a file that was never the problem.
+   */
+  let uploadUrl: string | null;
+  try {
+    uploadUrl = await getStorageProvider().getUploadUrl({
+      key,
+      contentType: identity.mimeType,
+    });
+  } catch (err) {
+    throw storageFailure('prepare an upload', err);
+  }
   if (!uploadUrl) return null;
 
   return {
@@ -504,7 +516,15 @@ export async function registerDirectUpload(input: RegisterDirectUploadInput): Pr
   const { ownerId, uploadedBy, target, width, height, duration } = input;
   const provider = getStorageProvider();
 
-  const stat = await provider.stat(target.key);
+  // Distinguished from `stat` returning null, which means the object genuinely is not
+  // there: a throw here is storage itself refusing to answer, and re-reporting that as
+  // "please try again" would have the user retry forever against a broken bucket.
+  let stat;
+  try {
+    stat = await provider.stat(target.key);
+  } catch (err) {
+    throw storageFailure('confirm the upload', err);
+  }
   if (!stat) {
     throw AppError.badRequest('The uploaded file was not found in storage. Please try again.');
   }

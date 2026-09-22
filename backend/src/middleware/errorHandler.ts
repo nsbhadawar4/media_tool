@@ -14,6 +14,12 @@ export function notFoundHandler(req: Request, res: Response): void {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
+    // 4xx is the caller being told no, which is routine and not worth a log line. 5xx is
+    // this deployment failing to do its job — most often a storage or configuration
+    // problem — and the operator's only view of it is the server log.
+    if (err.statusCode >= 500) {
+      logger.error(`${req.method} ${req.originalUrl} failed: ${err.message}`);
+    }
     sendError(res, err.statusCode, err.message, err.details);
     return;
   }

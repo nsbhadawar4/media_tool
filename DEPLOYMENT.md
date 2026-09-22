@@ -311,8 +311,38 @@ ADMIN_PASSWORD="<a long password>" \
 npm run create-admin
 ```
 
-Then check `https://<your-app>.vercel.app/api/health`. It returns
-`{"success":true,"database":"connected"}` once Atlas is reachable.
+Then check `https://<your-app>.vercel.app/api/health`:
+
+```json
+{ "success": true, "database": "connected", "storage": "configured" }
+```
+
+Both fields have to read that way. `storage` reports whether the variables in §4 add up to
+a provider this deployment can build — it is answered from configuration alone, with no
+call to the bucket, so it is free to poll and it cannot tell you the credentials are
+*accepted*, only that they are present and well-formed. The endpoint answers `503` if
+either field is wrong, because a deployment that cannot store a file is not serving this
+app in any useful sense: every page still loads and every list is still empty, and the
+failure surfaces only when somebody tries to upload.
+
+### If uploads fail
+
+The browser shows the reason on the failed row in the upload panel. The three it will be:
+
+| Message | Cause |
+| --- | --- |
+| `STORAGE_PROVIDER=local cannot be used on a serverless deployment…` | `STORAGE_PROVIDER` is unset or `local` in the Vercel project. Set it to `r2` (§4) and redeploy. |
+| `STORAGE_PROVIDER=r2 requires … Not set: X` | `X` is missing or empty in the Vercel project. Setting it requires a redeploy to take effect. |
+| `File storage is unavailable (InvalidAccessKeyId / SignatureDoesNotMatch / NoSuchBucket / AccessDenied)…` | The variables are all set, but the bucket rejected them. The name in brackets says which one to look at: the key id, the secret, the bucket name, or the token's permissions. |
+
+Two things to know while reading those:
+
+- **Environment variables are baked in at build time.** Adding or changing one in the
+  Vercel dashboard does nothing until the project is redeployed.
+- **A CORS error is a different failure.** If the bucket has no CORS policy the browser
+  never reaches it, the API is never told, and the row reads `Network error during upload`
+  rather than any of the above. That is §2 step 4 — and note that each preview deployment
+  has its own hostname, which has to be in `AllowedOrigins` too.
 
 ---
 
