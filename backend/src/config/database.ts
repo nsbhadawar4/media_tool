@@ -85,16 +85,43 @@ export async function disconnectDatabase(): Promise<void> {
  * a permanently rejected promise.
  */
 let connectionPromise: Promise<void> | null = null;
+/** Whether `connectionPromise` has finished — see the reconnect case below. */
+let connectionSettled = false;
 
 export function connectDatabaseOnce(): Promise<void> {
-  // readyState 1 = connected, 2 = connecting. Mongoose already handles queueing in both.
-  if (mongoose.connection.readyState === 1) return Promise.resolve();
+  const state = mongoose.connection.readyState;
+
+  // 1 = connected. Nothing to do, and this is the overwhelmingly common case.
+  if (state === 1) return Promise.resolve();
+
+  /**
+   * Not connected, and an earlier attempt already finished — so this is a connection that
+   * was established and has since gone away. A serverless instance is frozen between
+   * invocations and its sockets do not survive that; Atlas also closes idle ones.
+   *
+   * The cached promise is fulfilled, so returning it would report success and hand the
+   * request a dead connection. Mongoose buffers model queries through a reconnect and
+   * hides this most of the time, which is exactly why it went unnoticed: GridFS does not.
+   * It talks to the driver directly, so a document read fails outright — a PDF that opens
+   * locally and reports itself unavailable in production, on an instance that had simply
+   * been idle. Dropping the stale promise is what makes the next request reconnect.
+   */
+  if (connectionPromise && connectionSettled) connectionPromise = null;
 
   if (!connectionPromise) {
-    connectionPromise = connectDatabase().catch((err: unknown) => {
-      connectionPromise = null;
-      throw err;
-    });
+    connectionSettled = false;
+    connectionPromise = connectDatabase()
+      .then(() => {
+        connectionSettled = true;
+      })
+      .catch((err: unknown) => {
+        connectionPromise = null;
+        connectionSettled = false;
+        throw err;
+      });
   }
+
+  // 2 = connecting: several requests arriving on a cold instance all await this one
+  // handshake rather than opening a pool each.
   return connectionPromise;
 }

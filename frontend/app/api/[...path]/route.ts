@@ -37,6 +37,22 @@ export const maxDuration = 60;
  */
 let appPromise: Promise<Express> | null = null;
 
+/**
+ * Captured when the app is built so the handler can re-check the database on every
+ * request. It has to be every request: this module scope survives between invocations,
+ * but the instance is frozen in between and its sockets do not survive that — so an app
+ * built once against a live connection goes on being reused against a dead one.
+ *
+ * Mongoose buffers model queries through a reconnect, which hid this for everything that
+ * reads documents. GridFS does not: it talks to the driver directly, so a file read fails
+ * outright, and a PDF that opens perfectly in development reports itself unavailable in
+ * production whenever the instance serving it had been idle.
+ *
+ * The check itself is one integer comparison when the connection is up (see
+ * connectDatabaseOnce), so this costs nothing in the case that matters.
+ */
+let ensureDatabase: (() => Promise<void>) | null = null;
+
 function getApp(): Promise<Express> {
   if (!appPromise) {
     appPromise = startApp().catch((err: unknown) => {
@@ -61,17 +77,39 @@ function getApp(): Promise<Express> {
  * module and the app it returns are both cached above.
  */
 async function startApp(): Promise<Express> {
-  const [{ createApp }, { connectDatabaseOnce }] = await Promise.all([
+  const [{ createApp }, database] = await Promise.all([
     import('media-tool-backend'),
     import('media-tool-backend/database'),
   ]);
 
-  await connectDatabaseOnce();
+  ensureDatabase = database.connectDatabaseOnce;
+  await ensureDatabase();
   return createApp();
 }
 
 async function handler(request: Request): Promise<Response> {
   const app = await getApp();
+
+  try {
+    await ensureDatabase!();
+  } catch {
+    /**
+     * Answered here rather than by letting this throw. An unhandled error in a Route
+     * Handler becomes Next.js's own HTML error page, and this route is what serves files:
+     * an `<img>` or a PDF viewer would receive a web page where bytes were expected, and
+     * a download would write that page to disk under the document's name. A JSON 503 is
+     * both true and something the client can read.
+     */
+    return Response.json(
+      {
+        success: false,
+        message: 'The database is unavailable, so this request could not be served.',
+        error: { message: 'The database is unavailable, so this request could not be served.' },
+      },
+      { status: 503 },
+    );
+  }
+
   return handleWithExpress(app, request);
 }
 

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, FileWarning, Maximize2, X } from 'lucide-react';
+import { Download, FileWarning, Maximize2, RefreshCw, X } from 'lucide-react';
 import { iconForDocument } from '@/utils/fileIcons';
 import { formatBytes } from '@/utils/format';
+import { cn } from '@/utils/cn';
 import type { Media } from '@/types/api';
 
 /** Beyond this, a text file is streamed to disk rather than pulled into the DOM. */
@@ -101,10 +102,14 @@ export function DocumentViewerModal({ media, onClose }: { media: Media; onClose:
  * because a redirect to a presigned URL cannot be read by fetch (see streamMediaResponse).
  */
 function PdfPreview({ media }: { media: Media }) {
-  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; url: string }>({
-    status: 'loading',
-    url: '',
-  });
+  const [state, setState] = useState<{
+    status: 'loading' | 'ready' | 'error';
+    url: string;
+    /** False when the failure was temporary, so the message can say so. */
+    isMissing: boolean;
+  }>({ status: 'loading', url: '', isMissing: true });
+
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -114,18 +119,30 @@ function PdfPreview({ media }: { media: Media }) {
 
     fetch(source, { credentials: 'include', signal: controller.signal })
       .then((response) => {
-        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        if (!response.ok) {
+          /**
+           * The distinction is the whole point of showing anything at all. A 404 means the
+           * stored file is genuinely gone and there is nothing to wait for; anything else
+           * - the database between connections on a cold instance, a request that timed
+           * out - is this deployment being briefly unable to answer, and telling someone
+           * their document is missing in that case is simply false.
+           */
+          const error = new Error(`Request failed (${response.status})`);
+          (error as Error & { isMissing?: boolean }).isMissing = response.status === 404;
+          throw error;
+        }
         return response.blob();
       })
       .then((blob) => {
         // Typed explicitly: a blob URL carries whatever type the blob has, and the browser
         // will not open a PDF viewer for application/octet-stream.
         objectUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: 'application/pdf' }));
-        setState({ status: 'ready', url: objectUrl });
+        setState({ status: 'ready', url: objectUrl, isMissing: false });
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setState({ status: 'error', url: '' });
+        const isMissing = (err as Error & { isMissing?: boolean }).isMissing === true;
+        setState({ status: 'error', url: '', isMissing });
       });
 
     return () => {
@@ -133,9 +150,20 @@ function PdfPreview({ media }: { media: Media }) {
       // Revoked on unmount, or the blob stays in memory for as long as the tab is open.
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [media.viewUrl]);
+  }, [media.viewUrl, attempt]);
 
-  if (state.status === 'error') return <UnavailablePreview media={media} />;
+  if (state.status === 'error') {
+    return (
+      <UnavailablePreview
+        media={media}
+        isMissing={state.isMissing}
+        onRetry={() => {
+          setState({ status: 'loading', url: '', isMissing: true });
+          setAttempt((value) => value + 1);
+        }}
+      />
+    );
+  }
 
   if (state.status === 'loading') {
     return (
@@ -151,25 +179,53 @@ function PdfPreview({ media }: { media: Media }) {
 }
 
 /**
- * Shown when the document's bytes cannot be retrieved at all — the record is there and the
- * stored object is not. Distinct from UnsupportedPreview, which is a file this browser
- * cannot render but which is perfectly present and downloadable; offering a download here
- * would only produce a second failure.
+ * Shown when the document's bytes could not be retrieved. Distinct from UnsupportedPreview,
+ * which is a file this browser cannot render but which is present and downloadable;
+ * offering a download here would only produce a second failure.
+ *
+ * The two cases it covers read very differently to whoever is looking at them, so it says
+ * which one happened: a file that is gone is not going to come back on its own, and a
+ * deployment that was briefly unable to answer will.
  */
-function UnavailablePreview({ media }: { media: Media }) {
+function UnavailablePreview({
+  media,
+  isMissing,
+  onRetry,
+}: {
+  media: Media;
+  isMissing: boolean;
+  onRetry: () => void;
+}) {
   return (
     <div
       role="alert"
       className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-border bg-surface px-10 py-12 text-center"
     >
-      <FileWarning className="h-14 w-14 text-danger" strokeWidth={1.5} />
+      <FileWarning
+        className={cn('h-14 w-14', isMissing ? 'text-danger' : 'text-muted')}
+        strokeWidth={1.5}
+      />
       <div>
-        <p className="text-sm font-medium text-foreground">Document unavailable</p>
+        <p className="text-sm font-medium text-foreground">
+          {isMissing ? 'Document unavailable' : 'Could not load this document'}
+        </p>
         <p className="mt-1 text-xs text-muted">{media.originalName}</p>
         <p className="mt-3 text-xs text-muted">
-          This document could not be loaded. Its stored file may be missing or damaged.
+          {isMissing
+            ? 'This document could not be loaded. Its stored file may be missing or damaged.'
+            : 'The server could not be reached just now. This is usually temporary.'}
         </p>
       </div>
+      {!isMissing && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-surface-hover"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </button>
+      )}
     </div>
   );
 }
@@ -208,7 +264,9 @@ function TextPreview({ media }: { media: Media }) {
     return () => controller.abort();
   }, [media.viewUrl]);
 
-  if (state.status === 'error') return <UnavailablePreview media={media} />;
+  if (state.status === 'error') {
+    return <UnavailablePreview media={media} isMissing onRetry={() => undefined} />;
+  }
 
   return (
     <div className="h-full w-full max-w-4xl overflow-auto rounded-lg border border-border bg-surface p-5">
