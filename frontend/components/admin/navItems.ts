@@ -6,6 +6,7 @@ import {
   Trash2,
   Activity,
   Settings,
+  UserRound,
   Users,
   BarChart3,
   type LucideIcon,
@@ -29,6 +30,7 @@ export const USER_NAV: readonly NavItem[] = [
   { href: '/documents', label: 'Documents', icon: FileText },
   { href: '/trash', label: 'Trash', icon: Trash2 },
   { href: '/activity', label: 'Activity', icon: Activity },
+  { href: '/profile', label: 'Profile', icon: UserRound },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 

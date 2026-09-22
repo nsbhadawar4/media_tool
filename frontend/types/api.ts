@@ -11,6 +11,25 @@ export interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
+  /** Optional at signup, so null is a real answer rather than missing data. */
+  mobile: string | null;
+  isActive: boolean;
+  isEmailVerified: boolean;
+  createdAt: string;
+  lastLoginAt?: string;
+}
+
+/** Only what may change. Omitted fields are left alone; `mobile: null` clears it. */
+export interface UpdateProfileInput {
+  name?: string;
+  email?: string;
+  mobile?: string | null;
+}
+
+export interface ChangePasswordInput {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export interface SignupInput {
@@ -23,11 +42,6 @@ export interface SignupInput {
 
 /** One row of the admin user list: the account plus how much it is storing. */
 export interface AdminUserSummary extends UserProfile {
-  mobile: string | null;
-  isActive: boolean;
-  isEmailVerified: boolean;
-  createdAt: string;
-  lastLoginAt?: string;
   folderCount: number;
   mediaCount: number;
   storageUsedBytes: number;

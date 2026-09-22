@@ -314,7 +314,14 @@ a,
 }
 @media (min-width: 1024px) {
   .app-main-pad {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /*
+     * The tab bar is gone from `lg` up, but the breathing room must not go with it. This
+     * was the inset alone, which is 0px on a desktop — so every page ended flush against
+     * the bottom of its scroll area, and the last control on a long page (a Save button,
+     * the end of a grid) sat hard against the edge with nothing under it. Matching the
+     * 1.5rem of `pt-6` above keeps the page evenly inset top and bottom.
+     */
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 

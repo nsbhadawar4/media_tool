@@ -7,7 +7,12 @@ import { sendSuccess } from '../utils/apiResponse';
 import { signSessionToken } from '../services/tokenService';
 import { setSessionCookie, clearSessionCookie } from '../utils/cookies';
 import { logActivity } from '../services/activityService';
-import type { LoginInput, SignupInput } from '../validators/authValidators';
+import type {
+  ChangePasswordInput,
+  LoginInput,
+  SignupInput,
+  UpdateProfileInput,
+} from '../validators/authValidators';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -90,6 +95,90 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   sendSuccess(res, { loggedOut: true }, 200, undefined, 'Logged out');
 });
 
+/**
+ * The signed-in account, in full.
+ *
+ * Read from the database rather than from `req.user`, which carries only what the session
+ * check needed — id, email, name, role. The profile page shows when the account was
+ * created, when it last signed in and the mobile number it was registered with, and none
+ * of that is in a session token or belongs in one.
+ */
 export const me = asyncHandler(async (req: Request, res: Response) => {
-  sendSuccess(res, req.user);
+  const user = await User.findById(req.user!.id);
+  if (!user) throw AppError.unauthorized('Session no longer valid');
+
+  sendSuccess(res, toPublicUser(user));
+});
+
+/**
+ * Updates the details this account signed up with.
+ *
+ * Only the fields that were sent are written. Email is allowed to change because it is a
+ * signup detail like any other, but it is also how this account signs in, so a collision
+ * with somebody else's address has to be a clear refusal rather than a database error.
+ */
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  const { name, email, mobile } = req.body as UpdateProfileInput;
+
+  const user = await User.findById(req.user!.id);
+  if (!user) throw AppError.unauthorized('Session no longer valid');
+
+  if (email && email !== user.email) {
+    const taken = await User.findOne({ email, _id: { $ne: user._id } });
+    if (taken) throw AppError.conflict('Another account already uses this email address');
+    user.email = email;
+    /**
+     * A changed address has not been proved to belong to anyone yet. Nothing in this app
+     * gates on the flag today, but leaving it true would record a verification that never
+     * happened — and would be the wrong answer the moment something does gate on it.
+     */
+    user.isEmailVerified = false;
+  }
+
+  if (name !== undefined) user.name = name;
+  if (mobile !== undefined) user.mobile = mobile;
+
+  await user.save();
+
+  await logActivity(req, {
+    action: 'profile_updated',
+    targetType: 'auth',
+    targetId: user._id,
+    targetName: user.email,
+    message: `${user.email} updated their profile`,
+  });
+
+  sendSuccess(res, toPublicUser(user), 200, undefined, 'Profile updated');
+});
+
+/**
+ * Changes the account password, given the current one.
+ *
+ * The session is deliberately left alone. Signing every device out on a password change is
+ * defensible, but it would also sign out the browser that just did it, and being thrown
+ * back to a login form is a strange reward for tightening your own security.
+ */
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as ChangePasswordInput;
+
+  // passwordHash is `select: false`, so it has to be asked for explicitly.
+  const user = await User.findById(req.user!.id).select('+passwordHash');
+  if (!user) throw AppError.unauthorized('Session no longer valid');
+
+  if (!(await user.comparePassword(currentPassword))) {
+    throw AppError.unauthorized('Your current password is incorrect');
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await user.save();
+
+  await logActivity(req, {
+    action: 'password_changed',
+    targetType: 'auth',
+    targetId: user._id,
+    targetName: user.email,
+    message: `${user.email} changed their password`,
+  });
+
+  sendSuccess(res, { changed: true }, 200, undefined, 'Password changed');
 });

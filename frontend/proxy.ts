@@ -11,6 +11,7 @@ const PROTECTED_PREFIXES = [
   '/documents',
   '/trash',
   '/activity',
+  '/profile',
   '/settings',
   '/admin',
 ];
@@ -87,6 +88,7 @@ export const config = {
     '/documents/:path*',
     '/trash/:path*',
     '/activity/:path*',
+    '/profile/:path*',
     '/settings/:path*',
     '/admin/:path*',
   ],
