@@ -12,6 +12,7 @@ export interface SmtpConfig {
 
 /** Sends through any SMTP-speaking service — see EmailProvider for why SMTP specifically. */
 export class SmtpEmailProvider implements EmailProvider {
+  readonly name = 'smtp' as const;
   private readonly transporter: Transporter;
   private readonly from: string;
 

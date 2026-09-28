@@ -328,26 +328,33 @@ Nothing. `STORAGE_PROVIDER=gridfs` uses `MONGODB_URI`, which is already required
 
 ### Required for password-reset emails
 
-`EMAIL_PROVIDER` defaults to `smtp` outside development, so a production deploy needs
+`EMAIL_PROVIDER` defaults to `resend` outside development, so a production deploy needs
 these or the first "forgot password" request fails loudly (503, naming what's missing)
 rather than silently never sending:
 
 | Variable | Value |
 | --- | --- |
-| `SMTP_HOST` | Your SMTP server's hostname |
-| `SMTP_PORT` | `587` (STARTTLS) or `465` (implicit TLS) are the common choices |
-| `EMAIL_FROM` | The "From" address/header, e.g. `media_tool <no-reply@yourdomain.com>` |
-| `SMTP_USER` / `SMTP_PASSWORD` | Credentials for that server, if it requires auth |
-| `SMTP_SECURE` | `true` for port 465; leave unset (`false`) for 587/25 |
+| `RESEND_API_KEY` | From [resend.com/api-keys](https://resend.com/api-keys) |
+| `EMAIL_FROM` | The "From" address/header, e.g. `media_tool <no-reply@yourdomain.com>` — must be on a domain verified in Resend |
 
-Any SMTP-speaking provider works: Amazon SES, SendGrid, Resend, Postmark and Mailtrap all
-offer an SMTP endpoint and credentials, as does a plain mailbox. There is no vendor SDK
-here on purpose — `EMAIL_PROVIDER=smtp` via `nodemailer` works with all of them and locks
-this app into none.
+That's it — Resend is an HTTP API, so there's no SMTP setup, no port, no separate
+credentials to manage.
 
-Until these are set, `EMAIL_PROVIDER` stays at its development default, `console`, which
-logs the email (reset link included) to the server log instead of delivering it — real
-for testing the flow end to end, but no email actually leaves the server.
+**Prefer SMTP instead?** Set `EMAIL_PROVIDER=smtp` and, in place of the above:
+`SMTP_HOST`, `SMTP_PORT` (`587` STARTTLS or `465` implicit TLS), `EMAIL_FROM`, and
+`SMTP_USER`/`SMTP_PASSWORD` if the server requires auth. Any SMTP-speaking provider works
+this way — Amazon SES, SendGrid, Postmark, Mailtrap, a plain mailbox — via `nodemailer`.
+
+Until either is configured, `EMAIL_PROVIDER` stays at its development default, `console`,
+which logs that a reset was requested — never the email's body, which carries a one-time
+token — instead of delivering it. Real enough to exercise the flow end to end locally, but
+no email actually leaves the server; set `RESEND_API_KEY` locally too if you need to
+receive the real thing while developing.
+
+The reset link itself always points at wherever the request actually arrived from — the
+deployed domain in production (including each preview deployment, automatically) or
+`FRONTEND_URL` in local split-origin dev — never a hardcoded host. See
+`resolveFrontendOrigin` in `backend/src/controllers/authController.ts`.
 
 ### Deliberately left unset
 

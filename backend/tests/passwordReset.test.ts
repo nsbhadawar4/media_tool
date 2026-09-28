@@ -22,6 +22,8 @@ import { createApp } from '../src/app';
 import { env } from '../src/config/env';
 import { User } from '../src/models/User';
 import { signSessionToken } from '../src/services/tokenService';
+import { resolveFrontendOrigin } from '../src/controllers/authController';
+import { buildResetUrl } from '../src/services/passwordResetService';
 
 let mongo: MongoMemoryServer;
 let server: Server;
@@ -298,4 +300,65 @@ test('sessions issued before this feature existed (no tokenVersion in the JWT) a
 
   const { status } = await callApi('GET', '/api/auth/me', undefined, legacyCookie);
   assert.equal(status, 200, 'deploying tokenVersion must not sign out sessions that predate it');
+});
+
+/* -------------------------------------------------------------------------- */
+/* Reset link origin: localhost vs. a same-origin (Vercel) deployment          */
+/* -------------------------------------------------------------------------- */
+
+function fakeRequest(host: string | undefined, protocol = 'https') {
+  return { protocol, get: (name: 'host') => (name === 'host' ? host : undefined) };
+}
+
+test('a same-origin deployment builds the link from the request itself, not FRONTEND_URL', () => {
+  // This is what makes the link correct on production *and* every Vercel preview, each
+  // with its own hostname — see resolveFrontendOrigin's comment.
+  const origin = resolveFrontendOrigin(fakeRequest('my-preview-abc123.vercel.app'), true);
+  assert.equal(origin, 'https://my-preview-abc123.vercel.app');
+});
+
+test('a split-origin deployment (local dev) falls back to FRONTEND_URL', () => {
+  // The API's own host (:5000 in local dev) would be the wrong answer here — the
+  // frontend is on a different port entirely.
+  const origin = resolveFrontendOrigin(fakeRequest('localhost:5000'), false);
+  assert.equal(origin, env.FRONTEND_URL.split(',')[0]!.trim().replace(/\/$/, ''));
+});
+
+test('a same-origin request with no Host header still falls back rather than producing a broken link', () => {
+  const origin = resolveFrontendOrigin(fakeRequest(undefined), true);
+  assert.equal(origin, env.FRONTEND_URL.split(',')[0]!.trim().replace(/\/$/, ''));
+});
+
+test('the reset link joins origin and token with no double slash', () => {
+  assert.equal(buildResetUrl('https://example.com/', 'abc'), 'https://example.com/reset-password?token=abc');
+  assert.equal(buildResetUrl('https://example.com', 'abc'), 'https://example.com/reset-password?token=abc');
+});
+
+test('a reset email never logs its own body or reset URL', async () => {
+  const user = await createUser({ email: 'watched@example.com' });
+
+  const originalWarn = console.warn;
+  const lines: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    lines.push(args.map((a) => String(a)).join(' '));
+  };
+  let status: number;
+  try {
+    ({ status } = await callApi('POST', '/api/auth/forgot-password', { email: user.email }));
+  } finally {
+    console.warn = originalWarn;
+  }
+  // Guards against this test passing vacuously if the request never actually reached the
+  // handler (e.g. rate-limited by the other forgot-password calls above) — no warning would
+  // be logged either way, which would make the assertions below trivially true for the
+  // wrong reason.
+  assert.equal(status, 200, 'the request must actually succeed for this test to prove anything');
+
+  const stored = await User.findById(user._id).select('+passwordResetTokenHash');
+  const output = lines.join('\n');
+  assert.ok(!output.includes('reset-password?token='), 'the console provider must never print the reset link');
+  assert.ok(
+    !output.includes(stored!.passwordResetTokenHash!),
+    'the console provider must never print the raw token or its hash',
+  );
 });

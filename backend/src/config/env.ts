@@ -151,15 +151,18 @@ const envSchema = z.object({
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
 
   /**
-   * Where password-reset emails actually go. `console` just logs the email (and its
-   * reset link) to the server console instead of delivering it — the only thing that
-   * can run with no setup, so it is the default everywhere except a real deployment,
-   * where forgetting to set this to `smtp` must fail loudly rather than silently drop
-   * every reset email. Same reasoning as `secureByDefault` above.
+   * Where password-reset emails actually go. `console` just logs that an email would have
+   * been sent — never its body, which carries a one-time token — instead of delivering it.
+   * That is the only thing that can run with no setup, so it is the default everywhere
+   * except a real deployment, where forgetting to configure `resend` or `smtp` must fail
+   * loudly rather than silently drop every reset email. Same reasoning as `secureByDefault`
+   * above. `resend` is the default outside development because it needs one variable
+   * (RESEND_API_KEY) against SMTP's four or five.
    */
-  EMAIL_PROVIDER: z.enum(['console', 'smtp']).default(secureByDefault ? 'smtp' : 'console'),
+  EMAIL_PROVIDER: z.enum(['console', 'resend', 'smtp']).default(secureByDefault ? 'resend' : 'console'),
   /** "From" address/header on outgoing mail, e.g. "media_tool <no-reply@yourdomain.com>". */
   EMAIL_FROM: optionalString,
+  RESEND_API_KEY: optionalString,
   SMTP_HOST: optionalString,
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: optionalString,

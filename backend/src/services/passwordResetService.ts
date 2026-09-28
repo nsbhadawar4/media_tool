@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { User, type IUser } from '../models/User';
 import { getEmailProvider } from './email';
@@ -16,11 +15,9 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function resetUrlFor(token: string): string {
-  // FRONTEND_URL can be a comma-separated allow-list (see env.allowedOrigins); the link
-  // only ever needs one origin to send the user back to.
-  const origin = env.FRONTEND_URL.split(',')[0]!.trim().replace(/\/$/, '');
-  return `${origin}/reset-password?token=${token}`;
+/** `origin` is a scheme+host with no trailing slash — see authController.resolveFrontendOrigin. */
+export function buildResetUrl(origin: string, token: string): string {
+  return `${origin.replace(/\/$/, '')}/reset-password?token=${token}`;
 }
 
 /**
@@ -30,8 +27,13 @@ function resetUrlFor(token: string): string {
  * the email matched anything. forgotPassword sends one generic response either way, and a
  * caller that *could* tell the difference here would just move the enumeration hole from
  * the response into the timing/control-flow instead of closing it.
+ *
+ * `origin` is resolved by the caller (see authController.resolveFrontendOrigin) rather
+ * than read from config in here: it has to be correct on localhost *and* on whichever
+ * Vercel domain the request actually arrived on (production or any preview deployment),
+ * and only the request itself knows which of those this is.
  */
-export async function requestPasswordReset(email: string): Promise<void> {
+export async function requestPasswordReset(email: string, origin: string): Promise<void> {
   const user = await User.findOne({ email });
   if (!user || !user.isActive) return;
 
@@ -46,23 +48,34 @@ export async function requestPasswordReset(email: string): Promise<void> {
     },
   );
 
-  const resetUrl = resetUrlFor(token);
+  const resetUrl = buildResetUrl(origin, token);
   const text =
     `We received a request to reset your media_tool password.\n\n` +
     `Reset it here (this link expires in 30 minutes):\n${resetUrl}\n\n` +
     `If you didn't request this, you can safely ignore this email — your password will not change.`;
   const html =
     `<p>We received a request to reset your media_tool password.</p>` +
-    `<p><a href="${resetUrl}">Reset your password</a> — this link expires in 30 minutes.</p>` +
-    `<p>If you didn't request this, you can safely ignore this email. Your password will not change.</p>`;
+    `<p><a href="${resetUrl}" style="display:inline-block;padding:10px 20px;background:#6D5EF8;` +
+    `color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600">Reset password</a></p>` +
+    `<p>Or paste this link into your browser: ${resetUrl}</p>` +
+    `<p>This link expires in 30 minutes. If you didn't request this, you can safely ignore this ` +
+    `email — your password will not change.</p>`;
 
   try {
     await getEmailProvider().send({ to: user.email, subject: 'Reset your media_tool password', text, html });
   } catch (err) {
-    // Never surfaced to the caller: a delivery failure here must not turn into a
-    // different HTTP response than a successful send, or the response would leak
-    // whether this address has an account.
-    logger.error(`Could not send password reset email to ${user.email}`, err);
+    /**
+     * Never surfaced to the caller: a delivery failure here must not turn into a
+     * different HTTP response than a successful send, or the response would leak
+     * whether this address has an account.
+     *
+     * Logs only `err.message`, not the error object or anything built above — the reset
+     * URL and its token must never reach a log, and a provider's thrown error is not
+     * guaranteed to stay that disciplined (an SDK exception can carry the request that
+     * caused it).
+     */
+    const detail = err instanceof Error ? err.message : 'unknown error';
+    logger.error(`Could not send password reset email to ${user.email}: ${detail}`);
   }
 }
 

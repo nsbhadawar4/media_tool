@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
+import { env } from '../config/env';
 import { User, toPublicUser } from '../models/User';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -188,6 +189,34 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 });
 
 /**
+ * The origin a password-reset link should point back to: scheme + host, no trailing
+ * slash, no path.
+ *
+ * Same-origin deployments (production and every Vercel preview) have no fixed
+ * FRONTEND_URL to read — see env.isSameOrigin and DEPLOYMENT.md §4, "Deliberately left
+ * unset" — because each preview gets its own hostname and a hardcoded value would only
+ * ever be right for one of them. The request itself already carries the answer: whatever
+ * host the browser actually called this API on is the same host the frontend is served
+ * from, so that's what the link uses. A split-origin deployment (local dev: frontend on
+ * :3000, API on :5000) has no such request-derived answer — the API's own host is the
+ * wrong one — so that case falls back to the configured FRONTEND_URL instead.
+ *
+ * Takes `sameOrigin` as a parameter rather than reading `env.isSameOrigin` directly so
+ * this stays a pure function of its inputs and is testable without env's module-load-time
+ * state.
+ */
+export function resolveFrontendOrigin(
+  req: Pick<Request, 'protocol'> & { get(name: 'host'): string | undefined },
+  sameOrigin: boolean,
+): string {
+  if (sameOrigin) {
+    const host = req.get('host');
+    if (host) return `${req.protocol}://${host}`;
+  }
+  return env.FRONTEND_URL.split(',')[0]!.trim().replace(/\/$/, '');
+}
+
+/**
  * Starts a password reset. Always answers the same way, whether or not the address has
  * an account — see passwordResetService.requestPasswordReset for why a different answer
  * here would be an enumeration hole no amount of frontend care could close.
@@ -195,7 +224,7 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email } = req.body as ForgotPasswordInput;
 
-  await requestPasswordReset(email);
+  await requestPasswordReset(email, resolveFrontendOrigin(req, env.isSameOrigin));
 
   await logActivity(req, {
     action: 'password_reset_requested',

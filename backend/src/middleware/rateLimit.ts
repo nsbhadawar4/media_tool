@@ -34,7 +34,7 @@ export const signupRateLimiter = rateLimit({
  */
 export const forgotPasswordRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
