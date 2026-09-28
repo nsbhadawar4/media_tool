@@ -149,6 +149,23 @@ const envSchema = z.object({
 
   LOGIN_RATE_LIMIT_WINDOW_MIN: z.coerce.number().int().positive().default(15),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+
+  /**
+   * Where password-reset emails actually go. `console` just logs the email (and its
+   * reset link) to the server console instead of delivering it — the only thing that
+   * can run with no setup, so it is the default everywhere except a real deployment,
+   * where forgetting to set this to `smtp` must fail loudly rather than silently drop
+   * every reset email. Same reasoning as `secureByDefault` above.
+   */
+  EMAIL_PROVIDER: z.enum(['console', 'smtp']).default(secureByDefault ? 'smtp' : 'console'),
+  /** "From" address/header on outgoing mail, e.g. "media_tool <no-reply@yourdomain.com>". */
+  EMAIL_FROM: optionalString,
+  SMTP_HOST: optionalString,
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: optionalString,
+  SMTP_PASSWORD: optionalString,
+  /** Set for port 465 (implicit TLS). Port 587/25 use STARTTLS and should leave this off. */
+  SMTP_SECURE: boolish(false),
 });
 
 const parsed = envSchema.safeParse(process.env);

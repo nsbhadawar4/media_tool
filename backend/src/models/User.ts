@@ -15,6 +15,16 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   lastLoginAt?: Date;
   lastLoginIp?: string;
+  /** Hash of the current password-reset token, if a reset was requested and not yet used. */
+  passwordResetTokenHash?: string | null;
+  passwordResetExpiresAt?: Date | null;
+  /**
+   * Bumped whenever a password reset completes, and embedded in every session token
+   * (see SessionTokenPayload). requireAuth rejects a token whose version doesn't match
+   * this, so completing a reset signs every other device out — the one place in this app
+   * a password change does that; see passwordResetService for why.
+   */
+  tokenVersion: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -44,6 +54,11 @@ const userSchema = new Schema<IUser>(
     isEmailVerified: { type: Boolean, default: false },
     lastLoginAt: { type: Date },
     lastLoginIp: { type: String },
+    // `select: false` alongside passwordHash: a forgotten `.select()` elsewhere must not
+    // leak a live reset token's hash through some other query's response.
+    passwordResetTokenHash: { type: String, default: null, select: false, index: true },
+    passwordResetExpiresAt: { type: Date, default: null, select: false },
+    tokenVersion: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

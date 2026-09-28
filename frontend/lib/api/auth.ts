@@ -1,6 +1,8 @@
 import { api } from './client';
 import type {
   ChangePasswordInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   SignupInput,
   UpdateProfileInput,
   UserProfile,
@@ -15,4 +17,8 @@ export const authApi = {
   updateProfile: (input: UpdateProfileInput) => api.patch<UserProfile>('/api/auth/me', input),
   changePassword: (input: ChangePasswordInput) =>
     api.post<{ changed: boolean }>('/api/auth/change-password', input),
+  forgotPassword: (input: ForgotPasswordInput) =>
+    api.post<{ requested: boolean }>('/api/auth/forgot-password', input),
+  resetPassword: (input: ResetPasswordInput) =>
+    api.post<{ reset: boolean }>('/api/auth/reset-password', input),
 };

@@ -40,6 +40,16 @@ export interface SignupInput {
   mobile?: string;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 /** One row of the admin user list: the account plus how much it is storing. */
 export interface AdminUserSummary extends UserProfile {
   folderCount: number;

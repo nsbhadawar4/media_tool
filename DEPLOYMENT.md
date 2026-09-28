@@ -326,6 +326,29 @@ MinIO, or R2 addressed by hand.
 
 Nothing. `STORAGE_PROVIDER=gridfs` uses `MONGODB_URI`, which is already required.
 
+### Required for password-reset emails
+
+`EMAIL_PROVIDER` defaults to `smtp` outside development, so a production deploy needs
+these or the first "forgot password" request fails loudly (503, naming what's missing)
+rather than silently never sending:
+
+| Variable | Value |
+| --- | --- |
+| `SMTP_HOST` | Your SMTP server's hostname |
+| `SMTP_PORT` | `587` (STARTTLS) or `465` (implicit TLS) are the common choices |
+| `EMAIL_FROM` | The "From" address/header, e.g. `media_tool <no-reply@yourdomain.com>` |
+| `SMTP_USER` / `SMTP_PASSWORD` | Credentials for that server, if it requires auth |
+| `SMTP_SECURE` | `true` for port 465; leave unset (`false`) for 587/25 |
+
+Any SMTP-speaking provider works: Amazon SES, SendGrid, Resend, Postmark and Mailtrap all
+offer an SMTP endpoint and credentials, as does a plain mailbox. There is no vendor SDK
+here on purpose — `EMAIL_PROVIDER=smtp` via `nodemailer` works with all of them and locks
+this app into none.
+
+Until these are set, `EMAIL_PROVIDER` stays at its development default, `console`, which
+logs the email (reset link included) to the server log instead of delivering it — real
+for testing the flow end to end, but no email actually leaves the server.
+
 ### Deliberately left unset
 
 | Variable | Why |

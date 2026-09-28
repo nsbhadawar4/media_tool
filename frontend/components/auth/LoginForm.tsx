@@ -90,15 +90,20 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
           placeholder="••••••••"
         />
 
-        <label className="flex select-none items-center gap-2 text-xs text-muted">
-          <input
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-border accent-accent"
-          />
-          Remember me on this device
-        </label>
+        <div className="flex items-center justify-between gap-2 text-xs text-muted">
+          <label className="flex select-none items-center gap-2">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-border accent-accent"
+            />
+            Remember me on this device
+          </label>
+          <Link href="/forgot-password" className="font-medium text-accent transition hover:text-accent-hover">
+            Forgot password?
+          </Link>
+        </div>
 
         {error && (
           <div

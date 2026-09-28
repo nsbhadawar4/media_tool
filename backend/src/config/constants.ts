@@ -97,6 +97,8 @@ export const ACTIVITY_ACTIONS = [
   'logout',
   'profile_updated',
   'password_changed',
+  'password_reset_requested',
+  'password_reset',
   'folder_created',
   'folder_renamed',
   'folder_updated',

@@ -79,3 +79,30 @@ export const changePasswordSchema = z
   });
 
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+/**
+ * Only an email. Never reveals whether it matched an account — see the controller — so
+ * there is nothing else this request needs to carry.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Enter a valid email address'),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * The token alone identifies which account and that the request is genuine — see
+ * passwordResetService.resetPassword — so nothing else identifying belongs here.
+ */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().trim().min(1, 'Reset link is invalid or has expired'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200),
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

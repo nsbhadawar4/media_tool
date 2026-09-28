@@ -27,6 +27,21 @@ export const signupRateLimiter = rateLimit({
   },
 });
 
+/**
+ * Requesting a reset counts even when it succeeds, same as signup — the abuse to prevent
+ * is emailing someone else's address over and over, which by definition "succeeds" every
+ * time from this endpoint's point of view.
+ */
+export const forgotPasswordRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    sendError(res, 429, 'Too many password reset requests. Please try again later.');
+  },
+});
+
 /** Looser general limiter applied to the whole API to blunt brute-force/scanning. */
 export const apiRateLimiter = rateLimit({
   windowMs: 60 * 1000,

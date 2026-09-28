@@ -7,9 +7,12 @@ import { sendSuccess } from '../utils/apiResponse';
 import { signSessionToken } from '../services/tokenService';
 import { setSessionCookie, clearSessionCookie } from '../utils/cookies';
 import { logActivity } from '../services/activityService';
+import { requestPasswordReset, resetPassword as applyPasswordReset } from '../services/passwordResetService';
 import type {
   ChangePasswordInput,
+  ForgotPasswordInput,
   LoginInput,
+  ResetPasswordInput,
   SignupInput,
   UpdateProfileInput,
 } from '../validators/authValidators';
@@ -69,6 +72,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     role: user.role,
     email: user.email,
     name: user.name,
+    tokenVersion: user.tokenVersion ?? 0,
   });
   setSessionCookie(res, token, rememberMe);
 
@@ -181,4 +185,49 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   });
 
   sendSuccess(res, { changed: true }, 200, undefined, 'Password changed');
+});
+
+/**
+ * Starts a password reset. Always answers the same way, whether or not the address has
+ * an account — see passwordResetService.requestPasswordReset for why a different answer
+ * here would be an enumeration hole no amount of frontend care could close.
+ */
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body as ForgotPasswordInput;
+
+  await requestPasswordReset(email);
+
+  await logActivity(req, {
+    action: 'password_reset_requested',
+    targetType: 'auth',
+    message: `Password reset requested for ${email}`,
+  });
+
+  sendSuccess(
+    res,
+    { requested: true },
+    200,
+    undefined,
+    'If an account exists with this email, a password reset link has been sent.',
+  );
+});
+
+/** Completes a password reset with a token minted by forgotPassword. */
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { token, newPassword } = req.body as ResetPasswordInput;
+
+  const user = await applyPasswordReset(token, newPassword);
+  if (!user) {
+    throw AppError.badRequest('This password reset link is invalid or has expired.');
+  }
+
+  await logActivity(req, {
+    action: 'password_reset',
+    targetType: 'auth',
+    targetId: user._id,
+    targetName: user.email,
+    message: `${user.email} reset their password`,
+  });
+
+  sendSuccess(res, { reset: true }, 200, undefined, 'Password reset successfully. Please sign in.');
 });

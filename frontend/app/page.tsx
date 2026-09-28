@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupSuccessNotice } from '@/components/auth/SignupSuccessNotice';
+import { PasswordResetSuccessNotice } from '@/components/auth/PasswordResetSuccessNotice';
 import { SessionExpiredNotice } from '@/components/auth/SessionExpiredNotice';
 
 export const metadata: Metadata = {
@@ -25,6 +26,9 @@ export default function HomePage() {
       <div className="w-full max-w-sm">
         <Suspense fallback={null}>
           <SignupSuccessNotice />
+        </Suspense>
+        <Suspense fallback={null}>
+          <PasswordResetSuccessNotice />
         </Suspense>
         <Suspense fallback={null}>
           <SessionExpiredNotice />

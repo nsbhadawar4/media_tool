@@ -38,6 +38,18 @@ export const requireAuth = asyncHandler(async (req: Request, res: Response, next
     throw AppError.unauthorized('Session no longer valid');
   }
 
+  /**
+   * `?? 0` on both sides: a token signed before tokenVersion existed decodes with it
+   * `undefined`, and every account that has never completed a password reset is still at
+   * the schema default of 0. Comparing `undefined` against `0` directly would treat every
+   * pre-existing session as stale the moment this shipped — normalising both to 0 is what
+   * keeps deploying this feature from signing everyone out.
+   */
+  if ((payload.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+    clearSessionCookie(res);
+    throw AppError.unauthorized('Session expired or invalid, please log in again');
+  }
+
   req.user = {
     id: user._id.toString(),
     email: user.email,

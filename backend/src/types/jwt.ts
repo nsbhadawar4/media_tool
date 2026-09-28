@@ -6,6 +6,13 @@ export interface SessionTokenPayload {
   role: UserRole;
   email: string;
   name: string;
+  /**
+   * Snapshot of the account's tokenVersion at sign-in. requireAuth compares it against
+   * the live value on every request; a token signed before this field existed decodes
+   * with it `undefined`, which requireAuth treats as 0 — see there for why that must not
+   * default to anything else.
+   */
+  tokenVersion: number;
 }
 
 export interface MediaTokenPayload {
