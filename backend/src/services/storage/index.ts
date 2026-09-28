@@ -75,6 +75,7 @@ export function buildR2ClientConfig({ accountId, accessKeyId, secretAccessKey }:
 }
 
 let cachedProvider: StorageService | null = null;
+const namedProviderCache = new Map<StorageService['name'], StorageService>();
 
 /**
  * A deployment that is not configured to store files, reported so the operator can read
@@ -90,24 +91,10 @@ function configError(message: string): AppError {
   return AppError.unavailable(message);
 }
 
-function buildProvider(): StorageService {
-  switch (env.STORAGE_PROVIDER) {
+/** Builds a provider for an explicit name, independent of STORAGE_PROVIDER. */
+function buildNamedProvider(name: StorageService['name']): StorageService {
+  switch (name) {
     case 'local':
-      /**
-       * A Vercel Function's filesystem is read-only apart from /tmp, and /tmp does not
-       * outlive the instance. Left to run, this provider either throws EROFS on the first
-       * upload or appears to work and loses the file minutes later — and both surface to
-       * the user as "my images are broken", long after the cause. Failing here instead
-       * puts the actual problem, and its fix, in the deployment log.
-       */
-      if (env.isServerless && !env.ALLOW_LOCAL_STORAGE_ON_SERVERLESS) {
-        throw configError(
-          'STORAGE_PROVIDER=local cannot be used on a serverless deployment: the filesystem is ' +
-            'read-only and ephemeral, so uploaded files would be lost. Set STORAGE_PROVIDER=r2 ' +
-            'along with R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME ' +
-            'in the project environment variables. See DEPLOYMENT.md.',
-        );
-      }
       return new LocalStorageProvider();
 
     /**
@@ -206,8 +193,30 @@ function buildProvider(): StorageService {
     }
 
     default:
-      throw AppError.internal(`Unknown STORAGE_PROVIDER: ${env.STORAGE_PROVIDER}`);
+      throw AppError.internal(`Unknown STORAGE_PROVIDER: ${name}`);
   }
+}
+
+/** Builds the provider this deployment defaults new uploads to (STORAGE_PROVIDER). */
+function buildProvider(): StorageService {
+  if (env.STORAGE_PROVIDER === 'local') {
+    /**
+     * A Vercel Function's filesystem is read-only apart from /tmp, and /tmp does not
+     * outlive the instance. Left to run, this provider either throws EROFS on the first
+     * upload or appears to work and loses the file minutes later — and both surface to
+     * the user as "my images are broken", long after the cause. Failing here instead
+     * puts the actual problem, and its fix, in the deployment log.
+     */
+    if (env.isServerless && !env.ALLOW_LOCAL_STORAGE_ON_SERVERLESS) {
+      throw configError(
+        'STORAGE_PROVIDER=local cannot be used on a serverless deployment: the filesystem is ' +
+          'read-only and ephemeral, so uploaded files would be lost. Set STORAGE_PROVIDER=r2 ' +
+          'along with R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET_NAME ' +
+          'in the project environment variables. See DEPLOYMENT.md.',
+      );
+    }
+  }
+  return buildNamedProvider(env.STORAGE_PROVIDER);
 }
 
 /** Lazily built, memoized singleton — call sites never need to know which provider is active. */
@@ -216,6 +225,35 @@ export function getStorageProvider(): StorageService {
     cachedProvider = buildProvider();
   }
   return cachedProvider;
+}
+
+/**
+ * Resolves the storage backend that actually holds a specific record's bytes — which is
+ * not always this deployment's configured STORAGE_PROVIDER.
+ *
+ * A media record names the provider that wrote it. Most of the time that is the active
+ * provider, but one MongoDB database is sometimes shared between a `local` developer
+ * machine and a `gridfs`/`r2` deployment (they need nothing else in common — GridFS and
+ * the media collection both just live in MONGODB_URI), and each still holds records the
+ * other wrote. Reading those through the active provider alone reports them "stored on a
+ * different backend" even though the bytes are perfectly reachable from here; this looks
+ * them up by the provider that actually holds them instead.
+ *
+ * Returns null when that backend cannot be built from here at all — an r2/s3 record with
+ * no bucket credentials configured on this process — so the caller can fall back to the
+ * same legible mismatch error as before, rather than a bytes-not-found one.
+ */
+export function getStorageProviderFor(name: StorageService['name']): StorageService | null {
+  const cached = namedProviderCache.get(name);
+  if (cached) return cached;
+
+  try {
+    const provider = buildNamedProvider(name);
+    namedProviderCache.set(name, provider);
+    return provider;
+  } catch {
+    return null;
+  }
 }
 
 /**

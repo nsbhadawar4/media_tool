@@ -5,7 +5,7 @@ import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
 import { logActivity } from '../services/activityService';
-import { getStorageProvider } from '../services/storage';
+import { getStorageProvider, getStorageProviderFor, type StorageService } from '../services/storage';
 import { serializeMedia } from '../utils/mediaUrls';
 import * as mediaService from '../services/mediaService';
 import { UPLOAD_CATEGORIES, type FileType, type UploadCategory } from '../config/constants';
@@ -83,35 +83,61 @@ function parseUploadCategory(raw: unknown): UploadCategory | undefined {
 }
 
 /**
- * Refuses to look for bytes that were never stored where this deployment keeps them.
+ * Resolves the storage backend that actually holds a media record's bytes.
  *
- * A media record names both a key and the provider that wrote it. When those disagree with
- * the provider now configured, the key describes somewhere this process cannot reach — a
- * path under `backend/uploads` on a developer's machine, read by a deployment whose files
- * live in GridFS. Asking storage for it produces a plain "not found", which is true and
- * says nothing: the file is not missing, it is elsewhere.
+ * A record names both a key and the provider that wrote it, and that is not always this
+ * deployment's *default* provider: one MongoDB database is sometimes shared between a
+ * developer running STORAGE_PROVIDER=local and a deployment running gridfs, and each
+ * holds records the other wrote. Looking a record up by the provider that actually wrote
+ * it — rather than assuming it's always the active one — is what lets local dev read
+ * production's GridFS-backed library and still write new uploads to backend/uploads.
  *
- * This is not hypothetical. One database shared between a developer running
- * STORAGE_PROVIDER=local and a deployment running gridfs produces exactly this for every
- * file uploaded locally, and it presents as "Document unavailable" in production for files
- * that open perfectly in development.
+ * Throws only when that backend cannot be reached from here at all (e.g. an r2/s3 record
+ * with no bucket credentials configured on this process) — that is genuinely elsewhere.
  */
-function assertStoredHere(media: Pick<IMedia, 'storageProvider' | 'storageKey' | 'originalName'>): void {
-  const active = getStorageProvider().name;
-  if (media.storageProvider === active) return;
+function resolveProviderFor(
+  media: Pick<IMedia, 'storageProvider' | 'storageKey' | 'originalName'>,
+): StorageService {
+  const provider = getStorageProviderFor(media.storageProvider);
+  if (provider) return provider;
+  throw storageProviderMismatch(media);
+}
 
+function storageProviderMismatch(
+  media: Pick<IMedia, 'storageProvider' | 'storageKey' | 'originalName'>,
+): AppError {
   logger.warn(
-    `"${media.originalName}" was stored by the "${media.storageProvider}" provider but this ` +
-      `deployment uses "${active}" — its bytes are not reachable here (key: ${media.storageKey}). ` +
-      'See DEPLOYMENT.md on migrating existing media.',
+    `"${media.originalName}" was stored by the "${media.storageProvider}" provider, which this ` +
+      `deployment cannot reach (key: ${media.storageKey}). See DEPLOYMENT.md on storage credentials.`,
   );
 
-  throw new AppError(
+  return new AppError(
     'This file was uploaded to a different storage backend, so it cannot be opened here.',
     404,
     undefined,
     UploadErrorCode.StorageProviderMismatch,
   );
+}
+
+/**
+ * Turns a plain "not found" from a record's own provider into the legible mismatch error,
+ * but only when that provider is not the one this deployment defaults new uploads to.
+ *
+ * A record on a foreign provider whose bytes genuinely aren't there is, in practice, one
+ * that was never migrated off whatever wrote it (see migrate-storage.ts) — "not found" is
+ * true of the lookup and misleading about the file. A record on *this* deployment's own
+ * default provider that comes back empty is a different, real problem (deleted or
+ * corrupted storage) and keeps the plain not-found error.
+ */
+function translateMissingObject(
+  err: unknown,
+  media: Pick<IMedia, 'storageProvider' | 'storageKey' | 'originalName'>,
+): unknown {
+  const isForeignProvider = media.storageProvider !== getStorageProvider().name;
+  if (isForeignProvider && err instanceof AppError && err.statusCode === 404) {
+    return storageProviderMismatch(media);
+  }
+  return err;
 }
 
 /** Parses the browser-reported video length, ignoring anything non-finite or implausible. */
@@ -280,7 +306,7 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
   const media = await Media.findOne({ _id: req.params.id, ownerId: req.user!.id });
   if (!media) throw AppError.notFound('File not found');
 
-  const provider = getStorageProvider();
+  const provider = resolveProviderFor(media);
 
   /**
    * When storage can hand out a temporary direct link, send the browser there instead of
@@ -302,8 +328,6 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
    * emits Access-Control-Allow-Credentials. Such callers ask for `?proxy=1` instead and
    * get the bytes relayed below, same-origin, exactly as local development already does.
    */
-  assertStoredHere(media);
-
   const proxyRequested = req.query.proxy === '1' || req.query.proxy === 'true';
 
   const signedUrl = proxyRequested
@@ -322,7 +346,9 @@ async function streamMediaResponse(req: Request, res: Response, disposition: 'in
   }
 
   // First call without a range just to learn the total size for parsing the Range header.
-  const probe = await provider.getObjectStream(media.storageKey);
+  const probe = await provider.getObjectStream(media.storageKey).catch((err) => {
+    throw translateMissingObject(err, media);
+  });
   probe.stream.destroy();
 
   const range = parseRange(req.headers.range, probe.totalSize);
@@ -365,7 +391,7 @@ export const streamThumbnail = asyncHandler(async (req: Request, res: Response) 
   if (!media) throw AppError.notFound('File not found');
   if (!media.thumbnailKey) throw AppError.notFound('No thumbnail for this file');
 
-  const provider = getStorageProvider();
+  const provider = resolveProviderFor(media);
 
   // Same reasoning as streamMedia, and it matters more here: a gallery page asks for
   // dozens of these at once, so relaying each one would multiply function invocations
@@ -377,9 +403,9 @@ export const streamThumbnail = asyncHandler(async (req: Request, res: Response) 
     return;
   }
 
-  assertStoredHere(media);
-
-  const result = await provider.getObjectStream(media.thumbnailKey);
+  const result = await provider.getObjectStream(media.thumbnailKey).catch((err) => {
+    throw translateMissingObject(err, media);
+  });
 
   res.setHeader('Content-Type', 'image/webp');
   res.setHeader('Content-Length', result.totalSize);
