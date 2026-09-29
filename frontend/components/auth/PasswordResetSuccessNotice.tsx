@@ -4,9 +4,10 @@ import { useSearchParams } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 
 /**
- * Shown after ResetPasswordForm redirects here. The backend does not log the new password
- * in (see passwordResetService — a reset invalidates every session, this account's
- * included), so without this the sign-in form would give no sign that the reset worked.
+ * Shown after NewPasswordForm (the last step of ForgotPasswordFlow) redirects here. The
+ * backend does not log the new password in (see passwordResetService — a reset
+ * invalidates every session, this account's included), so without this the sign-in form
+ * would give no sign that the reset worked.
  */
 export function PasswordResetSuccessNotice() {
   const reset = useSearchParams().get('reset');

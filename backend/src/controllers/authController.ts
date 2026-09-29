@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
-import { env } from '../config/env';
 import { User, toPublicUser } from '../models/User';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -8,7 +7,11 @@ import { sendSuccess } from '../utils/apiResponse';
 import { signSessionToken } from '../services/tokenService';
 import { setSessionCookie, clearSessionCookie } from '../utils/cookies';
 import { logActivity } from '../services/activityService';
-import { requestPasswordReset, resetPassword as applyPasswordReset } from '../services/passwordResetService';
+import {
+  requestPasswordReset,
+  verifyPasswordResetOtp,
+  resetPassword as applyPasswordReset,
+} from '../services/passwordResetService';
 import type {
   ChangePasswordInput,
   ForgotPasswordInput,
@@ -16,6 +19,7 @@ import type {
   ResetPasswordInput,
   SignupInput,
   UpdateProfileInput,
+  VerifyOtpInput,
 } from '../validators/authValidators';
 
 const BCRYPT_ROUNDS = 12;
@@ -189,42 +193,17 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 });
 
 /**
- * The origin a password-reset link should point back to: scheme + host, no trailing
- * slash, no path.
- *
- * Same-origin deployments (production and every Vercel preview) have no fixed
- * FRONTEND_URL to read — see env.isSameOrigin and DEPLOYMENT.md §4, "Deliberately left
- * unset" — because each preview gets its own hostname and a hardcoded value would only
- * ever be right for one of them. The request itself already carries the answer: whatever
- * host the browser actually called this API on is the same host the frontend is served
- * from, so that's what the link uses. A split-origin deployment (local dev: frontend on
- * :3000, API on :5000) has no such request-derived answer — the API's own host is the
- * wrong one — so that case falls back to the configured FRONTEND_URL instead.
- *
- * Takes `sameOrigin` as a parameter rather than reading `env.isSameOrigin` directly so
- * this stays a pure function of its inputs and is testable without env's module-load-time
- * state.
- */
-export function resolveFrontendOrigin(
-  req: Pick<Request, 'protocol'> & { get(name: 'host'): string | undefined },
-  sameOrigin: boolean,
-): string {
-  if (sameOrigin) {
-    const host = req.get('host');
-    if (host) return `${req.protocol}://${host}`;
-  }
-  return env.FRONTEND_URL.split(',')[0]!.trim().replace(/\/$/, '');
-}
-
-/**
- * Starts a password reset. Always answers the same way, whether or not the address has
- * an account — see passwordResetService.requestPasswordReset for why a different answer
- * here would be an enumeration hole no amount of frontend care could close.
+ * Starts a password reset by emailing a 4-digit code. Always answers the same way,
+ * whether or not the address has an account — see
+ * passwordResetService.requestPasswordReset for why a different answer here would be an
+ * enumeration hole no amount of frontend care could close. Also doubles as "resend": the
+ * frontend calls this same endpoint again, and requestPasswordReset applies its own
+ * cooldown before actually issuing a new code.
  */
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email } = req.body as ForgotPasswordInput;
 
-  await requestPasswordReset(email, resolveFrontendOrigin(req, env.isSameOrigin));
+  await requestPasswordReset(email);
 
   await logActivity(req, {
     action: 'password_reset_requested',
@@ -237,17 +216,33 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
     { requested: true },
     200,
     undefined,
-    'If an account exists with this email, a password reset link has been sent.',
+    'If an account exists with this email, a verification code has been sent.',
   );
 });
 
-/** Completes a password reset with a token minted by forgotPassword. */
-export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
-  const { token, newPassword } = req.body as ResetPasswordInput;
+/**
+ * Checks a submitted code and, if it's correct, hands back the short-lived authorization
+ * that resetPassword requires — never the code itself, and never anything that reveals
+ * whether the email had an account at all.
+ */
+export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
+  const { email, otp } = req.body as VerifyOtpInput;
 
-  const user = await applyPasswordReset(token, newPassword);
+  const result = await verifyPasswordResetOtp(email, otp);
+  if (!result.ok) {
+    throw AppError.badRequest('That code is invalid or has expired.');
+  }
+
+  sendSuccess(res, { verified: true, resetToken: result.resetToken }, 200, undefined, 'Code verified');
+});
+
+/** Completes a password reset with the authorization verifyOtp minted. */
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { resetToken, newPassword } = req.body as ResetPasswordInput;
+
+  const user = await applyPasswordReset(resetToken, newPassword);
   if (!user) {
-    throw AppError.badRequest('This password reset link is invalid or has expired.');
+    throw AppError.badRequest('This reset session is invalid or has expired. Please start again.');
   }
 
   await logActivity(req, {

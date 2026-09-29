@@ -6,6 +6,8 @@ import type {
   SignupInput,
   UpdateProfileInput,
   UserProfile,
+  VerifyOtpInput,
+  VerifyOtpResult,
 } from '@/types/api';
 
 export const authApi = {
@@ -19,6 +21,7 @@ export const authApi = {
     api.post<{ changed: boolean }>('/api/auth/change-password', input),
   forgotPassword: (input: ForgotPasswordInput) =>
     api.post<{ requested: boolean }>('/api/auth/forgot-password', input),
+  verifyOtp: (input: VerifyOtpInput) => api.post<VerifyOtpResult>('/api/auth/verify-otp', input),
   resetPassword: (input: ResetPasswordInput) =>
     api.post<{ reset: boolean }>('/api/auth/reset-password', input),
 };

@@ -346,15 +346,16 @@ credentials to manage.
 this way — Amazon SES, SendGrid, Postmark, Mailtrap, a plain mailbox — via `nodemailer`.
 
 Until either is configured, `EMAIL_PROVIDER` stays at its development default, `console`,
-which logs that a reset was requested — never the email's body, which carries a one-time
-token — instead of delivering it. Real enough to exercise the flow end to end locally, but
-no email actually leaves the server; set `RESEND_API_KEY` locally too if you need to
-receive the real thing while developing.
+which logs that a code was requested — never the email's body, which carries the 4-digit
+code itself — instead of delivering it. Real enough to exercise the request/rate-limit
+side of the flow locally, but no email actually leaves the server and there is no way to
+complete a reset without one; set `RESEND_API_KEY` locally too if you need to receive the
+real thing while developing.
 
-The reset link itself always points at wherever the request actually arrived from — the
-deployed domain in production (including each preview deployment, automatically) or
-`FRONTEND_URL` in local split-origin dev — never a hardcoded host. See
-`resolveFrontendOrigin` in `backend/src/controllers/authController.ts`.
+The flow is code-based, not link-based: `forgot-password` emails a 4-digit OTP,
+`verify-otp` checks it and returns a short-lived authorization, and `reset-password`
+requires that authorization (never the OTP itself). Nothing here depends on which domain
+the request arrived on, so there is no per-deployment link to get wrong.
 
 ### Deliberately left unset
 

@@ -7,10 +7,16 @@ import {
   updateProfile,
   changePassword,
   forgotPassword,
+  verifyOtp,
   resetPassword,
 } from '../controllers/authController';
 import { requireAuth } from '../middleware/auth';
-import { loginRateLimiter, signupRateLimiter, forgotPasswordRateLimiter } from '../middleware/rateLimit';
+import {
+  loginRateLimiter,
+  signupRateLimiter,
+  forgotPasswordRateLimiter,
+  verifyOtpRateLimiter,
+} from '../middleware/rateLimit';
 import { validate } from '../middleware/validate';
 import {
   loginSchema,
@@ -18,6 +24,7 @@ import {
   updateProfileSchema,
   changePasswordSchema,
   forgotPasswordSchema,
+  verifyOtpSchema,
   resetPasswordSchema,
 } from '../validators/authValidators';
 
@@ -38,9 +45,16 @@ router.post(
 );
 router.post(
   '/forgot-password',
+  // Also used for "Resend OTP" — the frontend just calls this endpoint again.
   forgotPasswordRateLimiter,
   validate({ body: forgotPasswordSchema }),
   forgotPassword,
+);
+router.post(
+  '/verify-otp',
+  verifyOtpRateLimiter,
+  validate({ body: verifyOtpSchema }),
+  verifyOtp,
 );
 router.post(
   '/reset-password',

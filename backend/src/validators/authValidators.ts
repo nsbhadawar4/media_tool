@@ -91,12 +91,27 @@ export const forgotPasswordSchema = z.object({
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 /**
- * The token alone identifies which account and that the request is genuine — see
- * passwordResetService.resetPassword — so nothing else identifying belongs here.
+ * The email identifies which account's code this is being checked against —
+ * verifyPasswordResetOtp looks the account up by it rather than by, say, an id embedded
+ * in some other token, so there is nothing else for a client to hold onto between
+ * requesting a code and submitting it.
+ */
+export const verifyOtpSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Enter a valid email address'),
+  otp: z.string().trim().regex(/^\d{4}$/, 'Enter the 4-digit code'),
+});
+
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+
+/**
+ * The reset token alone identifies which account and that a code was already verified —
+ * see passwordResetService.resetPassword — so nothing else identifying belongs here, and
+ * in particular not the OTP: this token is what proves it was checked, not a second
+ * chance to check it.
  */
 export const resetPasswordSchema = z
   .object({
-    token: z.string().trim().min(1, 'Reset link is invalid or has expired'),
+    resetToken: z.string().trim().min(1, 'This reset session is invalid or has expired'),
     newPassword: z.string().min(8, 'Password must be at least 8 characters').max(200),
     confirmPassword: z.string().min(1, 'Please confirm your new password'),
   })

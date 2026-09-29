@@ -34,11 +34,28 @@ export const signupRateLimiter = rateLimit({
  */
 export const forgotPasswordRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   handler: (_req, res) => {
     sendError(res, 429, 'Too many password reset requests. Please try again later.');
+  },
+});
+
+/**
+ * Verifying a code is a guessing endpoint against a deliberately small keyspace (4
+ * digits, 10,000 possibilities) — the account-level lockout in passwordResetService (5
+ * wrong guesses invalidates the code entirely, forcing a resend) is the real defense.
+ * This just bounds how fast one IP can even try, the same role loginRateLimiter plays
+ * for a password guess.
+ */
+export const verifyOtpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    sendError(res, 429, 'Too many attempts. Please request a new code.');
   },
 });
 

@@ -44,8 +44,19 @@ export interface ForgotPasswordInput {
   email: string;
 }
 
+export interface VerifyOtpInput {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyOtpResult {
+  verified: boolean;
+  /** Authorization for the final step (resetPassword) — never the OTP itself. */
+  resetToken: string;
+}
+
 export interface ResetPasswordInput {
-  token: string;
+  resetToken: string;
   newPassword: string;
   confirmPassword: string;
 }

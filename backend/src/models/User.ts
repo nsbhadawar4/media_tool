@@ -15,9 +15,20 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   lastLoginAt?: Date;
   lastLoginIp?: string;
-  /** Hash of the current password-reset token, if a reset was requested and not yet used. */
-  passwordResetTokenHash?: string | null;
-  passwordResetExpiresAt?: Date | null;
+  /** Hash of the current password-reset OTP, if one was requested and not yet used/expired. */
+  passwordResetOtpHash?: string | null;
+  passwordResetOtpExpiresAt?: Date | null;
+  /** Wrong guesses against the current OTP; hitting the limit invalidates it — see passwordResetService. */
+  passwordResetOtpAttempts?: number;
+  /** When the last OTP was sent, so a resend can be cooled down without a second DB round trip. */
+  passwordResetOtpLastSentAt?: Date | null;
+  /**
+   * Hash of the short-lived authorization minted once an OTP is verified. resetPassword
+   * requires this, never the OTP itself — see passwordResetService for why that's what
+   * makes "no reset without a verified OTP" actually enforced server-side.
+   */
+  passwordResetAuthTokenHash?: string | null;
+  passwordResetAuthExpiresAt?: Date | null;
   /**
    * Bumped whenever a password reset completes, and embedded in every session token
    * (see SessionTokenPayload). requireAuth rejects a token whose version doesn't match
@@ -55,9 +66,13 @@ const userSchema = new Schema<IUser>(
     lastLoginAt: { type: Date },
     lastLoginIp: { type: String },
     // `select: false` alongside passwordHash: a forgotten `.select()` elsewhere must not
-    // leak a live reset token's hash through some other query's response.
-    passwordResetTokenHash: { type: String, default: null, select: false, index: true },
-    passwordResetExpiresAt: { type: Date, default: null, select: false },
+    // leak a live OTP hash or reset authorization through some other query's response.
+    passwordResetOtpHash: { type: String, default: null, select: false, index: true },
+    passwordResetOtpExpiresAt: { type: Date, default: null, select: false },
+    passwordResetOtpAttempts: { type: Number, default: 0, select: false },
+    passwordResetOtpLastSentAt: { type: Date, default: null, select: false },
+    passwordResetAuthTokenHash: { type: String, default: null, select: false, index: true },
+    passwordResetAuthExpiresAt: { type: Date, default: null, select: false },
     tokenVersion: { type: Number, default: 0 },
   },
   { timestamps: true },

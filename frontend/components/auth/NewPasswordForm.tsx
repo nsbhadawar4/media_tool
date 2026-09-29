@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, Lock, ShieldAlert } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { Card } from '@/components/ui/Card';
 import { authApi } from '@/lib/api/auth';
@@ -12,41 +10,18 @@ import { AuthField } from './AuthField';
 
 const MIN_PASSWORD_LENGTH = 8;
 
-/** Shown instead of the form when the link carries no token at all — a mistyped or stale bookmark, not an expired one (the backend is what knows that). */
-function MissingTokenNotice() {
-  return (
-    <Card className="w-full max-w-sm p-6 sm:p-8">
-      <div className="flex flex-col items-center text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-danger/10 text-danger">
-          <ShieldAlert className="h-7 w-7" />
-        </span>
-        <h1 className="mt-4 text-xl font-semibold text-foreground">Invalid reset link</h1>
-        <p className="mt-1.5 text-sm text-muted">
-          This password reset link is missing its token. Request a new one below.
-        </p>
-      </div>
-      <Link
-        href="/forgot-password"
-        className="mt-6 block text-center text-sm font-medium text-accent transition hover:text-accent-hover"
-      >
-        Request a new link
-      </Link>
-    </Card>
-  );
-}
-
-export function ResetPasswordForm() {
-  const router = useRouter();
-  const token = useSearchParams().get('token') ?? '';
-
+/**
+ * Step 3 of ForgotPasswordFlow, reachable only after VerifyOtpForm hands back a
+ * `resetToken` — there is no URL or other route to this step, so there is nothing to
+ * validate about how it was reached beyond the token the backend itself checks.
+ */
+export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string; onSuccess: () => void }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | undefined>();
   const [confirmError, setConfirmError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  if (!token) return <MissingTokenNotice />;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -67,10 +42,10 @@ export function ResetPasswordForm() {
 
     setIsSubmitting(true);
     try {
-      await authApi.resetPassword({ token, newPassword, confirmPassword });
+      await authApi.resetPassword({ resetToken, newPassword, confirmPassword });
       // No session to land in: a reset invalidates every session on this account, this
       // browser's included, so the sign-in form is the only place to go next.
-      router.replace('/?reset=1');
+      onSuccess();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     } finally {
