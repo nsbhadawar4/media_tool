@@ -25,7 +25,17 @@ function selectProviderWith(overrides: Record<string, string>): Promise<string> 
       process.execPath,
       ['--import', 'tsx', PROBE],
       {
-        cwd: path.join(HERE, '..'),
+        /**
+         * `tests/helpers/`, not `backend/`: config/env's `dotenv.config()` only fills in
+         * a variable that isn't already set, so running from `backend/` would have the
+         * real .env there silently supply whatever this test *didn't* override
+         * (EMAIL_PROVIDER, most importantly), making "unset" tests describe whoever's
+         * .env happens to say instead of the factory's actual default. dotenv only checks
+         * `cwd/.env` literally (no walk-up) and there is none here, while Node's module
+         * resolution for the bare `tsx` specifier below *does* walk up to `backend/
+         * node_modules` — so this cwd gets a clean env without losing tsx.
+         */
+        cwd: path.join(HERE, 'helpers'),
         env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, ...BASE_ENV, ...overrides },
       },
       (err, stdout) => {

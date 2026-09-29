@@ -21,6 +21,15 @@ process.env.UPLOAD_DIR = path.join(os.tmpdir(), `media-tool-tests-${process.pid}
  */
 process.env.TMP_DIR = path.join(os.tmpdir(), `media-tool-tests-tmp-${process.pid}`);
 process.env.STORAGE_PROVIDER = 'local';
+/**
+ * Same reasoning as STORAGE_PROVIDER above, for the same failure mode: without this, a
+ * developer's real backend/.env setting EMAIL_PROVIDER=resend (or smtp) — needed for
+ * actually receiving password-reset emails locally — would leak into every test process
+ * here too, since dotenv only fills in what isn't already set. A test expecting the
+ * `console` default would then hit a live "RESEND_API_KEY not set" config error instead,
+ * for a reason that has nothing to do with what it's testing.
+ */
+process.env.EMAIL_PROVIDER = 'console';
 
 // Each suite starts its own in-memory MongoDB and connects to that; this only has to
 // satisfy env validation at import time.

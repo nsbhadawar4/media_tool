@@ -37,8 +37,19 @@ function generateOtp(): string {
  * forgotPassword sends one generic response regardless, and a caller that *could* tell
  * the difference here would just move the enumeration hole from the response into the
  * timing/control-flow instead of closing it.
+ *
+ * `getEmailProvider()` is resolved first and unconditionally, before the account lookup,
+ * and deliberately left to throw (a 503 naming what's misconfigured, same as
+ * services/storage's configError) rather than being caught here. Building the provider
+ * is a deployment fact — "is RESEND_API_KEY set" — true or false the same way for every
+ * request regardless of which email was submitted, so surfacing it loudly can't leak
+ * account existence. Swallowing it here instead (as this function does for a delivery
+ * failure below) would silently report success on every request while never sending a
+ * single email — worse than a loud error, because nobody would know to look.
  */
 export async function requestPasswordReset(email: string): Promise<void> {
+  const provider = getEmailProvider();
+
   const user = await User.findOne({ email }).select('+passwordResetOtpLastSentAt');
   if (!user || !user.isActive) return;
 
@@ -78,12 +89,13 @@ export async function requestPasswordReset(email: string): Promise<void> {
     `<p>If you didn't request this, you can safely ignore this email. Your password will not change.</p>`;
 
   try {
-    await getEmailProvider().send({ to: user.email, subject: 'Your media_tool password reset code', text, html });
+    await provider.send({ to: user.email, subject: 'Your media_tool password reset code', text, html });
   } catch (err) {
     /**
-     * Never surfaced to the caller: a delivery failure here must not turn into a
-     * different HTTP response than a successful send, or the response would leak
-     * whether this address has an account.
+     * Never surfaced to the caller: unlike a missing RESEND_API_KEY above, a failure here
+     * is specific to *this* send (Resend/SMTP rejected the recipient, a network blip) and
+     * only happens for a request that got this far — i.e. only for a real, active
+     * account. Turning it into a different HTTP response would leak exactly that.
      *
      * Logs only `err.message`, never the error object or anything built above — the code
      * must never reach a log, and a provider's thrown error is not guaranteed to stay
