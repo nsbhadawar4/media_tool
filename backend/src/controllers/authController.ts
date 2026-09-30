@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import type { Request, Response } from 'express';
-import { User, toPublicUser } from '../models/User';
+import { User, toPublicUser, type IUser } from '../models/User';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
@@ -23,6 +23,28 @@ import type {
 } from '../validators/authValidators';
 
 const BCRYPT_ROUNDS = 12;
+
+/**
+ * Issues the HTTP-only session cookie for `user`. The one place a session is minted, so
+ * login, signup and password reset cannot drift apart. `tokenVersion` is read off the
+ * document passed in, which for a reset must be the post-increment one.
+ */
+function startSession(res: Response, user: IUser, persistent: boolean): void {
+  const token = signSessionToken({
+    sub: user._id.toString(),
+    role: user.role,
+    email: user.email,
+    name: user.name,
+    tokenVersion: user.tokenVersion ?? 0,
+  });
+  setSessionCookie(res, token, persistent);
+}
+
+async function recordSignIn(req: Request, user: IUser): Promise<void> {
+  user.lastLoginAt = new Date();
+  user.lastLoginIp = req.ip;
+  await user.save();
+}
 
 export const signup = asyncHandler(async (req: Request, res: Response) => {
   const { name, email, password, mobile } = req.body as SignupInput;
@@ -50,9 +72,12 @@ export const signup = asyncHandler(async (req: Request, res: Response) => {
     message: `${user.email} signed up`,
   });
 
-  // No session cookie here — signup leads to the login page, so a stolen signup response
-  // is not also a live session.
-  sendSuccess(res, toPublicUser(user), 201, undefined, 'Account created. You can now log in.');
+  // The account was just created with a password the caller chose, so it is signed in
+  // straight away through the same cookie login uses — the token never reaches JS.
+  startSession(res, user, true);
+  await recordSignIn(req, user);
+
+  sendSuccess(res, toPublicUser(user), 201, undefined, 'Account created');
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
@@ -72,18 +97,8 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     throw AppError.unauthorized('Invalid email or password');
   }
 
-  const token = signSessionToken({
-    sub: user._id.toString(),
-    role: user.role,
-    email: user.email,
-    name: user.name,
-    tokenVersion: user.tokenVersion ?? 0,
-  });
-  setSessionCookie(res, token, rememberMe);
-
-  user.lastLoginAt = new Date();
-  user.lastLoginIp = req.ip;
-  await user.save();
+  startSession(res, user, rememberMe);
+  await recordSignIn(req, user);
 
   await logActivity(req, {
     action: 'login',
@@ -193,17 +208,24 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
 });
 
 /**
- * Starts a password reset by emailing a 4-digit code. Always answers the same way,
- * whether or not the address has an account — see
- * passwordResetService.requestPasswordReset for why a different answer here would be an
- * enumeration hole no amount of frontend care could close. Also doubles as "resend": the
- * frontend calls this same endpoint again, and requestPasswordReset applies its own
- * cooldown before actually issuing a new code.
+ * Starts a password reset by emailing a 4-digit code. An address with no active account
+ * gets a 404 and nothing is sent; see passwordResetService.requestPasswordReset for why
+ * that is now deliberate. Also doubles as "resend": the frontend calls this same endpoint
+ * again, and requestPasswordReset applies its own cooldown before issuing a new code.
  */
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email } = req.body as ForgotPasswordInput;
 
-  await requestPasswordReset(email);
+  const result = await requestPasswordReset(email);
+
+  if (result === 'no_account') {
+    await logActivity(req, {
+      action: 'password_reset_requested',
+      targetType: 'auth',
+      message: `Password reset requested for unknown address ${email}`,
+    });
+    throw AppError.notFound('No existing account on this email address.');
+  }
 
   await logActivity(req, {
     action: 'password_reset_requested',
@@ -211,13 +233,7 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
     message: `Password reset requested for ${email}`,
   });
 
-  sendSuccess(
-    res,
-    { requested: true },
-    200,
-    undefined,
-    'If an account exists with this email, a verification code has been sent.',
-  );
+  sendSuccess(res, { requested: true }, 200, undefined, 'A verification code has been sent to your email.');
 });
 
 /**
@@ -253,5 +269,13 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     message: `${user.email} reset their password`,
   });
 
-  sendSuccess(res, { reset: true }, 200, undefined, 'Password reset successfully. Please sign in.');
+  /**
+   * `user` is the post-update document, so its tokenVersion is the incremented one: every
+   * older session (including this browser's) is dead, and this new cookie is the only
+   * live one. Session-only rather than persistent, as nothing here says "remember me".
+   */
+  startSession(res, user, false);
+  await recordSignIn(req, user);
+
+  sendSuccess(res, toPublicUser(user), 200, undefined, 'Password reset successfully');
 });

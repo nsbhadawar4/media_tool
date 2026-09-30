@@ -88,8 +88,8 @@ export function SignupForm() {
         confirmPassword: values.confirmPassword,
         mobile: values.mobile.trim() || undefined,
       });
-      // The account exists but has no session; the login page says so and takes it from there.
-      router.replace('/?registered=1');
+      // Signup set the session cookie, so there is nothing left to sign in to.
+      router.replace('/dashboard');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setErrors({ email: 'An account with this email already exists' });

@@ -23,5 +23,5 @@ export const authApi = {
     api.post<{ requested: boolean }>('/api/auth/forgot-password', input),
   verifyOtp: (input: VerifyOtpInput) => api.post<VerifyOtpResult>('/api/auth/verify-otp', input),
   resetPassword: (input: ResetPasswordInput) =>
-    api.post<{ reset: boolean }>('/api/auth/reset-password', input),
+    api.post<UserProfile>('/api/auth/reset-password', input),
 };

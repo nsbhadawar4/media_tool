@@ -10,26 +10,31 @@ import { ApiError } from '@/lib/api/client';
 import { AuthField } from './AuthField';
 
 /**
- * Step 1 of ForgotPasswordFlow. Always moves on to the OTP step on a successful submit,
- * whichever email was entered — the backend answers identically whether or not the
- * address has an account (see backend/src/services/passwordResetService.ts), so there is
- * no answer here that could reveal the difference either.
+ * Step 1 of ForgotPasswordFlow. Moves on to the OTP step only once the backend has
+ * confirmed the account exists and sent a code; an unknown address is a 404 shown as an
+ * error on the email field.
  */
 export function ForgotPasswordForm({ onSent }: { onSent: (email: string) => void }) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | undefined>();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    setEmailError(undefined);
     setIsSubmitting(true);
     const trimmed = email.trim();
     try {
       await authApi.forgotPassword({ email: trimmed });
       onSent(trimmed);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      if (err instanceof ApiError && err.status === 404) {
+        setEmailError('No existing account on this email address.');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -52,7 +57,11 @@ export function ForgotPasswordForm({ onSent }: { onSent: (email: string) => void
           required
           autoComplete="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setEmailError(undefined);
+          }}
+          error={emailError}
           placeholder="you@example.com"
         />
 

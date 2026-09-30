@@ -4,8 +4,8 @@
  *
  * The promise under test: a code is 4 digits but still effectively unguessable because
  * wrong guesses lock it out; it's single-use and time-limited; a password cannot be reset
- * without a verified code; and nothing in any response reveals whether an email has an
- * account. EMAIL_PROVIDER defaults to `console` in tests (see config/env.ts), so
+ * without a verified code; an unknown email is refused with no code sent; and a completed
+ * reset signs the user in with a fresh HTTP-only session cookie. EMAIL_PROVIDER defaults to `console` in tests (see config/env.ts), so
  * requesting a code only ever logs that it happened — never the code itself — which is
  * also asserted below.
  */
@@ -110,7 +110,7 @@ beforeEach(async () => {
 /* Requesting a code                                                           */
 /* -------------------------------------------------------------------------- */
 
-test('forgot-password with an existing email issues a code and answers generically', async () => {
+test('forgot-password with an existing email issues a code', async () => {
   const user = await createUser({ email: 'owner@example.com' });
 
   const { status, payload } = await callApi('POST', '/api/auth/forgot-password', { email: 'owner@example.com' });
@@ -123,26 +123,35 @@ test('forgot-password with an existing email issues a code and answers generical
   assert.ok(stored!.passwordResetOtpExpiresAt! > new Date(), 'the OTP must have a future expiry');
 });
 
-test('forgot-password with a non-existing email answers exactly the same way', async () => {
-  const existing = await callApi('POST', '/api/auth/forgot-password', { email: 'owner-does-not-exist@example.com' });
-  await User.deleteMany({});
-  await createUser({ email: 'owner@example.com' });
-  const real = await callApi('POST', '/api/auth/forgot-password', { email: 'owner@example.com' });
+test('forgot-password with a non-existing email is refused and sends nothing', async () => {
+  const sent: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    sent.push(args.map((a) => String(a)).join(' '));
+  };
+  let status: number;
+  let payload: Envelope<unknown>;
+  try {
+    ({ status, payload } = await callApi('POST', '/api/auth/forgot-password', {
+      email: 'owner-does-not-exist@example.com',
+    }));
+  } finally {
+    console.warn = originalWarn;
+  }
 
-  assert.equal(existing.status, real.status, 'status must not reveal whether the address has an account');
-  assert.equal(existing.payload.message, real.payload.message, 'message must not reveal it either');
-
-  const count = await User.countDocuments({});
-  assert.equal(count, 1, 'requesting a code for an unknown address must not create anything');
+  assert.equal(status, 404);
+  assert.equal(payload.error!.message, 'No existing account on this email address.');
+  assert.equal(sent.length, 0, 'no email may be dispatched for an unknown address');
+  assert.equal(await User.countDocuments({}), 0, 'requesting a code must not create anything');
 });
 
-test('an inactive account gets no code, but the response looks the same', async () => {
+test('an inactive account is treated as having no account: refused, no code stored', async () => {
   const user = await createUser({ email: 'suspended@example.com', isActive: false });
 
   const { status, payload } = await callApi('POST', '/api/auth/forgot-password', { email: 'suspended@example.com' });
 
-  assert.equal(status, 200);
-  assert.match(payload.message ?? '', /verification code has been sent/i);
+  assert.equal(status, 404);
+  assert.match(payload.error!.message, /No existing account/);
 
   const stored = await User.findById(user._id).select('+passwordResetOtpHash');
   assert.equal(stored!.passwordResetOtpHash, null);
@@ -378,7 +387,7 @@ test('an admin account keeps its role through the whole flow', async () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* Session invalidation (unchanged behaviour from the link-based flow)        */
+/* Session invalidation and auto sign-in after a reset        */
 /* -------------------------------------------------------------------------- */
 
 test('completing a reset signs out sessions issued before it', async () => {
@@ -404,4 +413,95 @@ test('completing a reset signs out sessions issued before it', async () => {
 
   const login = await callApi('POST', '/api/auth/login', { email: user.email, password: NEW_PASSWORD });
   assert.equal(login.status, 200);
+});
+
+/** Like callApi, but also returns the Set-Cookie header. */
+async function rawPost(routePath: string, body: unknown) {
+  const response = await fetch(`${baseUrl}${routePath}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json()) as Envelope<Record<string, unknown>>;
+  return { status: response.status, payload, setCookie: response.headers.get('set-cookie') ?? '' };
+}
+
+const JWT_PATTERN = /eyJ[\w-]+\./;
+
+test('a successful reset sets an HTTP-only session cookie that works, and the old session dies', async () => {
+  const user = await createUser();
+  const staleCookie = `${env.COOKIE_NAME}=${signSessionToken({
+    sub: user._id.toString(),
+    role: user.role,
+    email: user.email,
+    name: user.name,
+    tokenVersion: user.tokenVersion ?? 0,
+  })}`;
+
+  await issueOtp(user._id.toString(), '4242');
+  const { payload } = await verify(user.email, '4242');
+  const reset = await rawPost('/api/auth/reset-password', {
+    resetToken: payload.data!.resetToken,
+    newPassword: NEW_PASSWORD,
+    confirmPassword: NEW_PASSWORD,
+  });
+
+  assert.equal(reset.status, 200);
+  assert.match(reset.setCookie, new RegExp(`^${env.COOKIE_NAME}=[^;]+`));
+  assert.match(reset.setCookie, /HttpOnly/i);
+  assert.ok(!JWT_PATTERN.test(JSON.stringify(reset.payload)), 'no JWT may appear in the response body');
+  assert.equal(reset.payload.data!.email, user.email);
+
+  const freshCookie = reset.setCookie.split(';')[0]!;
+  const fresh = await callApi('GET', '/api/auth/me', undefined, freshCookie);
+  assert.equal(fresh.status, 200, 'the cookie from the reset must be a live session');
+
+  const stale = await callApi('GET', '/api/auth/me', undefined, staleCookie);
+  assert.equal(stale.status, 401, 'the pre-reset session must be invalid');
+});
+
+test('a failed reset (bad token) sets no cookie', async () => {
+  await createUser();
+  const reset = await rawPost('/api/auth/reset-password', {
+    resetToken: 'bogus',
+    newPassword: NEW_PASSWORD,
+    confirmPassword: NEW_PASSWORD,
+  });
+  assert.equal(reset.status, 400);
+  assert.equal(reset.setCookie, '');
+});
+
+/* -------------------------------------------------------------------------- */
+/* Signup signs the new user in                                                */
+/* -------------------------------------------------------------------------- */
+
+test('a successful signup sets an HTTP-only session cookie that authenticates /me', async () => {
+  const signup = await rawPost('/api/auth/signup', {
+    name: 'Fresh User',
+    email: 'fresh@example.com',
+    password: 'longenoughpassword',
+    confirmPassword: 'longenoughpassword',
+  });
+
+  assert.equal(signup.status, 201);
+  assert.match(signup.setCookie, new RegExp(`^${env.COOKIE_NAME}=[^;]+`));
+  assert.match(signup.setCookie, /HttpOnly/i);
+  assert.ok(!JWT_PATTERN.test(JSON.stringify(signup.payload)), 'no JWT may appear in the response body');
+  assert.equal(signup.payload.data!.role, 'user');
+
+  const me = await callApi<{ email: string }>('GET', '/api/auth/me', undefined, signup.setCookie.split(';')[0]);
+  assert.equal(me.status, 200);
+  assert.equal(me.payload.data!.email, 'fresh@example.com');
+});
+
+test('a rejected signup (duplicate email) sets no cookie', async () => {
+  await createUser({ email: 'taken@example.com' });
+  const signup = await rawPost('/api/auth/signup', {
+    name: 'Copycat',
+    email: 'taken@example.com',
+    password: 'longenoughpassword',
+    confirmPassword: 'longenoughpassword',
+  });
+  assert.equal(signup.status, 409);
+  assert.equal(signup.setCookie, '');
 });

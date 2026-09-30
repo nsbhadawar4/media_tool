@@ -34,7 +34,7 @@ export function ForgotPasswordFlow() {
       );
     case 'password':
       return (
-        <NewPasswordForm resetToken={step.resetToken} onSuccess={() => router.replace('/?reset=1')} />
+        <NewPasswordForm resetToken={step.resetToken} onSuccess={() => router.replace('/dashboard')} />
       );
   }
 }

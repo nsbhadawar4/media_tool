@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import type { SignupInput, UserProfile } from '@/types/api';
+import type { ResetPasswordInput, SignupInput, UserProfile } from '@/types/api';
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -19,7 +19,9 @@ interface AuthContextValue {
    */
   sessionError: 'rejected' | 'unreachable' | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<UserProfile>;
-  signup: (input: SignupInput) => Promise<void>;
+  signup: (input: SignupInput) => Promise<UserProfile>;
+  /** Completes a password reset; the backend sets the session cookie, this records who is signed in. */
+  resetPassword: (input: ResetPasswordInput) => Promise<UserProfile>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -64,9 +66,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   }, []);
 
-  /** Deliberately does not sign the new account in — see the backend's signup handler. */
+  /** The backend signs the new account in (session cookie) as part of signup. */
   const signup = useCallback(async (input: SignupInput) => {
-    await authApi.signup(input);
+    const { data } = await authApi.signup(input);
+    setUser(data);
+    setSessionError(null);
+    return data;
+  }, []);
+
+  const resetPassword = useCallback(async (input: ResetPasswordInput) => {
+    const { data } = await authApi.resetPassword(input);
+    setUser(data);
+    setSessionError(null);
+    return data;
   }, []);
 
   const logout = useCallback(async () => {
@@ -88,10 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionError,
       login,
       signup,
+      resetPassword,
       logout,
       refresh,
     }),
-    [user, isLoading, sessionError, login, signup, logout, refresh],
+    [user, isLoading, sessionError, login, signup, resetPassword, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Loader2, Lock } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { Card } from '@/components/ui/Card';
-import { authApi } from '@/lib/api/auth';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
 import { AuthField } from './AuthField';
 
@@ -16,6 +16,7 @@ const MIN_PASSWORD_LENGTH = 8;
  * validate about how it was reached beyond the token the backend itself checks.
  */
 export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string; onSuccess: () => void }) {
+  const { resetPassword } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState<string | undefined>();
@@ -42,9 +43,8 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
 
     setIsSubmitting(true);
     try {
-      await authApi.resetPassword({ resetToken, newPassword, confirmPassword });
-      // No session to land in: a reset invalidates every session on this account, this
-      // browser's included, so the sign-in form is the only place to go next.
+      await resetPassword({ resetToken, newPassword, confirmPassword });
+      // The backend has replaced every older session with a fresh cookie for this browser.
       onSuccess();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
