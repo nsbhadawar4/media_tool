@@ -30,7 +30,7 @@ import { useUploads } from '@/lib/upload/UploadContext';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { foldersApi } from '@/lib/api/folders';
 import { formatBytes, formatRelativeTime } from '@/utils/format';
-import { iconForFileType, toneForDocument } from '@/utils/fileIcons';
+import { iconForFileType, toneForMedia } from '@/utils/fileIcons';
 import { cn } from '@/utils/cn';
 
 const RECENT_TILE_GRID = 'grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6';
@@ -168,8 +168,9 @@ export default function DashboardPage() {
                   const Icon = iconForFileType(media.fileType, media.mimeType);
                   // Same colour language as the gallery tiles, minus the badge: these
                   // tiles are too small for one to read as anything but clutter.
-                  const iconTone =
-                    media.fileType === 'document' ? toneForDocument(media.mimeType).icon : 'text-muted';
+                  // Same colour the file's card carries in the gallery, so a tile does not
+                  // change identity between here and there.
+                  const iconTone = toneForMedia(media.fileType, media.mimeType).icon;
                   return (
                     <button
                       key={media.id}

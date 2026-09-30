@@ -84,6 +84,32 @@ export function toneForDocument(mimeType: string): DocumentTone {
   return { badge: 'bg-surface text-muted', icon: 'text-muted' };
 }
 
+/**
+ * Colour for a file of any kind — the one place that answers "what colour is this file?".
+ *
+ * There were two answers before, and they disagreed. `toneForDocument` below gave a PDF
+ * red and a spreadsheet green, which the icons used; the card's type badge used a separate
+ * three-entry map that made every document grey. So a PDF card carried a red icon above a
+ * grey chip reading "document", and nothing in the library looked like it belonged to one
+ * system. Everything that shows a file's kind now comes through here.
+ *
+ * Images and videos keep their own tones rather than borrowing the accent: the accent means
+ * "selected" or "this is the action", and spending it on a file type would make every photo
+ * look highlighted. Video stays amber, which is what its badge already was.
+ */
+export function toneForMedia(fileType: FileType, mimeType: string): DocumentTone {
+  if (fileType === 'image') {
+    return { badge: 'bg-sky-500/12 text-sky-600 dark:text-sky-400', icon: 'text-sky-600 dark:text-sky-400' };
+  }
+  if (fileType === 'video') {
+    return {
+      badge: 'bg-amber-500/12 text-amber-600 dark:text-amber-400',
+      icon: 'text-amber-600 dark:text-amber-400',
+    };
+  }
+  return toneForDocument(mimeType);
+}
+
 export function iconForFileType(fileType: FileType, mimeType: string): LucideIcon {
   if (fileType === 'image') return ImageIcon;
   if (fileType === 'video') return Video;

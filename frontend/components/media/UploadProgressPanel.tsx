@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, ChevronDown, RotateCcw, Upload, Video, X } from 'lucide-react';
 import { ProgressBar } from '@/components/ui/Badge';
 import { cn } from '@/utils/cn';
-import { iconForDocument } from '@/utils/fileIcons';
+import { iconForDocument, toneForMedia } from '@/utils/fileIcons';
 import { formatBytes } from '@/utils/format';
 import type { UploadQueue, UploadQueueItem } from '@/hooks/useUploadQueue';
 
@@ -30,10 +30,14 @@ function UploadThumb({ item }: { item: UploadQueueItem }) {
     );
   }
 
-  const DocIcon = iconForDocument(item.mimeType);
-  const Icon = item.mimeType.startsWith('video/') ? Video : DocIcon;
+  const isVideo = item.mimeType.startsWith('video/');
+  const Icon = isVideo ? Video : iconForDocument(item.mimeType);
+  // The queue shows the same colour the card will once the file lands, so a row does not
+  // change identity the moment it finishes uploading.
+  const tone = toneForMedia(isVideo ? 'video' : 'document', item.mimeType);
+
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-hover text-muted">
+    <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-hover', tone.icon)}>
       {/* Icon is one of a fixed set of stable Lucide components, not created per render. */}
       {/* eslint-disable-next-line react-hooks/static-components */}
       <Icon className="h-4 w-4" />

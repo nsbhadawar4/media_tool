@@ -11,9 +11,27 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   accent: 'bg-accent/10 text-accent',
 };
 
-export function Badge({ children, variant = 'default' }: { children: ReactNode; variant?: BadgeVariant }) {
+export function Badge({
+  children,
+  variant = 'default',
+  className,
+}: {
+  children: ReactNode;
+  variant?: BadgeVariant;
+  /**
+   * Overrides the variant's colours. For the one case the variants cannot cover: a file's
+   * badge takes the colour of its own type (see toneForMedia), and those are per-format
+   * rather than per-intent, so enumerating them here would mean a variant per file format.
+   */
+  className?: string;
+}) {
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', VARIANT_CLASSES[variant])}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+        className ?? VARIANT_CLASSES[variant],
+      )}
+    >
       {children}
     </span>
   );

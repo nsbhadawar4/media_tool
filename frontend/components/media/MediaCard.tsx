@@ -5,6 +5,7 @@ import { Check, Download, Eye, FolderInput, ImagePlus, PencilLine, Play, Trash2 
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Badge } from '@/components/ui/Badge';
 import { MediaThumbnail } from './MediaThumbnail';
+import { toneForMedia } from '@/utils/fileIcons';
 import { formatBytes, formatDateShort, formatDuration } from '@/utils/format';
 import { cn } from '@/utils/cn';
 import type { Media } from '@/types/api';
@@ -23,12 +24,6 @@ interface MediaCardProps {
   /** True once anything is selected: checkboxes stay visible and a plain click selects rather than previews. */
   isSelectionActive?: boolean;
 }
-
-const TYPE_BADGE_VARIANT = {
-  image: 'accent',
-  video: 'warning',
-  document: 'default',
-} as const;
 
 export function MediaCard({
   media,
@@ -173,7 +168,8 @@ export function MediaCard({
           {media.originalName}
         </p>
         <div className="flex items-center justify-between gap-2">
-          <Badge variant={TYPE_BADGE_VARIANT[media.fileType]}>{media.fileType}</Badge>
+          {/* The same colour its icon and placeholder use — see toneForMedia. */}
+          <Badge className={toneForMedia(media.fileType, media.mimeType).badge}>{media.fileType}</Badge>
           <span className="text-xs tabular-nums text-muted">{formatBytes(media.size)}</span>
         </div>
         <p className="text-xs text-muted">{formatDateShort(media.createdAt)}</p>
