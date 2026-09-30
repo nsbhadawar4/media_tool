@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { logger } from "../utils/logger";
 import { User, type IUser } from "../models/User";
+import { AppError } from "../utils/AppError";
 import { getEmailProvider } from "./email";
 
 // Matches authController's BCRYPT_ROUNDS: password hashing cost is the same
@@ -109,7 +110,17 @@ Media Tool Team`;
   } catch (err) {
     const detail = err instanceof Error ? err.message : "unknown error";
     logger.error(
-      `Could not send password reset code to ${user.email}: ${detail}`,
+      `Could not send password reset code via ${provider.name} to ${user.email}: ${detail}`,
+    );
+    // Nothing was delivered, so don't make the user wait out the resend cooldown.
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { passwordResetOtpLastSentAt: null } },
+    );
+    // Reported, not swallowed: a 200 here told the UI a code was on its way when none was.
+    throw AppError.unavailable(
+      "We could not send the verification code email. Please try again later.",
+      "EMAIL_DELIVERY_FAILED",
     );
   }
 
