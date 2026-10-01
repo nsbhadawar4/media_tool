@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import { RotateCcw, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
+import { BackToGames } from './BackToGames';
 
 interface GameResultProps {
   title: string;
@@ -40,7 +41,7 @@ export function GameResult({
     <div
       role="dialog"
       aria-label={title}
-      className="animate-fade-in absolute inset-0 z-30 flex items-center justify-center bg-background/75 p-4 backdrop-blur-md"
+      className="game-safe-top game-safe-bottom animate-fade-in flex items-center justify-center bg-background/75 p-4 backdrop-blur-md max-md:fixed max-md:inset-0 max-md:z-50 max-md:bg-background/95 md:absolute md:inset-0 md:z-30"
     >
       <div className="gradient-border anim-rise-scale relative w-full max-w-sm rounded-3xl border border-border-strong bg-surface-elevated p-6 text-center shadow-pop">
         {variant === 'win' && (
@@ -83,10 +84,11 @@ export function GameResult({
           </dl>
         )}
 
-        <Button className="mt-6 w-full" size="lg" onClick={onPlayAgain}>
+        <Button className="mt-6 min-h-12 w-full" size="lg" onClick={onPlayAgain}>
           <RotateCcw className="h-4 w-4" />
           {playAgainLabel}
         </Button>
+        <BackToGames variant="block" className="mt-2.5" />
       </div>
     </div>
   );

@@ -131,7 +131,7 @@ export default function MemoryMatch() {
         </GameControls>
       }
     >
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-2.5 max-md:max-w-[min(100%,58dvh)] sm:gap-3">
         {cards.map((card, index) => {
           const { Icon, color } = FACES[card.face]!;
           const isOpen = card.isFlipped || card.isMatched;

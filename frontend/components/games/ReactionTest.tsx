@@ -114,7 +114,7 @@ export default function ReactionTest() {
         }}
         onKeyDown={(event) => event.key === ' ' && event.preventDefault()}
         className={cn(
-          'reaction-pad flex h-72 w-full select-none flex-col items-center justify-center gap-2 rounded-2xl border-2 text-center sm:h-96',
+          'reaction-pad flex h-72 w-full select-none flex-col items-center justify-center gap-2 rounded-2xl border-2 text-center max-md:h-auto max-md:min-h-[52dvh] max-md:flex-1 sm:h-96',
           pad.bg,
         )}
         aria-live="polite"

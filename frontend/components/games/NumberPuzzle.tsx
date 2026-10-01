@@ -142,7 +142,7 @@ export default function NumberPuzzle() {
         </GameControls>
       }
     >
-      <div className="relative mx-auto aspect-square w-full max-w-sm touch-manipulation rounded-2xl border border-border-strong bg-background/60 p-1.5">
+      <div className="relative mx-auto aspect-square w-full max-w-sm touch-manipulation rounded-2xl max-md:max-w-[min(100%,56dvh)] border border-border-strong bg-background/60 p-1.5">
         <div className="relative h-full w-full">
           {/* Tiles are rendered by number, not by square, so each one glides to its new place. */}
           {SOLVED.filter((n) => n !== 0).map((tile) => {

@@ -142,7 +142,7 @@ export default function WaterRace() {
         </GameControls>
       }
     >
-      <div className="grid grid-cols-2 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 max-md:gap-2.5">
         {(['a', 'b'] as const).map((id) => (
           <TeamPanel
             key={id}
@@ -224,7 +224,7 @@ function TeamPanel({
 
       {/* Tank */}
       <div
-        className="relative h-48 overflow-hidden rounded-2xl border border-border-strong bg-background/60 sm:h-60"
+        className="relative h-[27dvh] min-h-32 overflow-hidden rounded-2xl border border-border-strong bg-background/60 sm:h-60"
         style={{ boxShadow: pct > 0 ? `0 0 40px -18px ${glow}` : undefined }}
       >
         <div
@@ -294,7 +294,7 @@ function TeamPanel({
 
       <Button
         size="lg"
-        className="h-14 w-full text-sm sm:text-base"
+        className="h-14 w-full px-2 text-sm leading-tight sm:text-base"
         variant={bucketFull ? 'primary' : 'secondary'}
         onClick={onAct}
         disabled={!canAct || isBot}

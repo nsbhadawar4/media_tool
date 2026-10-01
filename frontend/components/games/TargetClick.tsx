@@ -27,7 +27,8 @@ interface Spot {
 
 /** A position inside the board, kept away from the edges so a target is never clipped. */
 function randomSpot(id: number): Spot {
-  return { x: 10 + Math.random() * 80, y: 14 + Math.random() * 72, id };
+  // 14% margin keeps the largest target (80px) fully inside even a 360px-wide board.
+  return { x: 14 + Math.random() * 72, y: 14 + Math.random() * 72, id };
 }
 
 export default function TargetClick() {
@@ -87,7 +88,7 @@ export default function TargetClick() {
       game={game}
       stats={[
         { label: 'Score', value: score, tone: 'accent' },
-        { label: 'Time remaining', value: `${Math.max(timeLeft, 0)}s`, tone: timeLeft <= 5 && current !== 'idle' ? 'danger' : 'default' },
+        { label: 'Time left', value: `${Math.max(timeLeft, 0)}s`, tone: timeLeft <= 5 && current !== 'idle' ? 'danger' : 'default' },
         { label: 'Targets hit', value: hits },
         { label: 'Accuracy', value: `${accuracy}%` },
       ]}
@@ -116,7 +117,7 @@ export default function TargetClick() {
       <div
         onPointerDown={miss}
         className={cn(
-          'relative aspect-[4/3] w-full touch-none select-none overflow-hidden rounded-2xl border border-border-strong sm:aspect-video',
+          'relative aspect-[4/3] w-full touch-none select-none overflow-hidden rounded-2xl border border-border-strong max-md:aspect-auto max-md:min-h-[52dvh] max-md:flex-1 sm:aspect-video',
           'bg-[radial-gradient(circle_at_center,color-mix(in_srgb,var(--accent)_10%,transparent),transparent_70%)] bg-background/60',
           isRunning && 'cursor-crosshair',
         )}

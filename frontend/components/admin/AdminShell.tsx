@@ -20,6 +20,8 @@ export function AdminShell({
   // Re-keying the content on navigation restarts its enter animation, which is what makes
   // a route change read as a screen transition rather than a repaint.
   const pathname = usePathname();
+  // A single game (not the hub): on phones it takes over the whole screen.
+  const isImmersiveGame = /^\/games\/[^/]+\/?$/.test(pathname);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -65,23 +67,31 @@ export function AdminShell({
         <Sidebar variant={variant} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
 
         <div className="relative flex min-w-0 flex-1 flex-col">
-          <Topbar variant={variant} onOpenNav={() => setIsDrawerOpen(true)} />
+          <div className={isImmersiveGame ? 'max-md:hidden' : undefined}>
+            <Topbar variant={variant} onOpenNav={() => setIsDrawerOpen(true)} />
+          </div>
           <main
             id="main-content"
+            data-immersive={isImmersiveGame}
             tabIndex={-1}
             // app-main-pad leaves room for the tab bar below `lg` and reproduces the previous
             // safe-area-only padding from `lg` up; app-scroll stops a flick past the end of a
             // gallery from dragging the whole page.
-            className="app-main-pad app-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 outline-none sm:px-6 lg:px-8 lg:pt-8"
+            className="app-main-pad app-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 outline-none sm:px-6 lg:px-8 lg:pt-8 max-md:data-[immersive=true]:p-0"
           >
-            <div key={pathname} className="app-page-enter mx-auto w-full max-w-[1400px]">
+            <div
+              key={pathname}
+              className={`app-page-enter mx-auto w-full max-w-[1400px] ${isImmersiveGame ? 'app-immersive-route' : ''}`}
+            >
               {children}
             </div>
           </main>
         </div>
 
         <MobileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} variant={variant} />
-        <MobileTabBar variant={variant} />
+        <div className={isImmersiveGame ? 'max-md:hidden' : undefined}>
+          <MobileTabBar variant={variant} />
+        </div>
       </div>
     </LogoutPromptProvider>
   );
