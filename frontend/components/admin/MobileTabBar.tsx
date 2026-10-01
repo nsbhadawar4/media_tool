@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Ellipsis, LogOut, Users, FolderClosed } from 'lucide-react';
 import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useToast } from '@/lib/toast/ToastContext';
+import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { ADMIN_NAV, TAB_SLOTS, USER_NAV, isNavItemActive, type NavItem } from './navItems';
 import { cn } from '@/utils/cn';
 
@@ -20,8 +20,7 @@ import { cn } from '@/utils/cn';
 export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout, isAdmin } = useAuth();
-  const toast = useToast();
+  const { isAdmin } = useAuth();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const isAdminArea = variant === 'admin';
@@ -40,15 +39,10 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
   // nothing selected.
   const isMoreActive = overflow.some((item) => isNavItemActive(pathname, item.href));
 
-  const handleSignOut = async () => {
+  const { requestLogout } = useLogoutPrompt();
+  const handleSignOut = () => {
     setIsMoreOpen(false);
-    try {
-      await logout();
-      toast.success('Signed out');
-      router.replace('/');
-    } catch {
-      toast.error('Failed to sign out');
-    }
+    requestLogout();
   };
 
   const go = (href: string) => {

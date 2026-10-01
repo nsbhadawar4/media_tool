@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { SlidersHorizontal, ArrowUpRight, HardDrive, KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -13,7 +12,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { Toggle } from '@/components/ui/Toggle';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useTheme } from '@/lib/theme/ThemeContext';
-import { useToast } from '@/lib/toast/ToastContext';
+import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { formatBytes, formatDate } from '@/utils/format';
 import { cn } from '@/utils/cn';
@@ -144,10 +143,8 @@ function PreferencesPanel() {
 }
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
-  const toast = useToast();
-  const router = useRouter();
   const [section, setSection] = useState<Section>('account');
 
   const statsQuery = useQuery({
@@ -156,15 +153,7 @@ export default function SettingsPage() {
   });
   const stats = statsQuery.data?.data;
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Signed out');
-      router.replace('/');
-    } catch {
-      toast.error('Failed to sign out');
-    }
-  };
+  const { requestLogout } = useLogoutPrompt();
 
   return (
     <div className="mx-auto w-full max-w-4xl">
@@ -204,7 +193,7 @@ export default function SettingsPage() {
                 </SettingRow>
               )}
               <SettingRow title="Sign out" description="End your session on this device.">
-                <Button variant="secondary" onClick={handleLogout}>
+                <Button variant="secondary" onClick={requestLogout}>
                   <LogOut className="h-4 w-4" />
                   Sign out
                 </Button>

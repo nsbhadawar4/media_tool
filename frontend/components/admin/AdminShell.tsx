@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { MobileTabBar } from './MobileTabBar';
 import { MobileDrawer } from './MobileDrawer';
+import { LogoutPromptProvider } from '@/components/auth/LogoutPrompt';
 
 const COLLAPSED_KEY = 'media_tool_sidebar_collapsed';
 
@@ -46,40 +47,42 @@ export function AdminShell({
   };
 
   return (
-    // app-viewport-h rather than h-screen: on iOS Safari 100vh is taller than the visible
-    // area, which pushes the bottom of the app under the browser chrome.
-    <div className="app-viewport-h relative flex overflow-hidden bg-background">
-      {/* Two faint accent washes behind everything; the content sits above them. */}
-      <div aria-hidden className="app-ambient pointer-events-none absolute inset-0" />
+    <LogoutPromptProvider>
+      {/* app-viewport-h rather than h-screen: on iOS Safari 100vh is taller than the visible
+    area, which pushes the bottom of the app under the browser chrome. */}
+      <div className="app-viewport-h relative flex overflow-hidden bg-background">
+        {/* Two faint accent washes behind everything; the content sits above them. */}
+        <div aria-hidden className="app-ambient pointer-events-none absolute inset-0" />
 
-      {/* First focusable element on the page, so keyboard users can jump the nav. */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-60 focus:rounded-xl focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-foreground"
-      >
-        Skip to content
-      </a>
-
-      <Sidebar variant={variant} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
-
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <Topbar variant={variant} onOpenNav={() => setIsDrawerOpen(true)} />
-        <main
-          id="main-content"
-          tabIndex={-1}
-          // app-main-pad leaves room for the tab bar below `lg` and reproduces the previous
-          // safe-area-only padding from `lg` up; app-scroll stops a flick past the end of a
-          // gallery from dragging the whole page.
-          className="app-main-pad app-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 outline-none sm:px-6 lg:px-8 lg:pt-8"
+        {/* First focusable element on the page, so keyboard users can jump the nav. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-60 focus:rounded-xl focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-foreground"
         >
-          <div key={pathname} className="app-page-enter mx-auto w-full max-w-[1400px]">
-            {children}
-          </div>
-        </main>
-      </div>
+          Skip to content
+        </a>
 
-      <MobileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} variant={variant} />
-      <MobileTabBar variant={variant} />
-    </div>
+        <Sidebar variant={variant} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <Topbar variant={variant} onOpenNav={() => setIsDrawerOpen(true)} />
+          <main
+            id="main-content"
+            tabIndex={-1}
+            // app-main-pad leaves room for the tab bar below `lg` and reproduces the previous
+            // safe-area-only padding from `lg` up; app-scroll stops a flick past the end of a
+            // gallery from dragging the whole page.
+            className="app-main-pad app-scroll min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 outline-none sm:px-6 lg:px-8 lg:pt-8"
+          >
+            <div key={pathname} className="app-page-enter mx-auto w-full max-w-[1400px]">
+              {children}
+            </div>
+          </main>
+        </div>
+
+        <MobileDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} variant={variant} />
+        <MobileTabBar variant={variant} />
+      </div>
+    </LogoutPromptProvider>
   );
 }

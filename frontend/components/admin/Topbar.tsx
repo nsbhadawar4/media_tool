@@ -6,7 +6,7 @@ import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User } from 'lu
 import { Logo } from '@/components/brand/Logo';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useToast } from '@/lib/toast/ToastContext';
+import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Avatar } from '@/components/ui/Avatar';
 import { GlobalSearchModal } from './GlobalSearchModal';
@@ -20,9 +20,8 @@ export function Topbar({
   onOpenNav?: () => void;
 }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
-  const toast = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
 
@@ -43,15 +42,7 @@ export function Topbar({
     return () => window.removeEventListener('keydown', handleKey);
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await logout();
-      toast.success('Signed out');
-      router.replace('/');
-    } catch {
-      toast.error('Failed to sign out');
-    }
-  };
+  const { requestLogout } = useLogoutPrompt();
 
   return (
     <>
@@ -161,7 +152,7 @@ export function Topbar({
                   icon: <Settings className="h-4 w-4" />,
                   onClick: () => router.push('/settings'),
                 },
-                { label: 'Sign out', icon: <LogOut className="h-4 w-4" />, onClick: handleSignOut, danger: true },
+                { label: 'Sign out', icon: <LogOut className="h-4 w-4" />, onClick: requestLogout, danger: true },
               ]}
             />
           </div>

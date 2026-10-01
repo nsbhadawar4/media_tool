@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronsLeft, FolderClosed, HardDrive, LogOut, Users } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useToast } from '@/lib/toast/ToastContext';
+import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { formatBytes } from '@/utils/format';
 import { ADMIN_NAV, USER_NAV, isNavItemActive } from './navItems';
@@ -33,9 +33,7 @@ export function SidebarContent({
   onNavigate,
 }: SidebarContentProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { logout, isAdmin, user } = useAuth();
-  const toast = useToast();
+  const { isAdmin, user } = useAuth();
   // Same key the dashboard uses, so this is a cache hit rather than a second request.
   const statsQuery = useQuery({
     queryKey: ['dashboard', 'stats'],
@@ -44,15 +42,10 @@ export function SidebarContent({
   });
   const storageUsed = statsQuery.data?.data.storageUsedBytes ?? null;
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success('Signed out');
-      onNavigate?.();
-      router.replace('/');
-    } catch {
-      toast.error('Failed to sign out');
-    }
+  const { requestLogout } = useLogoutPrompt();
+  const handleLogout = () => {
+    onNavigate?.();
+    requestLogout();
   };
 
   const isAdminArea = variant === 'admin';
