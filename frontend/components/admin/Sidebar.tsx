@@ -62,9 +62,9 @@ export function SidebarContent({
   const groups: Array<{ label?: string; items: typeof navItems }> = isAdminArea
     ? [{ items: navItems }]
     : [
-        { label: 'Library', items: navItems.slice(0, 4) },
-        { label: 'Manage', items: navItems.slice(4, 6) },
-        { label: 'Account', items: navItems.slice(6) },
+        { label: 'Library', items: navItems.slice(0, 5) },
+        { label: 'Manage', items: navItems.slice(5, 7) },
+        { label: 'Account', items: navItems.slice(7) },
       ];
 
   const labelClass = cn(

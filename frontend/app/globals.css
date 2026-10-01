@@ -922,3 +922,108 @@ a,
     padding-bottom: 0;
   }
 }
+
+/* ===========================================================================
+   Games
+=========================================================================== */
+@media (hover: hover) {
+  .card-lift-4:hover {
+    transform: translateY(-4px);
+  }
+}
+
+/* Water surface: an SVG wave twice the tank's width, slid sideways by half of itself. */
+@keyframes wave-move {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.water-wave {
+  animation: wave-move 3.2s linear infinite;
+}
+.water-wave-slow {
+  animation: wave-move 5.5s linear infinite reverse;
+  opacity: 0.55;
+}
+@keyframes bucket-tap {
+  0% { transform: translateY(0) rotate(0); }
+  40% { transform: translateY(-8px) rotate(-5deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+.anim-bucket-tap { animation: bucket-tap 0.28s var(--ease-out); }
+@keyframes bucket-pour {
+  0% { transform: translateY(0) rotate(0); }
+  35% { transform: translateY(-14px) rotate(-38deg); }
+  70% { transform: translateY(-14px) rotate(-38deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+.anim-bucket-pour { animation: bucket-pour 0.6s var(--ease-out); }
+@keyframes drop-fall {
+  0% { opacity: 0; transform: translateY(-16px) scale(0.6); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(70px) scale(1); }
+}
+.anim-drop { animation: drop-fall 0.7s ease-in both; }
+
+/* A value that just changed: quick scale bump. */
+@keyframes score-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.anim-score { animation: score-pop 0.28s var(--ease-out); }
+
+/* Memory cards flip in 3D. */
+.flip-scene { perspective: 900px; }
+.flip-inner {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.45s var(--ease-out);
+}
+.flip-inner[data-flipped='true'] { transform: rotateY(180deg); }
+.flip-face {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.flip-front { transform: rotateY(180deg); }
+@keyframes match-pop {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+.anim-match { animation: match-pop 0.4s var(--ease-spring); }
+
+/* Target game */
+@keyframes target-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.anim-target-in { animation: target-in 0.22s var(--ease-spring) both; }
+@keyframes ripple {
+  from { opacity: 0.7; transform: translate(-50%, -50%) scale(0.6); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+}
+.anim-ripple { animation: ripple 0.5s ease-out both; }
+
+/* Win confetti: pieces fly out along per-piece vectors set inline. */
+@keyframes confetti-burst {
+  from { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  to { opacity: 0; transform: translate(var(--cx), var(--cy)) rotate(var(--cr)) scale(0.7); }
+}
+.confetti-piece { animation: confetti-burst 1.3s ease-out both; }
+
+/* Reaction pad background changes ease between states. */
+.reaction-pad {
+  transition: background-color 0.25s ease-out, border-color 0.25s ease-out, transform 0.12s ease-out;
+}
+.reaction-pad:active { transform: scale(0.99); }
+
+/* Number puzzle tiles glide to their square. */
+.puzzle-tile {
+  transition: left 0.22s var(--ease-out), top 0.22s var(--ease-out), transform 0.12s ease-out, background-color 0.2s;
+}
+.puzzle-tile:active { transform: scale(0.95); }
