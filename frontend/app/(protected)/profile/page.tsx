@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AuthField } from '@/components/auth/AuthField';
+import { initialsOf } from '@/components/ui/Avatar';
 import { AvatarCropperModal } from '@/components/profile/AvatarCropperModal';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { authApi } from '@/lib/api/auth';
@@ -51,14 +52,6 @@ export default function ProfilePage() {
 
 type Toast = ReturnType<typeof useToast>;
 type User = NonNullable<ReturnType<typeof useAuth>['user']>;
-
-/** First letters of the name — a stand-in portrait that needs no upload and never 404s. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
-}
 
 /**
  * Who this account is, above everything it can edit.

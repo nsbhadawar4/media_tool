@@ -29,7 +29,7 @@ export function MediaThumbnail({ media, className }: { media: Media; className?:
   }
 
   return (
-    <div className={cn('relative h-full w-full overflow-hidden bg-surface-hover', className)}>
+    <div className="relative h-full w-full overflow-hidden bg-surface-hover">
       {status === 'loading' && <div className="absolute inset-0 animate-pulse bg-surface-hover" />}
       {/* Next's <Image> would need every signed, token-bearing media URL whitelisted as a
           remote pattern for no benefit — these are already resized and access-controlled. */}
@@ -42,7 +42,8 @@ export function MediaThumbnail({ media, className }: { media: Media; className?:
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('error')}
         className={cn(
-          'h-full w-full object-cover transition-opacity duration-300',
+          'h-full w-full object-cover transition-[opacity,transform] duration-300',
+          className,
           status === 'loaded' ? 'opacity-100' : 'opacity-0',
         )}
         draggable={false}

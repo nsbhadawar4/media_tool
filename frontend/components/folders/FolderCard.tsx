@@ -26,7 +26,7 @@ export function FolderCard({ folder, onRename, onMove, onDelete, onUpload }: Fol
   const itemLabel = `${folder.itemCount} ${folder.itemCount === 1 ? 'item' : 'items'}`;
 
   return (
-    <div className="app-pressable group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md">
+    <div className="card-interactive group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
       {/*
         The card's primary action is a real link covering the card rather than an onClick on
         the wrapper: that gets the folder into the keyboard order, gives it middle-click and
@@ -40,7 +40,7 @@ export function FolderCard({ folder, onRename, onMove, onDelete, onUpload }: Fol
         className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       />
 
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-linear-to-b from-surface-hover to-surface">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-linear-to-b from-surface-hover/80 to-surface">
         {cover ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -49,8 +49,9 @@ export function FolderCard({ folder, onRename, onMove, onDelete, onUpload }: Fol
               alt=""
               loading="lazy"
               decoding="async"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
             />
+            <span className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent" />
             {/* A cover photo alone looks like a file, so the tile keeps a folder cue. */}
             <span className="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-lg bg-black/45 backdrop-blur-sm">
               <FolderIcon className="h-4 w-4" />
@@ -73,12 +74,12 @@ export function FolderCard({ folder, onRename, onMove, onDelete, onUpload }: Fol
         )}
       </div>
 
-      <div className="flex items-center gap-1 px-3 py-2.5">
+      <div className="flex items-center gap-1 border-t border-border px-3.5 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground" title={folder.name}>
             {folder.name}
           </p>
-          <p className="truncate text-xs tabular-nums text-muted">{itemLabel}</p>
+          <p className="mt-0.5 truncate text-xs tabular-nums text-muted">{itemLabel}</p>
         </div>
         {/* Docked in the footer rather than floated over the tile: it stays legible over any
             cover photo, and reaches touch users without depending on a hover state. */}

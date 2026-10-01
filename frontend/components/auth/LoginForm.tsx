@@ -54,11 +54,11 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-sm p-6 sm:p-8">
+    <Card className="w-full max-w-sm bg-surface-elevated p-6 shadow-pop sm:p-8">
       <div className="flex flex-col items-center text-center">
         <Logo className="h-14 w-14" />
         <h1 className="mt-4 text-xl font-semibold text-foreground">
-          {isAdminVariant ? 'Admin sign in' : 'Welcome back to login'}
+          {isAdminVariant ? 'Admin sign in' : 'Welcome back'}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {isAdminVariant ? 'Private area. Authorized access only.' : 'Sign in to your media library.'}

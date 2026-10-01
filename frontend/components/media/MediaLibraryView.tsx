@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { UploadCloud } from 'lucide-react';
+import { LayoutGrid, List, UploadCloud } from 'lucide-react';
 import { mediaApi } from '@/lib/api/media';
 import { foldersApi } from '@/lib/api/folders';
 import { useToast } from '@/lib/toast/ToastContext';
@@ -10,7 +10,7 @@ import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useMediaSelection } from '@/hooks/useMediaSelection';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useUploads } from '@/lib/upload/UploadContext';
-import { MediaGrid, MediaGridSkeleton } from './MediaGrid';
+import { MediaGrid, MediaGridSkeleton, type MediaView } from './MediaGrid';
 import { MediaFilters } from './MediaFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { UploadButton } from './UploadButton';
@@ -26,6 +26,9 @@ import { ApiError } from '@/lib/api/client';
 import type { FileType, Media, SortOption } from '@/types/api';
 
 const PAGE_SIZE = 48;
+
+/** One remembered choice per kind of page, so Documents can stay a list while Media stays a grid. */
+const viewStorageKey = (documentsOnly: boolean) => `media_tool_view_${documentsOnly ? 'documents' : 'media'}`;
 
 interface MediaLibraryViewProps {
   /** Restrict the grid (and default upload destination) to this folder. Omit to show/upload across the whole library. */
@@ -72,6 +75,30 @@ export function MediaLibraryView({
   const [fileType, setFileType] = useState<FileType | undefined>(fixedFileType);
   const [page, setPage] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  const documentsOnly = fixedFileType === 'document';
+  const [view, setView] = useState<MediaView>(documentsOnly ? 'list' : 'grid');
+
+  // Restored after mount, not during render: localStorage does not exist on the server, and
+  // reading it in the initial state would make the first client render differ from the HTML.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(viewStorageKey(documentsOnly));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved === 'grid' || saved === 'list') setView(saved);
+    } catch {
+      // Storage can be blocked; the default view is a perfectly good answer.
+    }
+  }, [documentsOnly]);
+
+  const changeView = (next: MediaView) => {
+    setView(next);
+    try {
+      localStorage.setItem(viewStorageKey(documentsOnly), next);
+    } catch {
+      // Not remembering the choice is harmless.
+    }
+  };
 
   const [mediaToRename, setMediaToRename] = useState<Media | null>(null);
   const [mediaToMove, setMediaToMove] = useState<Media | null>(null);
@@ -337,6 +364,28 @@ export function MediaLibraryView({
               {total} file{total === 1 ? '' : 's'}
             </p>
           )}
+          <div role="group" aria-label="Layout" className="flex rounded-xl border border-border bg-surface p-1">
+            {(
+              [
+                { value: 'grid', label: 'Grid view', Icon: LayoutGrid },
+                { value: 'list', label: 'List view', Icon: List },
+              ] as const
+            ).map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeView(value)}
+                aria-pressed={view === value}
+                aria-label={label}
+                data-tooltip={label}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg transition duration-150 ${
+                  view === value ? 'bg-surface-hover text-foreground shadow-card' : 'text-muted hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
           <UploadButton onFilesSelected={handleFilesSelected} uploadCategory={activeUploadCategory} />
         </div>
       </div>
@@ -346,7 +395,7 @@ export function MediaLibraryView({
       {isError ? (
         <ErrorState error={error} onRetry={() => refetch()} subject="files" />
       ) : isLoading ? (
-        <MediaGridSkeleton />
+        <MediaGridSkeleton view={view} />
       ) : (
         <div className={isPlaceholderData ? 'opacity-60 transition-opacity' : undefined}>
           <MediaGrid
@@ -369,6 +418,10 @@ export function MediaLibraryView({
               )
             }
             selection={selection}
+            view={view}
+            documentsOnly={documentsOnly}
+            isSearching={Boolean(searchInput)}
+            onClearSearch={() => handleSearchChange('')}
           />
         </div>
       )}
@@ -376,10 +429,12 @@ export function MediaLibraryView({
       {data?.meta && <Pagination meta={data.meta} onPageChange={setPage} />}
 
       {isDragOver && (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-accent/10 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-accent bg-surface px-10 py-8">
-            <UploadCloud className="h-8 w-8 text-accent" />
-            <p className="text-sm font-medium text-foreground">Drop files to upload</p>
+        <div className="animate-fade-in pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-background/70 p-4 backdrop-blur-md">
+          <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-accent bg-surface-elevated px-10 py-12 text-center shadow-pop">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+              <UploadCloud className="h-7 w-7" />
+            </span>
+            <p className="text-lg font-semibold tracking-tight text-foreground">Drop files to upload</p>
             {activeUploadCategory && (
               <p className="text-xs text-muted">
                 Only {labelFor(activeUploadCategory)} files are accepted here

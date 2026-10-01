@@ -33,6 +33,7 @@ export default function FoldersPage() {
     <div>
       <PageHeader
         title="Folders"
+        eyebrow={!isLoading && !isError ? `${folders.length} ${folders.length === 1 ? 'folder' : 'folders'}` : undefined}
         description="Organize your library the way you like — folders can be nested as deep as you need."
         actions={
           <Button onClick={() => crud.setIsCreateOpen(true)}>

@@ -8,6 +8,7 @@ import { useTheme } from '@/lib/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useToast } from '@/lib/toast/ToastContext';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
+import { Avatar } from '@/components/ui/Avatar';
 import { GlobalSearchModal } from './GlobalSearchModal';
 
 export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
@@ -52,7 +53,7 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
         installed and running edge to edge under `viewport-fit=cover`. In a browser and on
         every desktop the inset is 0, so the bar is the same 64px it always was.
       */}
-      <header className="app-no-select sticky top-0 z-30 shrink-0 border-b border-border bg-surface/85 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
+      <header className="surface-glass app-no-select sticky top-0 z-30 shrink-0 border-b border-border pt-[env(safe-area-inset-top,0px)]">
         <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 sm:px-6">
           {/* Brand, below `lg` only — from `lg` up the sidebar already carries it, and the
               hamburger that used to sit here is gone now that navigation lives at the bottom. */}
@@ -68,11 +69,11 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            className="hidden min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted transition hover:border-accent/40 hover:text-foreground sm:max-w-sm lg:flex"
+            className="hidden h-10 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border bg-background/60 px-3.5 text-sm text-muted shadow-card transition duration-150 hover:border-border-strong hover:text-foreground focus-visible:border-accent sm:max-w-md lg:flex"
           >
             <Search className="h-4 w-4 shrink-0" />
             <span className="truncate">Search your library…</span>
-            <kbd className="ml-auto hidden shrink-0 rounded-md border border-border bg-surface px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
+            <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong bg-surface-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
               {isMac ? '⌘' : 'Ctrl '}K
             </kbd>
           </button>
@@ -94,7 +95,7 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
               className="flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-surface-hover hover:text-foreground lg:h-9 lg:w-9"
               aria-label="Toggle light and dark theme"
-              title="Toggle theme"
+              data-tooltip="Toggle theme"
             >
               {/*
                 Both icons render and CSS picks one, keyed off the same `data-theme`
@@ -114,13 +115,11 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
               triggerSize="auto"
               triggerLabel="Account menu"
               sheetTitle="Account"
-              triggerClassName="gap-2 border border-border bg-background p-1.5 hover:bg-surface-hover sm:pr-2.5"
+              triggerClassName="gap-2 rounded-full border border-border bg-background/60 p-1 hover:border-border-strong hover:bg-surface-hover sm:pr-3"
               width={224}
               trigger={
                 <>
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                    <User className="h-3.5 w-3.5" />
-                  </span>
+                  <Avatar name={user?.name ?? user?.email ?? 'Account'} src={user?.avatarUrl} size="sm" />
                   <span className="hidden max-w-36 truncate text-xs font-medium text-foreground sm:inline">
                     {user?.name ?? user?.email ?? 'Account'}
                   </span>
@@ -135,6 +134,11 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
                 </div>
               }
               items={[
+                {
+                  label: 'Profile',
+                  icon: <User className="h-4 w-4" />,
+                  onClick: () => router.push('/profile'),
+                },
                 {
                   label: 'Settings',
                   icon: <Settings className="h-4 w-4" />,

@@ -210,7 +210,7 @@ export function DropdownMenu({
             // A header brings its own bottom border, so it must sit flush against the top
             // edge rather than floating on the list's padding.
             className={cn(
-              'animate-scale-in fixed z-70 overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
+              'animate-pop-in fixed z-70 overflow-hidden rounded-xl border border-border-strong bg-surface-elevated p-0 shadow-pop',
               hasHeader ? 'pb-1' : 'py-1',
             )}
           >
@@ -226,8 +226,8 @@ export function DropdownMenu({
                   item.onClick();
                 }}
                 className={cn(
-                  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-hover focus:bg-surface-hover focus:outline-none',
-                  item.danger ? 'text-danger' : 'text-foreground',
+                  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-colors hover:bg-surface-hover focus:bg-surface-hover focus:outline-none',
+                  item.danger ? 'text-danger hover:bg-danger/10 focus:bg-danger/10' : 'text-foreground-soft hover:text-foreground',
                 )}
               >
                 {item.icon}

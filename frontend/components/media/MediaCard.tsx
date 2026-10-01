@@ -53,14 +53,14 @@ export function MediaCard({
   return (
     <div
       className={cn(
-        'app-pressable group relative flex flex-col overflow-hidden rounded-2xl border bg-surface shadow-sm transition duration-200',
+        'card-interactive group relative flex flex-col overflow-hidden rounded-2xl border bg-surface',
         isSelected
           ? 'border-accent ring-2 ring-accent/30'
-          : 'border-border hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md',
+          : 'border-border',
       )}
     >
       <div className="relative aspect-square w-full overflow-hidden bg-surface-hover">
-        <MediaThumbnail media={media} />
+        <MediaThumbnail media={media} className="transition-transform duration-300 ease-out group-hover:scale-[1.04]" />
 
         {/*
           The tile's primary action covers the whole image as its own layer rather than
@@ -78,7 +78,7 @@ export function MediaCard({
         {/* Darkens the tile on hover so overlaid controls stay legible over any image. */}
         <span
           className={cn(
-            'pointer-events-none absolute inset-0 z-20 bg-linear-to-b from-black/40 via-transparent to-black/30 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
+            'pointer-events-none absolute inset-0 z-20 bg-linear-to-b from-black/45 via-transparent to-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
             isSelected && 'opacity-100',
           )}
         />
@@ -163,7 +163,7 @@ export function MediaCard({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 px-3.5 py-3">
+      <div className="flex flex-col gap-1.5 border-t border-border px-3.5 py-3">
         <p className="truncate text-sm font-medium text-foreground" title={media.originalName}>
           {media.originalName}
         </p>

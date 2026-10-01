@@ -29,7 +29,7 @@ export function BulkActionBar({ selection, onDownload, onMove, onDelete, busyLab
 
   return (
     <div className="app-dock animate-slide-up pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4">
-      <div className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-surface px-4 py-3 shadow-2xl">
+      <div className="pointer-events-auto flex w-full max-w-2xl flex-wrap items-center gap-x-3 gap-y-2 surface-glass rounded-2xl border border-border-strong px-4 py-3 shadow-pop">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-sm font-semibold tabular-nums text-accent">
             {selectedCount}

@@ -22,7 +22,7 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-muted">
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-foreground-soft">
         {label}
       </label>
       <div className="relative">
@@ -32,7 +32,7 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
           type={inputType}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full rounded-xl border bg-surface py-2.5 pl-9 text-sm text-foreground outline-none transition focus:ring-2 ${
+          className={`w-full rounded-xl border bg-surface-elevated py-2.5 pl-9 text-sm text-foreground outline-none transition focus:ring-2 ${
             isPassword ? 'pr-9' : 'pr-3'
           } ${
             error

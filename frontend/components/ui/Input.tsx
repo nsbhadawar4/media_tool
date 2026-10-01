@@ -6,7 +6,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20',
+        'w-full rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted/70 hover:border-border-strong focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20',
         className,
       )}
       {...props}
@@ -20,7 +20,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     <textarea
       ref={ref}
       className={cn(
-        'w-full resize-none rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20',
+        'w-full resize-none rounded-xl border border-border bg-surface-elevated px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted/70 hover:border-border-strong focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20',
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ Textarea.displayName = 'Textarea';
 
 export function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-muted">
+    <label htmlFor={htmlFor} className="mb-1.5 block text-[13px] font-medium text-foreground-soft">
       {children}
     </label>
   );

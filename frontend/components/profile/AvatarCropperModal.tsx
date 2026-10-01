@@ -52,6 +52,8 @@ export function AvatarCropperModal({
   const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
+    // Resetting to a fresh crop whenever a different file is picked.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNatural(null);
     setZoom(1);
     setOffset({ x: 0, y: 0 });

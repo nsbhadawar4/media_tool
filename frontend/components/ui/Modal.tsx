@@ -41,7 +41,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 lg:items-center lg:p-4">
-      <div className="animate-fade-in absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="animate-fade-in absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       <div
         ref={dialogRef}
         role="dialog"
@@ -49,7 +49,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={cn(
-          'app-modal-anim focus-ring-custom relative flex w-full flex-col border-border bg-surface shadow-2xl outline-none',
+          'app-modal-anim focus-ring-custom relative flex w-full flex-col border-border-strong bg-surface-elevated shadow-pop outline-none',
           // A sheet is attached to the bottom edge, so it is rounded and bordered along its
           // top only; the centred dialog keeps all four sides.
           'rounded-t-3xl border-t lg:rounded-2xl lg:border',
@@ -71,7 +71,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
         {hasHeader && (
           <div className="flex shrink-0 items-center justify-between gap-3 px-6 pb-2 pt-3 lg:pt-6">
             {title && (
-              <h2 id={titleId} className="text-base font-semibold text-foreground">
+              <h2 id={titleId} className="text-lg font-semibold tracking-tight text-foreground">
                 {title}
               </h2>
             )}
@@ -79,7 +79,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
               <button
                 type="button"
                 onClick={onClose}
-                className="ml-auto rounded-lg p-1.5 text-muted transition hover:bg-surface-hover hover:text-foreground"
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-surface-hover hover:text-foreground"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />

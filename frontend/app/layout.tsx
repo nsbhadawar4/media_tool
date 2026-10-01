@@ -43,8 +43,8 @@ export const viewport: Viewport = {
   // Zoom is deliberately left enabled. Pinning maximumScale would make the app feel more
   // like a native shell and would also stop anyone who needs to magnify text.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f7f7f8' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0d' },
+    { media: '(prefers-color-scheme: light)', color: '#f6f6f8' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
   ],
 };
 

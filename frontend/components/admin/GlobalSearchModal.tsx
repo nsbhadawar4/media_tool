@@ -64,7 +64,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search folders, photos, videos, documents…"
-          className="w-full rounded-xl border border-border bg-surface py-3 pl-10 pr-3 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="h-12 w-full rounded-xl border border-border-strong bg-background/60 pl-10 pr-3 text-[15px] text-foreground shadow-card outline-none transition placeholder:text-muted/70 focus:border-accent focus:ring-2 focus:ring-accent/25"
         />
       </div>
 
@@ -74,7 +74,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
             key={f.label}
             type="button"
             onClick={() => setFileType(f.value)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+            className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
               fileType === f.value ? 'bg-accent text-accent-foreground' : 'bg-surface-hover text-muted hover:text-foreground'
             }`}
           >
@@ -105,7 +105,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
 
         {!isFetching && folders.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted">Folders</p>
+            <p className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-muted">Folders</p>
             <div className="space-y-1">
               {folders.map((folder) => (
                 <button
@@ -115,7 +115,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
                     onClose();
                     router.push(`/folders/${folder._id}`);
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface-hover"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover"
                 >
                   <FolderClosed className="h-4 w-4 shrink-0 text-accent" />
                   <span className="flex-1 truncate text-foreground">{folder.name}</span>
@@ -128,7 +128,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
 
         {!isFetching && media.length > 0 && (
           <div>
-            <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted">Files</p>
+            <p className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-muted">Files</p>
             <div className="space-y-1">
               {media.map((item) => {
                 const Icon = iconForFileType(item.fileType, item.mimeType);
@@ -140,7 +140,7 @@ export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClos
                       onClose();
                       router.push(item.folderId ? `/folders/${item.folderId}` : '/media');
                     }}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-surface-hover"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-hover focus-visible:bg-surface-hover"
                   >
                     <Icon className="h-4 w-4 shrink-0 text-muted" />
                     <span className="flex-1 truncate text-foreground">{item.originalName}</span>

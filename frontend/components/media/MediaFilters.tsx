@@ -1,7 +1,7 @@
 'use client';
 
-import { Search, X } from 'lucide-react';
 import { Select } from '@/components/ui/Select';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { cn } from '@/utils/cn';
 import type { FileType, SortOption } from '@/types/api';
 
@@ -49,31 +49,11 @@ export function MediaFilters({
 }: MediaFiltersProps) {
   return (
     <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
-      <div className="relative w-full lg:max-w-xs">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search files…"
-          aria-label="Search files"
-          className="w-full rounded-xl border border-border bg-surface py-2 pl-9 pr-9 text-sm text-foreground outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => onSearchChange('')}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted transition hover:bg-surface-hover hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+      <SearchInput value={search} onChange={onSearchChange} placeholder="Search files…" className="lg:max-w-xs" />
 
       <div className="flex flex-wrap items-center gap-2">
         {showTypeFilter && onFileTypeChange && (
-          <div className="app-no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-hover p-1">
+          <div className="app-no-scrollbar flex items-center gap-1 overflow-x-auto rounded-xl border border-border bg-surface p-1">
             {TYPE_FILTERS.filter(
             (filter) =>
               filter.value === undefined ||
@@ -86,9 +66,9 @@ export function MediaFilters({
                 onClick={() => onFileTypeChange(filter.value)}
                 aria-pressed={fileType === filter.value}
                 className={cn(
-                  'shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition',
+                  'shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-medium transition duration-150',
                   fileType === filter.value
-                    ? 'bg-surface text-foreground shadow-sm'
+                    ? 'bg-surface-hover text-foreground shadow-card'
                     : 'text-muted hover:text-foreground',
                 )}
               >

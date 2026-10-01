@@ -7,6 +7,7 @@ import {
   Activity,
   FolderClosed,
   FolderPlus,
+  ArrowUpRight,
   HardDrive,
   Image as ImageIcon,
   FileText,
@@ -27,6 +28,7 @@ import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useUploads } from '@/lib/upload/UploadContext';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { foldersApi } from '@/lib/api/folders';
 import { formatBytes, formatRelativeTime } from '@/utils/format';
@@ -40,6 +42,7 @@ const RECENT_FOLDER_COUNT = 6;
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const crud = useFolderCrud(null);
   const { addFiles, requestUpload } = useUploads();
 
@@ -68,8 +71,9 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Dashboard"
-        description="An overview of your private library."
+        eyebrow="Overview"
+        title={user?.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard'}
+        description="Here is what is happening in your private library."
         actions={
           <>
             <Button variant="secondary" onClick={() => crud.setIsCreateOpen(true)}>
@@ -108,9 +112,45 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {stats && (
+        <div className="app-content-enter mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
+          <StorageOverview
+            usedBytes={stats.data.storageUsedBytes}
+            images={stats.data.totalImages}
+            videos={stats.data.totalVideos}
+            documents={stats.data.totalDocuments}
+          />
+          <Card className="min-w-0">
+            <CardHeader>
+              <h2 className="text-base font-semibold tracking-tight text-foreground">Quick actions</h2>
+            </CardHeader>
+            <CardBody padded={false} className="p-2">
+              {[
+                { href: '/media', label: 'Browse media', icon: ImageIcon },
+                { href: '/documents', label: 'Browse documents', icon: FileText },
+                { href: '/folders', label: 'Manage folders', icon: FolderClosed },
+                { href: '/trash', label: 'Open trash', icon: Trash2 },
+              ].map((action) => (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                    <action.icon className="h-4 w-4" />
+                  </span>
+                  <span className="flex-1">{action.label}</span>
+                  <ArrowUpRight className="h-4 w-4 text-muted opacity-0 transition group-hover:opacity-100" />
+                </Link>
+              ))}
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
       <section className="mt-6 sm:mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-foreground">Recent folders</h2>
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Recent folders</h2>
           <Link href="/folders" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
             View all
           </Link>
@@ -145,7 +185,7 @@ export default function DashboardPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
         <Card className="min-w-0 xl:col-span-2">
           <CardHeader>
-            <h2 className="text-sm font-semibold text-foreground">Recent uploads</h2>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Recent uploads</h2>
           </CardHeader>
           <CardBody>
             {recentQuery.isError ? (
@@ -178,7 +218,7 @@ export default function DashboardPage() {
                       onClick={() => viewer.openAt(media.id)}
                       title={media.originalName}
                       aria-label={`Preview ${media.originalName}`}
-                      className="group relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-surface-hover"
+                      className="group relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-hover transition duration-200 hover:border-border-strong hover:shadow-lift"
                     >
                       {media.fileType === 'image' ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -187,7 +227,7 @@ export default function DashboardPage() {
                           alt={media.originalName}
                           loading="lazy"
                           decoding="async"
-                          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.06]"
                         />
                       ) : (
                         <Icon className={cn('h-7 w-7', iconTone)} />
@@ -202,7 +242,7 @@ export default function DashboardPage() {
 
         <Card className="flex min-w-0 flex-col">
           <CardHeader className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
+            <h2 className="text-base font-semibold tracking-tight text-foreground">Recent activity</h2>
             <button
               type="button"
               onClick={() => router.push('/activity')}
@@ -254,5 +294,74 @@ export default function DashboardPage() {
       <MediaViewerModals viewer={viewer} />
       <FolderCrudModals crud={crud} />
     </div>
+  );
+}
+
+/**
+ * Used storage plus how the library is made up. There is no quota to measure against, so the
+ * bar shows the share of files by kind rather than a fill level that would imply a limit.
+ */
+function StorageOverview({
+  usedBytes,
+  images,
+  videos,
+  documents,
+}: {
+  usedBytes: number;
+  images: number;
+  videos: number;
+  documents: number;
+}) {
+  const total = images + videos + documents;
+  const parts = [
+    { label: 'Images', count: images, color: 'bg-sky-500', icon: ImageIcon },
+    { label: 'Videos', count: videos, color: 'bg-amber-500', icon: Video },
+    { label: 'Documents', count: documents, color: 'bg-emerald-500', icon: FileText },
+  ];
+
+  return (
+    <Card className="min-w-0 xl:col-span-2">
+      <CardHeader className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent">
+          <HardDrive className="h-4 w-4" />
+        </span>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">Storage overview</h2>
+      </CardHeader>
+      <CardBody>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+              {formatBytes(usedBytes)}
+            </p>
+            <p className="text-xs text-muted">used across {total} {total === 1 ? 'file' : 'files'}</p>
+          </div>
+        </div>
+
+        <div
+          className="mt-5 flex h-2 w-full overflow-hidden rounded-full bg-surface-hover"
+          role="img"
+          aria-label={`Library composition: ${images} images, ${videos} videos, ${documents} documents`}
+        >
+          {total > 0 &&
+            parts.map((part) => (
+              <div
+                key={part.label}
+                className={cn('h-full transition-all duration-500', part.color)}
+                style={{ width: `${(part.count / total) * 100}%` }}
+              />
+            ))}
+        </div>
+
+        <ul className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {parts.map((part) => (
+            <li key={part.label} className="flex items-center gap-2.5 rounded-xl bg-surface-hover/60 px-3 py-2.5">
+              <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', part.color)} aria-hidden />
+              <span className="flex-1 text-xs text-muted">{part.label}</span>
+              <span className="text-sm font-semibold tabular-nums text-foreground">{part.count}</span>
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { FolderClosed } from 'lucide-react';
 import { FolderCard } from './FolderCard';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import type { Folder } from '@/types/api';
 
 interface FolderGridProps {
@@ -65,13 +66,13 @@ export function FolderGrid({
 
 export function FolderGridSkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className={FOLDER_GRID_CLASSES}>
+    <div className={FOLDER_GRID_CLASSES} role="status" aria-label="Loading folders">
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} className="overflow-hidden rounded-2xl border border-border bg-surface">
-          <div className="aspect-[4/3] w-full animate-pulse bg-surface-hover" />
-          <div className="flex flex-col gap-2 px-3 py-2.5">
-            <div className="h-3 w-3/4 animate-pulse rounded bg-surface-hover" />
-            <div className="h-2.5 w-1/2 animate-pulse rounded bg-surface-hover" />
+          <Skeleton className="aspect-[4/3] w-full rounded-none" />
+          <div className="flex flex-col gap-2 px-3.5 py-3">
+            <Skeleton className="h-3 w-3/4" />
+            <Skeleton className="h-2.5 w-1/2" />
           </div>
         </div>
       ))}

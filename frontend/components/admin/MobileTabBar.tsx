@@ -60,7 +60,7 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
     <>
       <nav
         aria-label="Primary"
-        className="app-no-select fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/92 backdrop-blur-xl lg:hidden"
+        className="surface-glass app-no-select fixed inset-x-0 bottom-0 z-40 border-t border-border lg:hidden"
       >
         <div className="flex h-16 items-stretch">
           {tabs.map((item) => (

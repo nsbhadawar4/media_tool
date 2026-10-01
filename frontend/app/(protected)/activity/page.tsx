@@ -5,12 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Activity } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { ListSkeleton } from '@/components/ui/Skeleton';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Select } from '@/components/ui/Select';
 import { Pagination } from '@/components/ui/Pagination';
 import { ActivityIcon } from '@/components/admin/ActivityIcon';
 import { activityApi } from '@/lib/api/activity';
 import { formatDate } from '@/utils/format';
+import type { ActivityLog } from '@/types/api';
 
 const ACTION_LABELS: Record<string, string> = {
   login: 'Signed in',
@@ -31,6 +33,33 @@ const ACTION_LABELS: Record<string, string> = {
   media_moved: 'File moved',
 };
 
+/** Buckets consecutive logs by calendar day, newest first, for the timeline's date headings. */
+function groupByDay(logs: ActivityLog[]): Array<{ key: string; label: string; items: ActivityLog[] }> {
+  const today = new Date();
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayStart = startOf(today);
+  const groups = new Map<string, { key: string; label: string; items: ActivityLog[] }>();
+
+  for (const log of logs) {
+    const date = new Date(log.createdAt);
+    const key = String(startOf(date));
+    let group = groups.get(key);
+    if (!group) {
+      const diffDays = Math.round((todayStart - startOf(date)) / 86_400_000);
+      const label =
+        diffDays === 0
+          ? 'Today'
+          : diffDays === 1
+            ? 'Yesterday'
+            : date.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      group = { key, label, items: [] };
+      groups.set(key, group);
+    }
+    group.items.push(log);
+  }
+  return [...groups.values()];
+}
+
 export default function ActivityPage() {
   const [page, setPage] = useState(1);
   const [action, setAction] = useState<string>('');
@@ -45,7 +74,8 @@ export default function ActivityPage() {
   return (
     <div>
       <PageHeader
-        title="Activity Logs"
+        eyebrow="Audit trail"
+        title="Activity"
         description="A full audit trail of everything that happens in your library."
         actions={
           <Select
@@ -67,35 +97,40 @@ export default function ActivityPage() {
       {isError ? (
         <ErrorState error={error} onRetry={() => refetch()} subject="activity logs" />
       ) : isLoading ? (
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-          {Array.from({ length: 10 }).map((_, index) => (
-            <div key={index} className="flex items-start gap-3 border-b border-border px-4 py-3.5 last:border-b-0">
-              <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-surface-hover" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="h-3.5 w-2/3 animate-pulse rounded bg-surface-hover" />
-                <div className="h-3 w-1/3 animate-pulse rounded bg-surface-hover" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <ListSkeleton rows={10} />
       ) : logs.length === 0 ? (
         <EmptyState icon={Activity} title="No activity yet" description="Actions you take will be recorded here." />
       ) : (
-        <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
-          {logs.map((log) => (
-            <div key={log._id} className="flex items-start gap-3 border-b border-border px-4 py-3.5 last:border-b-0">
-              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                <ActivityIcon action={log.action} className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="wrap-break-word text-sm text-foreground">{log.message}</p>
-                <p className="mt-0.5 wrap-break-word text-xs text-muted">
-                  {ACTION_LABELS[log.action] ?? log.action} &middot; {formatDate(log.createdAt)}
-                  {log.performedByEmail ? ` · ${log.performedByEmail}` : ''}
-                  {log.ip ? ` · ${log.ip}` : ''}
-                </p>
-              </div>
-            </div>
+        <div className="app-content-enter space-y-8">
+          {groupByDay(logs).map((group) => (
+            <section key={group.key} aria-label={group.label}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{group.label}</h2>
+              {/* The vertical rule is the timeline; each icon sits on it. */}
+              <ol className="relative ml-4 space-y-1 border-l border-border pl-6">
+                {group.items.map((log) => (
+                  <li key={log._id} className="relative rounded-xl px-3 py-2.5 transition-colors hover:bg-surface">
+                    <span className="absolute -left-[41px] top-2.5 flex h-8 w-8 items-center justify-center rounded-full border border-border-strong bg-surface-elevated text-accent shadow-card">
+                      <ActivityIcon action={log.action} className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                      <p className="min-w-0 wrap-break-word text-sm font-medium text-foreground">{log.message}</p>
+                      <time
+                        dateTime={log.createdAt}
+                        title={formatDate(log.createdAt)}
+                        className="shrink-0 text-xs tabular-nums text-muted"
+                      >
+                        {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </time>
+                    </div>
+                    <p className="mt-0.5 wrap-break-word text-xs text-muted">
+                      {ACTION_LABELS[log.action] ?? log.action}
+                      {log.performedByEmail ? ` · ${log.performedByEmail}` : ''}
+                      {log.ip ? ` · ${log.ip}` : ''}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </section>
           ))}
         </div>
       )}

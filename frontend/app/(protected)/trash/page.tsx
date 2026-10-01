@@ -209,7 +209,7 @@ export default function TrashPage() {
         description="Deleted items stay here until you remove them by hand. Nothing is erased from storage on its own."
       />
 
-      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-border bg-surface px-4 py-3">
+      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-accent/20 bg-accent/5 px-4 py-3.5">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
         <div className="text-sm text-muted">
           <p>
@@ -227,7 +227,7 @@ export default function TrashPage() {
       {isError && <ErrorState error={error} onRetry={() => refetch()} subject="the trash" />}
 
       {isLoading && (
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
           {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
               <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-surface-hover" />
@@ -282,10 +282,10 @@ export default function TrashPage() {
 
       {folders.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
             Folders ({folders.length})
           </h2>
-          <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
+          <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
             {folders.map((folder) => (
               <TrashFolderRow
                 key={folder._id}
@@ -304,7 +304,7 @@ export default function TrashPage() {
       {media.length > 0 && (
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
               Files ({visibleMedia.length}
               {typeFilter && visibleMedia.length !== media.length ? ` of ${media.length}` : ''})
             </h2>
@@ -317,7 +317,7 @@ export default function TrashPage() {
               the trash.
             </div>
           ) : (
-            <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface">
+            <div className="app-content-enter overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
               {visibleMedia.map((item) => (
                 <TrashMediaRow
                   key={item.id}
