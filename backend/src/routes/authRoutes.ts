@@ -5,12 +5,15 @@ import {
   logout,
   me,
   updateProfile,
+  uploadAvatar,
+  removeAvatar,
   changePassword,
   forgotPassword,
   verifyOtp,
   resetPassword,
 } from '../controllers/authController';
 import { requireAuth } from '../middleware/auth';
+import { uploadAvatarImage } from '../middleware/upload';
 import {
   loginRateLimiter,
   signupRateLimiter,
@@ -35,6 +38,8 @@ router.post('/login', loginRateLimiter, validate({ body: loginSchema }), login);
 router.post('/logout', requireAuth, logout);
 router.get('/me', requireAuth, me);
 router.patch('/me', requireAuth, validate({ body: updateProfileSchema }), updateProfile);
+router.post('/me/avatar', requireAuth, uploadAvatarImage, uploadAvatar);
+router.delete('/me/avatar', requireAuth, removeAvatar);
 router.post(
   '/change-password',
   requireAuth,

@@ -1,19 +1,22 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import {
   AtSign,
   BadgeCheck,
   CalendarDays,
+  Camera,
   Clock,
   KeyRound,
   Loader2,
   Phone,
   ShieldAlert,
+  Trash2,
   UserRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { AuthField } from '@/components/auth/AuthField';
+import { AvatarCropperModal } from '@/components/profile/AvatarCropperModal';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
@@ -36,7 +39,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <IdentityHeader user={user} />
+      <IdentityHeader user={user} onChanged={refresh} toast={toast} />
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ProfileForm user={user} onSaved={refresh} toast={toast} />
@@ -65,54 +68,152 @@ function initialsOf(name: string): string {
  * editable half lives in the cards below, and keeping the two visibly apart is what stops
  * "member since" reading like a field somebody forgot to make editable.
  */
-function IdentityHeader({ user }: { user: User }) {
+function IdentityHeader({
+  user,
+  onChanged,
+  toast,
+}: {
+  user: User;
+  onChanged: () => Promise<void>;
+  toast: Toast;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [isBusy, setIsBusy] = useState(false);
+
+  // The picked file waits here while the cropper is open; nothing is uploaded until Save.
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  const handlePick = (file: File | undefined) => {
+    if (inputRef.current) inputRef.current.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file');
+      return;
+    }
+    setPendingFile(file);
+  };
+
+  const handleCropped = async (cropped: File) => {
+    setIsBusy(true);
+    try {
+      await authApi.uploadAvatar(cropped);
+      await onChanged();
+      setPendingFile(null);
+      toast.success('Profile photo updated');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Could not upload your photo');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setIsBusy(true);
+    try {
+      await authApi.removeAvatar();
+      await onChanged();
+      toast.success('Profile photo removed');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Could not remove your photo');
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   return (
-    <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-sm">
-      <div className="h-24 bg-linear-to-r from-accent/25 via-accent/10 to-transparent sm:h-28" />
+    <>
+      <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-sm">
+        <div className="h-24 bg-linear-to-r from-accent/25 via-accent/10 to-transparent sm:h-28" />
 
-      <div className="px-5 pb-5 sm:px-7 sm:pb-6">
-        {/* Pulled up over the band so the avatar straddles it, which is what makes the
+        <div className="px-5 pb-5 sm:px-7 sm:pb-6">
+          {/* Pulled up over the band so the avatar straddles it, which is what makes the
             header read as one object rather than a stripe with a card under it. */}
-        <div className="-mt-11 flex flex-wrap items-end gap-4 sm:-mt-12">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-surface bg-accent text-xl font-semibold text-accent-foreground shadow-md sm:h-24 sm:w-24 sm:text-2xl">
-            {initialsOf(user.name)}
-          </div>
+          <div className="-mt-11 flex flex-wrap items-end gap-4 sm:-mt-12">
+            <div className="relative shrink-0">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-accent text-xl font-semibold text-accent-foreground shadow-md sm:h-24 sm:w-24 sm:text-2xl">
+                {user.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- a small data URL, nothing to optimise
+                  <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
+                ) : (
+                  initialsOf(user.name)
+                )}
+                {isBusy && (
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={isBusy}
+                aria-label="Change profile photo"
+                title="Change profile photo"
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-surface-hover text-foreground shadow-sm transition hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              <input
+                ref={inputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => handlePick(e.target.files?.[0])}
+              />
+            </div>
 
-          <div className="min-w-0 flex-1 basis-56 pb-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">{user.name}</h1>
-              {user.role === 'admin' && (
-                <span className="rounded-full bg-accent/12 px-2.5 py-0.5 text-xs font-medium text-accent">
-                  Admin
-                </span>
-              )}
-              {!user.isActive && (
-                <span className="rounded-full bg-danger/12 px-2.5 py-0.5 text-xs font-medium text-danger">
-                  Deactivated
-                </span>
+            <div className="min-w-0 flex-1 basis-56 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">{user.name}</h1>
+                {user.role === 'admin' && (
+                  <span className="rounded-full bg-accent/12 px-2.5 py-0.5 text-xs font-medium text-accent">
+                    Admin
+                  </span>
+                )}
+                {!user.isActive && (
+                  <span className="rounded-full bg-danger/12 px-2.5 py-0.5 text-xs font-medium text-danger">
+                    Deactivated
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 truncate text-sm text-muted">{user.email}</p>
+              {user.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => void handleRemove()}
+                  disabled={isBusy}
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs text-muted transition hover:text-danger disabled:opacity-60"
+                >
+                  <Trash2 className="h-3 w-3" /> Remove photo
+                </button>
               )}
             </div>
-            <p className="mt-0.5 truncate text-sm text-muted">{user.email}</p>
           </div>
-        </div>
 
-        <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Fact icon={Phone} label="Mobile" value={user.mobile ?? 'Not provided'} muted={!user.mobile} />
-          <Fact
-            icon={user.isEmailVerified ? BadgeCheck : ShieldAlert}
-            label="Email"
-            value={user.isEmailVerified ? 'Verified' : 'Not verified'}
-            tone={user.isEmailVerified ? 'success' : 'warning'}
-          />
-          <Fact icon={CalendarDays} label="Member since" value={formatDate(user.createdAt)} />
-          <Fact
-            icon={Clock}
-            label="Last sign-in"
-            value={user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'First session'}
-          />
-        </dl>
-      </div>
-    </section>
+          <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Fact icon={Phone} label="Mobile" value={user.mobile ?? 'Not provided'} muted={!user.mobile} />
+            <Fact
+              icon={user.isEmailVerified ? BadgeCheck : ShieldAlert}
+              label="Email"
+              value={user.isEmailVerified ? 'Verified' : 'Not verified'}
+              tone={user.isEmailVerified ? 'success' : 'warning'}
+            />
+            <Fact icon={CalendarDays} label="Member since" value={formatDate(user.createdAt)} />
+            <Fact
+              icon={Clock}
+              label="Last sign-in"
+              value={user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'First session'}
+            />
+          </dl>
+        </div>
+      </section>
+      <AvatarCropperModal
+        file={pendingFile}
+        isSaving={isBusy}
+        onCancel={() => setPendingFile(null)}
+        onSave={(f) => void handleCropped(f)}
+      />
+    </>
   );
 }
 
@@ -319,7 +420,11 @@ function PasswordForm({ toast }: { toast: Toast }) {
 
     setIsSaving(true);
     try {
-      await authApi.changePassword({ currentPassword, newPassword, confirmPassword });
+      await authApi.changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

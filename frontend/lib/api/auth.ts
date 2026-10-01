@@ -17,6 +17,12 @@ export const authApi = {
   logout: () => api.post<{ loggedOut: boolean }>('/api/auth/logout'),
   me: (signal?: AbortSignal) => api.get<UserProfile>('/api/auth/me', undefined, signal),
   updateProfile: (input: UpdateProfileInput) => api.patch<UserProfile>('/api/auth/me', input),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('avatar', file);
+    return api.postForm<UserProfile>('/api/auth/me/avatar', form);
+  },
+  removeAvatar: () => api.delete<UserProfile>('/api/auth/me/avatar'),
   changePassword: (input: ChangePasswordInput) =>
     api.post<{ changed: boolean }>('/api/auth/change-password', input),
   forgotPassword: (input: ForgotPasswordInput) =>

@@ -96,6 +96,7 @@ export const ACTIVITY_ACTIONS = [
   'login_failed',
   'logout',
   'profile_updated',
+  'avatar_updated',
   'password_changed',
   'password_reset_requested',
   'password_reset',

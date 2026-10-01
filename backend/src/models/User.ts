@@ -10,6 +10,8 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   mobile?: string | null;
+  /** Profile photo as a small data URL (see authController.uploadAvatar), or null for initials. */
+  avatarUrl?: string | null;
   role: UserRole;
   isActive: boolean;
   isEmailVerified: boolean;
@@ -56,6 +58,7 @@ const userSchema = new Schema<IUser>(
     // it, so a forgotten `.select()` cannot leak it through an API response.
     passwordHash: { type: String, required: true, select: false },
     mobile: { type: String, trim: true, default: null },
+    avatarUrl: { type: String, default: null },
     /**
      * Set server-side only. Signup always writes 'user' regardless of the request body —
      * see authController.signup — so there is no public path to an admin account.
@@ -99,6 +102,7 @@ export interface PublicUser {
   name: string;
   email: string;
   mobile: string | null;
+  avatarUrl: string | null;
   role: UserRole;
   isActive: boolean;
   isEmailVerified: boolean;
@@ -112,6 +116,7 @@ export function toPublicUser(user: IUser): PublicUser {
     name: user.name,
     email: user.email,
     mobile: user.mobile ?? null,
+    avatarUrl: user.avatarUrl ?? null,
     role: user.role,
     isActive: user.isActive,
     isEmailVerified: user.isEmailVerified,

@@ -119,3 +119,19 @@ export const uploadPosterImage = multer({
   fileFilter,
   limits: { fileSize: POSTER_MAX_BYTES, files: 1 },
 }).single('poster');
+
+/**
+ * Profile photo, held in memory: it is resized to a few kilobytes straight away and stored
+ * on the user document, so it never needs a temp file or the media storage backend.
+ */
+export const uploadAvatarImage = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (!(IMAGE_MIME_TYPES as readonly string[]).includes(file.mimetype)) {
+      cb(AppError.badRequest('Profile photo must be an image'));
+      return;
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+}).single('avatar');

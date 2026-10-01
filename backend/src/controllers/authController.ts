@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import sharp from 'sharp';
 import type { Request, Response } from 'express';
 import { User, toPublicUser, type IUser } from '../models/User';
 import { AppError } from '../utils/AppError';
@@ -173,6 +174,62 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   });
 
   sendSuccess(res, toPublicUser(user), 200, undefined, 'Profile updated');
+});
+
+/**
+ * Sets the profile photo. The upload is cropped square and shrunk to 256px WebP, which
+ * lands around 10-20 KB, so it can live on the user document as a data URL — no storage
+ * backend, temp file or separate serving route involved, and re-encoding through sharp
+ * also guarantees what is stored is a real image rather than whatever the client claimed.
+ */
+export const uploadAvatar = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.file) throw AppError.badRequest('Choose an image to upload');
+
+  let resized: Buffer;
+  try {
+    resized = await sharp(req.file.buffer)
+      .rotate()
+      .resize(256, 256, { fit: 'cover' })
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch {
+    throw AppError.badRequest('That file could not be read as an image');
+  }
+
+  const user = await User.findById(req.user!.id);
+  if (!user) throw AppError.unauthorized('Session no longer valid');
+
+  user.avatarUrl = `data:image/webp;base64,${resized.toString('base64')}`;
+  await user.save();
+
+  await logActivity(req, {
+    action: 'avatar_updated',
+    targetType: 'auth',
+    targetId: user._id,
+    targetName: user.email,
+    message: `${user.email} changed their profile photo`,
+  });
+
+  sendSuccess(res, toPublicUser(user), 200, undefined, 'Profile photo updated');
+});
+
+/** Drops the profile photo, so the initials stand-in shows again. */
+export const removeAvatar = asyncHandler(async (req: Request, res: Response) => {
+  const user = await User.findById(req.user!.id);
+  if (!user) throw AppError.unauthorized('Session no longer valid');
+
+  user.avatarUrl = null;
+  await user.save();
+
+  await logActivity(req, {
+    action: 'avatar_updated',
+    targetType: 'auth',
+    targetId: user._id,
+    targetName: user.email,
+    message: `${user.email} removed their profile photo`,
+  });
+
+  sendSuccess(res, toPublicUser(user), 200, undefined, 'Profile photo removed');
 });
 
 /**

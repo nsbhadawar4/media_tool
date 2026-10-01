@@ -13,6 +13,8 @@ export interface UserProfile {
   role: UserRole;
   /** Optional at signup, so null is a real answer rather than missing data. */
   mobile: string | null;
+  /** Profile photo as a data URL; null means show initials. */
+  avatarUrl?: string | null;
   isActive: boolean;
   isEmailVerified: boolean;
   createdAt: string;
