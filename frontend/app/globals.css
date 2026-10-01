@@ -19,6 +19,8 @@
   --muted: #71717a;
   --accent: #6d4aff;
   --accent-hover: #5b38f0;
+  --accent-2: #8a6bff;
+  --subtle: #8b8b96;
   --accent-foreground: #ffffff;
   --danger: #dc3b41;
   --danger-hover: #c52f35;
@@ -37,58 +39,62 @@
 /* System preference applies only when the user hasn't made an explicit choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --background: #09090b;
-    --surface: #111114;
-    --surface-elevated: #18181b;
-    --surface-hover: #202024;
-    --border: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.14);
-    --foreground: #f4f4f5;
+    --background: #08080b;
+    --surface: #111116;
+    --surface-elevated: #17171d;
+    --surface-hover: #1d1d24;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.13);
+    --foreground: #f5f5f7;
     --foreground-soft: #d4d4d8;
     --muted: #a1a1aa;
-    --accent: #8b6dff;
-    --accent-hover: #9d85ff;
+    --accent: #7c5cff;
+    --accent-hover: #8d70ff;
+    --accent-2: #9b87ff;
+    --subtle: #71717a;
     --accent-foreground: #ffffff;
-    --danger: #f2656b;
-    --danger-hover: #f67d82;
-    --success: #34c58a;
-    --warning: #f0b04a;
-    --sidebar-bg: #0c0c0f;
+    --danger: #ef4444;
+    --danger-hover: #f25f5f;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --sidebar-bg: #0d0d11;
     --sidebar-foreground: #a1a1aa;
     --sidebar-active: #f4f4f5;
-    --sidebar-hover: rgba(255, 255, 255, 0.05);
+    --sidebar-hover: rgba(255, 255, 255, 0.045);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-lift: 0 14px 32px -12px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --glass: rgba(17, 17, 20, 0.78);
+    --glass: rgba(14, 14, 19, 0.72);
   }
 }
 
 :root[data-theme='dark'] {
-  --background: #09090b;
-  --surface: #111114;
-  --surface-elevated: #18181b;
-  --surface-hover: #202024;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --foreground: #f4f4f5;
+  --background: #08080b;
+  --surface: #111116;
+  --surface-elevated: #17171d;
+  --surface-hover: #1d1d24;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --foreground: #f5f5f7;
   --foreground-soft: #d4d4d8;
   --muted: #a1a1aa;
-  --accent: #8b6dff;
-  --accent-hover: #9d85ff;
+  --accent: #7c5cff;
+  --accent-hover: #8d70ff;
+  --accent-2: #9b87ff;
+  --subtle: #71717a;
   --accent-foreground: #ffffff;
-  --danger: #f2656b;
-  --danger-hover: #f67d82;
-  --success: #34c58a;
-  --warning: #f0b04a;
-  --sidebar-bg: #0c0c0f;
+  --danger: #ef4444;
+  --danger-hover: #f25f5f;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --sidebar-bg: #0d0d11;
   --sidebar-foreground: #a1a1aa;
   --sidebar-active: #f4f4f5;
-  --sidebar-hover: rgba(255, 255, 255, 0.05);
+  --sidebar-hover: rgba(255, 255, 255, 0.045);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-lift: 0 14px 32px -12px rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-pop: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --glass: rgba(17, 17, 20, 0.78);
+  --glass: rgba(14, 14, 19, 0.72);
 }
 
 @theme inline {
@@ -103,6 +109,8 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-2: var(--accent-2);
+  --color-subtle: var(--subtle);
   --color-accent-foreground: var(--accent-foreground);
   --color-danger: var(--danger);
   --color-danger-hover: var(--danger-hover);
@@ -625,4 +633,293 @@ a,
     transparent 70%
   );
   background-repeat: no-repeat;
+}
+
+
+/* ===========================================================================
+   Motion system
+   Everything animated in the app is one of the primitives below, so timing and easing
+   stay consistent. Durations: fast 140ms, normal 240ms, premium 400ms.
+=========================================================================== */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  --glow-accent: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 8px 28px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes rise-scale {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* Staggered entrance: set --i on the element (0,1,2…); capped so long lists don't crawl. */
+.anim-rise {
+  animation: rise 0.5s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 14) * 55ms);
+}
+.anim-rise-scale {
+  animation: rise-scale 0.5s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 14) * 55ms);
+}
+
+/* Page entrance: replaces the shorter travel used before. */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.app-page-enter {
+  animation: page-enter 0.42s var(--ease-out) both;
+}
+
+/* Presence animations: [data-state] is set by usePresence so exits run before unmount. */
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(8px) scale(0.96); }
+}
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheet-out { from { transform: translateY(0); } to { transform: translateY(100%); } }
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes drawer-out { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes menu-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-4px) scale(0.97); }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(24px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(24px) scale(0.96); }
+}
+
+.pres-backdrop[data-state='open'] { animation: backdrop-in 0.22s ease-out both; }
+.pres-backdrop[data-state='closed'] { animation: backdrop-out 0.18s ease-in both; }
+.pres-modal[data-state='open'] { animation: modal-in 0.32s var(--ease-out) both; }
+.pres-modal[data-state='closed'] { animation: modal-out 0.18s ease-in both; }
+.pres-drawer[data-state='open'] { animation: drawer-in 0.34s var(--ease-out) both; }
+.pres-drawer[data-state='closed'] { animation: drawer-out 0.22s ease-in both; }
+.pres-menu[data-state='open'] { animation: menu-in 0.18s var(--ease-out) both; transform-origin: top; }
+.pres-menu[data-state='closed'] { animation: menu-out 0.12s ease-in both; transform-origin: top; }
+.pres-toast[data-state='open'] { animation: toast-in 0.38s var(--ease-spring) both; }
+.pres-toast[data-state='closed'] { animation: toast-out 0.22s ease-in both; }
+/* Phones present dialogs as bottom sheets. */
+@media (max-width: 1023.98px) {
+  .pres-modal[data-state='open'] { animation: sheet-in 0.36s var(--ease-out) both; }
+  .pres-modal[data-state='closed'] { animation: sheet-out 0.22s ease-in both; }
+}
+
+/* Ambient page background: two very faint accent washes, fixed behind the content. */
+.app-ambient {
+  background-image:
+    radial-gradient(1000px 520px at 85% -10%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 70%),
+    radial-gradient(700px 420px at -5% 105%, color-mix(in srgb, var(--accent-2) 7%, transparent), transparent 70%);
+}
+
+/* Primary action: gradient face, inner highlight, and a soft glow that grows on hover. */
+.btn-primary {
+  background-image: linear-gradient(180deg, var(--accent-2) -40%, var(--accent) 55%, color-mix(in srgb, var(--accent) 88%, black) 130%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 0 0 1px color-mix(in srgb, var(--accent) 70%, black),
+    0 6px 16px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition:
+    transform 0.16s var(--ease-out),
+    box-shadow 0.2s ease-out,
+    filter 0.2s ease-out;
+}
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.26) inset,
+      0 0 0 1px color-mix(in srgb, var(--accent) 70%, black),
+      0 10px 26px -6px color-mix(in srgb, var(--accent) 80%, transparent);
+  }
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+  filter: brightness(0.96);
+}
+
+/* Focus glow shared by inputs and the search bar. */
+.focus-glow {
+  transition:
+    border-color 0.18s ease-out,
+    box-shadow 0.22s ease-out,
+    background-color 0.18s ease-out;
+}
+.focus-glow:focus,
+.focus-glow:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 24px -6px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* Gradient hairline border (accent → transparent), for the few featured surfaces. */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent-2) 55%, transparent), transparent 40%, transparent 70%, color-mix(in srgb, var(--accent) 30%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Stat tile: faint tinted corner that brightens on hover. */
+.stat-tile {
+  background-image: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--tile, var(--accent)) 12%, transparent), transparent 60%);
+}
+.stat-tile .stat-icon {
+  transition: transform 0.3s var(--ease-spring);
+}
+@media (hover: hover) {
+  .stat-tile:hover .stat-icon {
+    transform: scale(1.14) rotate(-4deg);
+  }
+}
+
+/* Sidebar link icon nudge on hover, and the active glow. */
+.nav-link .nav-icon {
+  transition: transform 0.25s var(--ease-out), color 0.2s ease-out;
+}
+@media (hover: hover) {
+  .nav-link:hover .nav-icon {
+    transform: translateX(2px) scale(1.06);
+  }
+}
+.nav-link[aria-current='page'] {
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 4%, transparent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent) inset;
+}
+
+/* Upload progress: moving sheen over the filled part while a transfer is running. */
+@keyframes bar-sheen {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.progress-live {
+  background-image: linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, 0.35) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: bar-sheen 1.4s linear infinite;
+}
+
+/* Error shake and success pop, for forms and confirmations. */
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+.anim-shake { animation: shake 0.45s ease-in-out; }
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.anim-pop { animation: pop 0.4s var(--ease-spring) both; }
+
+/* Logo breathing glow on the sign-in pages: slow, subtle, one element only. */
+@keyframes logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.anim-logo { animation: logo-float 5s ease-in-out infinite; }
+.logo-glow { filter: drop-shadow(0 8px 22px color-mix(in srgb, var(--accent) 55%, transparent)); }
+
+/* Checkbox tick draws itself. */
+@keyframes tick-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+
+.sidebar-width { transition: width 0.3s var(--ease-out); }
+
+.pres-sheet[data-state='open'] { animation: sheet-in 0.36s var(--ease-out) both; }
+.pres-sheet[data-state='closed'] { animation: sheet-out 0.22s ease-in both; }
+
+/* Tooltip on the right-hand side, for the collapsed sidebar rail. */
+[data-tooltip-side='right']::after {
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+}
+@media (hover: hover) {
+  [data-tooltip-side='right']:hover::after,
+  [data-tooltip-side='right']:focus-visible::after {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+/* A tooltip only makes sense where the attribute carries text. */
+[data-tooltip='']::after {
+  display: none;
+}
+
+.nav-indicator {
+  box-shadow: 0 0 12px var(--accent);
+}
+.btn-danger-glow:hover:not(:disabled) {
+  box-shadow: 0 8px 22px -8px var(--danger);
+}
+
+.zone-glow {
+  box-shadow: 0 0 40px -10px var(--accent);
+}
+
+/* User-chosen "reduce motion" (Settings → Preferences), same effect as the OS setting. */
+:root[data-motion='reduce'] *,
+:root[data-motion='reduce'] *::before,
+:root[data-motion='reduce'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.app-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.app-sheet-pad {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (min-width: 1024px) {
+  .app-sheet-pad {
+    padding-bottom: 0;
+  }
 }

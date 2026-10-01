@@ -25,19 +25,19 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
       <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-foreground-soft">
         {label}
       </label>
-      <div className="relative">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">{icon}</span>
+      <div className="group relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted transition-colors duration-200 group-focus-within:text-accent">{icon}</span>
         <input
           id={id}
           type={inputType}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full rounded-xl border bg-surface-elevated py-2.5 pl-9 text-sm text-foreground outline-none transition focus:ring-2 ${
+          className={`w-full rounded-xl border bg-surface-elevated py-2.5 pl-9 text-sm text-foreground outline-none placeholder:text-muted/60 hover:border-border-strong focus-glow ${
             isPassword ? 'pr-9' : 'pr-3'
           } ${
             error
-              ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
-              : 'border-border focus:border-accent focus:ring-accent/20'
+              ? 'anim-shake border-danger/70'
+              : 'border-border'
           }`}
           {...rest}
         />
@@ -53,7 +53,7 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
         )}
       </div>
       {error && (
-        <p id={`${id}-error`} className="mt-1.5 text-xs text-danger">
+        <p id={`${id}-error`} className="anim-rise mt-1.5 text-xs text-danger">
           {error}
         </p>
       )}

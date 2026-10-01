@@ -74,6 +74,7 @@ export default function ActivityPage() {
   return (
     <div>
       <PageHeader
+        icon={Activity}
         eyebrow="Audit trail"
         title="Activity"
         description="A full audit trail of everything that happens in your library."
@@ -106,9 +107,13 @@ export default function ActivityPage() {
             <section key={group.key} aria-label={group.label}>
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">{group.label}</h2>
               {/* The vertical rule is the timeline; each icon sits on it. */}
-              <ol className="relative ml-4 space-y-1 border-l border-border pl-6">
-                {group.items.map((log) => (
-                  <li key={log._id} className="relative rounded-xl px-3 py-2.5 transition-colors hover:bg-surface">
+              <ol className="relative ml-4 space-y-1 border-l border-border-strong pl-6">
+                {group.items.map((log, logIndex) => (
+                  <li
+                    key={log._id}
+                    style={{ ['--i' as string]: logIndex } as React.CSSProperties}
+                    className="anim-rise relative rounded-xl px-3 py-2.5 transition-colors hover:bg-surface"
+                  >
                     <span className="absolute -left-[41px] top-2.5 flex h-8 w-8 items-center justify-center rounded-full border border-border-strong bg-surface-elevated text-accent shadow-card">
                       <ActivityIcon action={log.action} className="h-3.5 w-3.5" />
                     </span>

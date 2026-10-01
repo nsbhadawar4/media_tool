@@ -54,9 +54,9 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-sm bg-surface-elevated p-6 shadow-pop sm:p-8">
+    <Card className="gradient-border surface-glass anim-rise-scale w-full max-w-sm !bg-surface-elevated/70 p-6 shadow-pop sm:p-8">
       <div className="flex flex-col items-center text-center">
-        <Logo className="h-14 w-14" />
+        <Logo className="anim-logo logo-glow h-14 w-14" />
         <h1 className="mt-4 text-xl font-semibold text-foreground">
           {isAdminVariant ? 'Admin sign in' : 'Welcome back'}
         </h1>
@@ -117,7 +117,7 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-2 inline-flex items-center justify-center gap-2 btn-primary rounded-xl px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? 'Signing in…' : 'Sign in'}

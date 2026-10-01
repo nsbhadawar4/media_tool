@@ -68,10 +68,12 @@ export function OtpInput({ length = 4, value, onChange, error, disabled }: OtpIn
           onPaste={handlePaste}
           aria-label={`Digit ${index + 1} of ${length}`}
           className={cn(
-            'h-14 w-12 rounded-xl border bg-surface text-center text-xl font-semibold text-foreground outline-none transition focus:ring-2 sm:w-14',
+            'focus-glow h-14 w-12 rounded-xl border bg-surface-elevated text-center text-xl font-semibold text-foreground outline-none transition-transform duration-200 focus:scale-105 sm:w-14',
             error
-              ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
-              : 'border-border focus:border-accent focus:ring-accent/20',
+              ? 'anim-shake border-danger/70'
+              : digit
+                ? 'border-accent/60 bg-accent/5'
+                : 'border-border hover:border-border-strong',
             disabled && 'cursor-not-allowed opacity-60',
           )}
         />

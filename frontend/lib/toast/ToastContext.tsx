@@ -10,6 +10,7 @@ interface Toast {
   id: string;
   message: string;
   variant: ToastVariant;
+  closing?: boolean;
 }
 
 interface ToastContextValue {
@@ -30,8 +31,10 @@ const VARIANT_STYLES: Record<ToastVariant, { icon: typeof CheckCircle2; classNam
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // Two steps so the exit animation can play: mark as closing, then remove.
   const dismiss = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, closing: true } : t)));
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 240);
   }, []);
 
   const showToast = useCallback(
@@ -71,8 +74,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={toast.id}
+              data-state={toast.closing ? 'closed' : 'open'}
               className={cn(
-                'animate-slide-up pointer-events-auto flex items-start gap-2.5 rounded-xl border bg-surface-elevated px-4 py-3 shadow-pop',
+                'pres-toast pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-xl border bg-surface-elevated/95 px-4 py-3 shadow-pop backdrop-blur-md',
                 className,
               )}
             >

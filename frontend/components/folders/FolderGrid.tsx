@@ -26,7 +26,7 @@ interface FolderGridProps {
  * would only delay the thing being waited for.
  */
 export const FOLDER_GRID_CLASSES =
-  'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
+  'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 2xl:grid-cols-5';
 
 export function FolderGrid({
   folders,
@@ -49,10 +49,11 @@ export function FolderGrid({
   }
 
   return (
-    <div className={`${FOLDER_GRID_CLASSES} app-content-enter`}>
-      {folders.map((folder) => (
+    <div className={FOLDER_GRID_CLASSES}>
+      {folders.map((folder, index) => (
         <FolderCard
           key={folder._id}
+          index={index}
           folder={folder}
           onRename={onRename}
           onMove={onMove}

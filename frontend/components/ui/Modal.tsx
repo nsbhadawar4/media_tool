@@ -4,6 +4,7 @@ import { useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useDialogBehavior } from '@/hooks/useDialogBehavior';
+import { usePresence } from '@/hooks/usePresence';
 import { cn } from '@/utils/cn';
 
 interface ModalProps {
@@ -32,8 +33,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
   const titleId = useId();
 
   useDialogBehavior(isOpen, dialogRef, onClose);
+  // Stays mounted for the exit animation; `state` drives the enter/exit keyframes.
+  const { mounted, state } = usePresence(isOpen, 220);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!mounted || typeof document === 'undefined') return null;
 
   // ConfirmDialog and friends pass neither a title nor a close button, so no header row
   // renders and the body has to supply the full top padding itself.
@@ -41,15 +44,16 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 lg:items-center lg:p-4">
-      <div className="animate-fade-in absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+      <div data-state={state} className="pres-backdrop absolute inset-0 bg-black/65 backdrop-blur-md" onClick={onClose} />
       <div
         ref={dialogRef}
+        data-state={state}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         className={cn(
-          'app-modal-anim focus-ring-custom relative flex w-full flex-col border-border-strong bg-surface-elevated shadow-pop outline-none',
+          'pres-modal focus-ring-custom relative flex w-full flex-col gradient-border border-border-strong bg-surface-elevated shadow-pop outline-none',
           // A sheet is attached to the bottom edge, so it is rounded and bordered along its
           // top only; the centred dialog keeps all four sides.
           'rounded-t-3xl border-t lg:rounded-2xl lg:border',
@@ -57,7 +61,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
           // sheet stops short of the top so the page behind stays visible as context.
           'max-h-[88dvh] lg:max-h-[calc(100dvh-2rem)]',
           // Clears the home indicator when the sheet is flush with the bottom of the screen.
-          'pb-[env(safe-area-inset-bottom,0px)] lg:pb-0',
+          'app-sheet-pad',
           SIZE_CLASSES[size],
         )}
       >

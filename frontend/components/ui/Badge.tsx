@@ -39,11 +39,20 @@ export function Badge({
 
 export function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover">
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(value)}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover"
+    >
       <div
-        className="h-full rounded-full bg-accent transition-all duration-200"
+        className="relative h-full overflow-hidden rounded-full bg-linear-to-r from-accent to-accent-2 transition-[width] duration-300 ease-out"
         style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-      />
+      >
+        {/* The sheen only runs while the transfer is still going. */}
+        {value < 100 && <span className="progress-live absolute inset-0" />}
+      </div>
     </div>
   );
 }

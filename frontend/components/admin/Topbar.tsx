@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, LogOut, Moon, Search, Settings, Sun, User } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -11,7 +11,14 @@ import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Avatar } from '@/components/ui/Avatar';
 import { GlobalSearchModal } from './GlobalSearchModal';
 
-export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
+export function Topbar({
+  variant = 'user',
+  onOpenNav,
+}: {
+  variant?: 'user' | 'admin';
+  /** Opens the mobile navigation drawer; the button only shows below `lg`. */
+  onOpenNav?: () => void;
+}) {
   const { resolvedTheme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -53,11 +60,21 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
         installed and running edge to edge under `viewport-fit=cover`. In a browser and on
         every desktop the inset is 0, so the bar is the same 64px it always was.
       */}
-      <header className="surface-glass app-no-select sticky top-0 z-30 shrink-0 border-b border-border pt-[env(safe-area-inset-top,0px)]">
-        <div className="flex h-16 items-center gap-2 px-4 sm:gap-3 sm:px-6">
+      <header className="surface-glass app-no-select sticky top-0 z-30 shrink-0 border-b border-border app-safe-top">
+        <div className="flex h-[68px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
           {/* Brand, below `lg` only — from `lg` up the sidebar already carries it, and the
               hamburger that used to sit here is gone now that navigation lives at the bottom. */}
-          <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2 lg:hidden">
+            {onOpenNav && (
+              <button
+                type="button"
+                onClick={onOpenNav}
+                aria-label="Open navigation"
+                className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-foreground-soft transition active:scale-90 active:bg-surface-hover"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
             <Logo className="h-8 w-8 shrink-0" />
             <span className="truncate text-sm font-semibold text-foreground">
               media_tool
@@ -69,9 +86,9 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            className="hidden h-10 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-border bg-background/60 px-3.5 text-sm text-muted shadow-card transition duration-150 hover:border-border-strong hover:text-foreground focus-visible:border-accent sm:max-w-md lg:flex"
+            className="focus-glow group hidden h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-background/50 px-4 text-sm text-muted shadow-card transition duration-200 hover:border-border-strong hover:bg-background/80 hover:text-foreground focus-visible:border-accent sm:max-w-lg lg:flex"
           >
-            <Search className="h-4 w-4 shrink-0" />
+            <Search className="h-4 w-4 shrink-0 transition-colors group-hover:text-accent-2" />
             <span className="truncate">Search your library…</span>
             <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong bg-surface-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
               {isMac ? '⌘' : 'Ctrl '}K
@@ -93,7 +110,7 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
             <button
               type="button"
               onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-surface-hover hover:text-foreground lg:h-9 lg:w-9"
+              className="group flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-surface-hover hover:text-foreground active:scale-90 lg:h-9 lg:w-9"
               aria-label="Toggle light and dark theme"
               data-tooltip="Toggle theme"
             >
@@ -102,8 +119,8 @@ export function Topbar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
                 attribute the pre-paint script sets. Choosing in JS would either mismatch
                 during hydration or flash the wrong icon until the theme effect runs.
               */}
-              <Sun className="theme-icon-dark h-4 w-4" aria-hidden />
-              <Moon className="theme-icon-light h-4 w-4" aria-hidden />
+              <Sun className="theme-icon-dark h-4 w-4 transition-transform duration-500 group-hover:rotate-90" aria-hidden />
+              <Moon className="theme-icon-light h-4 w-4 transition-transform duration-500 group-hover:-rotate-12" aria-hidden />
             </button>
 
             {/*

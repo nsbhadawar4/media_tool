@@ -1,49 +1,74 @@
+import type { CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { cn } from '@/utils/cn';
 
 interface StatCardProps {
   icon: LucideIcon;
   label: string;
   value: string;
+  /** One line under the label, saying what the number counts. */
+  hint?: string;
+  /** Colour for the icon and the corner tint. Defaults to the accent. */
+  color?: string;
+  /** Named colour, for callers that just want an intent. `color` wins when both are given. */
   accent?: 'accent' | 'success' | 'warning' | 'danger';
+  /** Position in the row, for the staggered entrance. */
+  index?: number;
 }
 
-const ACCENT_CLASSES = {
-  accent: 'bg-accent/10 text-accent',
-  success: 'bg-success/10 text-success',
-  warning: 'bg-warning/10 text-warning',
-  danger: 'bg-danger/10 text-danger',
+/**
+ * A single headline figure. Quiet by design — a small tinted icon, a large tabular number,
+ * a faint corner wash in the figure's colour — but alive on hover: the card lifts, its
+ * border brightens, and the icon pops.
+ */
+const ACCENT_COLORS = {
+  accent: 'var(--accent)',
+  success: 'var(--success)',
+  warning: 'var(--warning)',
+  danger: 'var(--danger)',
 } as const;
 
-/**
- * Stacked rather than icon-beside-text: six of these across a desktop row leaves each one
- * too narrow for a side-by-side layout, and values like "18.4 MB" were being truncated.
- * Quiet on purpose — a small tinted icon and a tabular number, not a coloured block.
- */
-export function StatCard({ icon: Icon, label, value, accent = 'accent' }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, hint, accent = 'accent', color, index = 0 }: StatCardProps) {
+  color = color ?? ACCENT_COLORS[accent];
+  const style = { '--tile': color, '--i': index } as CSSProperties;
   return (
-    <Card className="flex flex-col gap-4 p-4 transition-colors duration-150 hover:border-border-strong">
-      <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', ACCENT_CLASSES[accent])}>
-        <Icon className="h-4 w-4" />
+    <div
+      style={style}
+      className="stat-tile card-interactive anim-rise-scale group relative overflow-hidden rounded-2xl border border-border bg-surface p-4"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div
+          className="stat-icon flex h-9 w-9 items-center justify-center rounded-xl border"
+          style={{
+            color,
+            backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+            borderColor: `color-mix(in srgb, ${color} 28%, transparent)`,
+          }}
+        >
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} />
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-2xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
-        <p className="mt-0.5 truncate text-xs text-muted">{label}</p>
+      <div className="mt-5 min-w-0">
+        <p className="truncate text-[28px] font-semibold leading-none tabular-nums tracking-tight text-foreground">
+          {value}
+        </p>
+        <p className="mt-2 truncate text-[13px] font-medium text-foreground-soft">{label}</p>
+        {hint && <p className={cn('truncate text-xs text-subtle')}>{hint}</p>}
       </div>
-    </Card>
+    </div>
   );
 }
 
 /** Matches StatCard's geometry exactly, so the grid doesn't shift when data arrives. */
 export function StatCardSkeleton() {
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <div className="h-8 w-8 animate-pulse rounded-lg bg-surface-hover" />
-      <div className="space-y-2">
-        <div className="h-7 w-16 animate-pulse rounded bg-surface-hover" />
-        <div className="h-3 w-20 animate-pulse rounded bg-surface-hover" />
+    <div className="rounded-2xl border border-border bg-surface p-4" role="status" aria-label="Loading">
+      <div className="h-9 w-9 animate-pulse rounded-xl bg-surface-hover" />
+      <div className="mt-5 space-y-2">
+        <div className="h-7 w-20 animate-pulse rounded bg-surface-hover" />
+        <div className="h-3.5 w-16 animate-pulse rounded bg-surface-hover" />
+        <div className="h-3 w-24 animate-pulse rounded bg-surface-hover" />
       </div>
-    </Card>
+    </div>
   );
 }

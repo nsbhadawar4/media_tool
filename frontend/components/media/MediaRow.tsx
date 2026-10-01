@@ -77,7 +77,7 @@ export function MediaRow({
               : 'border-border-strong text-transparent hover:border-accent',
           )}
         >
-          <Check className="h-3 w-3" strokeWidth={3} />
+          <Check className={cn('h-3 w-3 transition-transform duration-200 ease-[var(--ease-spring)]', isSelected ? 'scale-100' : 'scale-0')} strokeWidth={3} />
         </button>
       )}
 

@@ -3,6 +3,7 @@
 import { useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useDialogBehavior } from '@/hooks/useDialogBehavior';
+import { usePresence } from '@/hooks/usePresence';
 import { cn } from '@/utils/cn';
 
 interface BottomSheetProps {
@@ -34,8 +35,9 @@ export function BottomSheet({ isOpen, onClose, title, children, className }: Bot
   const isDragging = drag !== null;
 
   useDialogBehavior(isOpen, sheetRef, onClose);
+  const { mounted, state } = usePresence(isOpen, 240);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!mounted || typeof document === 'undefined') return null;
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     setDrag({ startY: event.clientY, offset: 0 });
@@ -61,24 +63,26 @@ export function BottomSheet({ isOpen, onClose, title, children, className }: Bot
     // Above the dropdown layer (z-70): a sheet can be opened from a menu.
     <div className="fixed inset-0 z-80 flex items-end justify-center">
       <div
-        className="animate-fade-in absolute inset-0 bg-black/55 backdrop-blur-[2px]"
+        data-state={state}
+        className="pres-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
       <div
         ref={sheetRef}
+        data-state={state}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         style={{ transform: drag && drag.offset > 0 ? `translateY(${drag.offset}px)` : undefined }}
         className={cn(
-          'focus-ring-custom relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl border-t border-border bg-surface shadow-2xl outline-none',
+          'focus-ring-custom relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl border-t border-border-strong bg-surface-elevated shadow-pop outline-none',
           // Keeps the last row clear of the home indicator.
-          'pb-[env(safe-area-inset-bottom,0px)]',
+          'app-safe-bottom',
           // The entry animation would fight the drag transform, and the snap-back needs a
           // transition that must not be running while the finger is still down.
-          isDragging ? 'transition-none' : 'animate-sheet-up transition-transform duration-200',
+          isDragging ? 'transition-none' : 'pres-sheet transition-transform duration-200',
           className,
         )}
       >

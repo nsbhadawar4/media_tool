@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FolderPlus } from 'lucide-react';
+import { FolderClosed, FolderPlus } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid';
@@ -32,6 +32,7 @@ export default function FoldersPage() {
   return (
     <div>
       <PageHeader
+        icon={FolderClosed}
         title="Folders"
         eyebrow={!isLoading && !isError ? `${folders.length} ${folders.length === 1 ? 'folder' : 'folders'}` : undefined}
         description="Organize your library the way you like — folders can be nested as deep as you need."

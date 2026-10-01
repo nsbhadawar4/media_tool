@@ -64,14 +64,14 @@ export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressP
   return (
     <div
       className={cn(
-        'animate-slide-up fixed left-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border-strong bg-surface-elevated shadow-pop transition-[bottom] duration-200 sm:left-6 sm:w-full sm:max-w-sm',
+        'anim-rise-scale fixed left-4 z-50 w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-border-strong bg-surface-elevated shadow-pop transition-[bottom] duration-200 sm:left-6 sm:w-full sm:max-w-sm',
         // The dock classes fold the home-indicator inset and the tab bar's height into
         // `bottom`, so the panel clears both instead of sitting under the tab bar.
         isRaised ? 'app-dock-raised' : 'app-dock',
       )}
     >
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <Upload className="h-4 w-4 shrink-0 text-muted" />
+        <Upload className={`h-4 w-4 shrink-0 ${uploadingCount > 0 ? "animate-bounce text-accent-2" : "text-muted"}`} />
         <p className="flex-1 text-sm font-medium text-foreground">
           {uploadingCount > 0
             ? `Uploading ${uploadingCount} file${uploadingCount === 1 ? '' : 's'}…`
@@ -100,7 +100,7 @@ export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressP
       {!isCollapsed && (
         <div className="max-h-80 overflow-y-auto px-4 py-2">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 py-2.5">
+            <div key={item.id} className="anim-rise flex items-center gap-3 py-2.5">
               <UploadThumb item={item} />
 
               <div className="min-w-0 flex-1">
@@ -140,7 +140,7 @@ export function UploadProgressPanel({ queue, isRaised = false }: UploadProgressP
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {item.status === 'done' && <CheckCircle2 className="h-4 w-4 text-success" />}
+                {item.status === 'done' && <CheckCircle2 className="anim-pop h-4 w-4 text-success" />}
                 {(item.status === 'error' || item.status === 'cancelled') && (
                   <>
                     <button

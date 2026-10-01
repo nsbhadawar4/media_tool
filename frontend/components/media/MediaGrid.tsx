@@ -41,7 +41,7 @@ interface MediaGridProps {
  * would only delay the thing being waited for.
  */
 export const MEDIA_GRID_CLASSES =
-  'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
+  'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
 
 export function MediaGrid({
   media,
@@ -113,12 +113,12 @@ export function MediaGrid({
   }
 
   return (
-    <div className={`${MEDIA_GRID_CLASSES} app-content-enter`}>
-      {media.map((item) =>
+    <div className={MEDIA_GRID_CLASSES}>
+      {media.map((item, index) =>
         documentsOnly ? (
-          <DocumentCard key={item.id} {...shared(item)} />
+          <DocumentCard key={item.id} {...shared(item)} index={index} />
         ) : (
-          <MediaCard key={item.id} {...shared(item)} onSetCover={onSetCover} />
+          <MediaCard key={item.id} {...shared(item)} onSetCover={onSetCover} index={index} />
         ),
       )}
     </div>

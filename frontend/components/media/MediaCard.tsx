@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEvent } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { Check, Download, Eye, FolderInput, ImagePlus, PencilLine, Play, Trash2 } from 'lucide-react';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Badge } from '@/components/ui/Badge';
@@ -23,6 +23,8 @@ interface MediaCardProps {
   onToggleSelect?: (id: string, extendRange: boolean) => void;
   /** True once anything is selected: checkboxes stay visible and a plain click selects rather than previews. */
   isSelectionActive?: boolean;
+  /** Position in the grid, for the staggered entrance. */
+  index?: number;
 }
 
 export function MediaCard({
@@ -35,6 +37,7 @@ export function MediaCard({
   isSelected = false,
   onToggleSelect,
   isSelectionActive = false,
+  index = 0,
 }: MediaCardProps) {
   const isSelectable = Boolean(onToggleSelect);
   const duration = formatDuration(media.duration);
@@ -52,8 +55,9 @@ export function MediaCard({
 
   return (
     <div
+      style={{ '--i': index } as CSSProperties}
       className={cn(
-        'card-interactive group relative flex flex-col overflow-hidden rounded-2xl border bg-surface',
+        'anim-rise-scale card-interactive group relative flex flex-col overflow-hidden rounded-2xl border bg-surface',
         isSelected
           ? 'border-accent ring-2 ring-accent/30'
           : 'border-border',
@@ -119,13 +123,13 @@ export function MediaCard({
                 : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100',
             )}
           >
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            <Check className={cn('h-3.5 w-3.5 transition-transform duration-200 ease-[var(--ease-spring)]', isSelected ? 'scale-100' : 'scale-0')} strokeWidth={3} />
           </button>
         )}
 
         <div
           className={cn(
-            'absolute right-2 top-2 z-30 transition-opacity duration-150',
+            'absolute right-2 top-2 z-30 transition-all duration-200 lg:translate-y-1 lg:group-hover:translate-y-0',
             // Hidden mid-selection: per-item actions do not apply when acting on a group.
             isSelectionActive
               ? 'pointer-events-none opacity-0'

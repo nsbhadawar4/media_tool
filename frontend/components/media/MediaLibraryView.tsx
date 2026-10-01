@@ -14,6 +14,7 @@ import { MediaGrid, MediaGridSkeleton, type MediaView } from './MediaGrid';
 import { MediaFilters } from './MediaFilters';
 import { BulkActionBar } from './BulkActionBar';
 import { UploadButton } from './UploadButton';
+import { UploadZone } from './UploadZone';
 import { checkBatch, labelFor, type UploadCategory } from '@/utils/uploadAccept';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderPickerModal } from '@/components/modals/FolderPickerModal';
@@ -77,7 +78,7 @@ export function MediaLibraryView({
   const [isDragOver, setIsDragOver] = useState(false);
 
   const documentsOnly = fixedFileType === 'document';
-  const [view, setView] = useState<MediaView>(documentsOnly ? 'list' : 'grid');
+  const [view, setView] = useState<MediaView>('grid');
 
   // Restored after mount, not during render: localStorage does not exist on the server, and
   // reading it in the initial state would make the first client render differ from the HTML.
@@ -410,10 +411,11 @@ export function MediaLibraryView({
             // prompt — clearing the search is the way out of that one.
             emptyAction={
               searchInput ? undefined : (
-                <UploadButton
+                <UploadZone
                   onFilesSelected={handleFilesSelected}
                   uploadCategory={activeUploadCategory}
-                  label="Upload media"
+                  title={documentsOnly ? 'Drop documents here' : 'Drop photos & videos here'}
+                  hint="or click to browse your device"
                 />
               )
             }

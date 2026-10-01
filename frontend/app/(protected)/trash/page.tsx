@@ -205,6 +205,7 @@ export default function TrashPage() {
   return (
     <div>
       <PageHeader
+        icon={Trash2}
         title="Trash"
         description="Deleted items stay here until you remove them by hand. Nothing is erased from storage on its own."
       />

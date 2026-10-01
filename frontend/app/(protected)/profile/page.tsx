@@ -115,15 +115,15 @@ function IdentityHeader({
 
   return (
     <>
-      <section className="overflow-hidden rounded-3xl border border-border bg-surface shadow-sm">
+      <section className="gradient-border overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
         <div className="h-24 bg-linear-to-r from-accent/25 via-accent/10 to-transparent sm:h-28" />
 
         <div className="px-5 pb-5 sm:px-7 sm:pb-6">
           {/* Pulled up over the band so the avatar straddles it, which is what makes the
             header read as one object rather than a stripe with a card under it. */}
           <div className="-mt-11 flex flex-wrap items-end gap-4 sm:-mt-12">
-            <div className="relative shrink-0">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-accent text-xl font-semibold text-accent-foreground shadow-md sm:h-24 sm:w-24 sm:text-2xl">
+            <div className="group/avatar relative shrink-0">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-surface bg-accent text-xl font-semibold text-accent-foreground shadow-pop ring-1 ring-accent/40 transition-transform duration-300 ease-out group-hover/avatar:scale-105 sm:h-24 sm:w-24 sm:text-2xl">
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a small data URL, nothing to optimise
                   <img src={user.avatarUrl} alt={user.name} className="h-full w-full object-cover" />
@@ -136,15 +136,18 @@ function IdentityHeader({
                   </span>
                 )}
               </div>
+              {/* The whole circle is the button; the camera overlay fades in on hover or focus. */}
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
                 disabled={isBusy}
                 aria-label="Change profile photo"
-                title="Change profile photo"
-                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-surface-hover text-foreground shadow-sm transition hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-[2px] transition-opacity duration-200 focus-visible:opacity-100 group-hover/avatar:opacity-100 disabled:opacity-0"
               >
-                <Camera className="h-4 w-4" />
+                <span className="flex flex-col items-center gap-0.5 text-[10px] font-medium uppercase tracking-wider">
+                  <Camera className="h-5 w-5" />
+                  Change
+                </span>
               </button>
               <input
                 ref={inputRef}

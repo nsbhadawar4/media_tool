@@ -8,13 +8,13 @@ import {
   FolderClosed,
   FolderPlus,
   ArrowUpRight,
+  Layers,
   HardDrive,
   Image as ImageIcon,
   FileText,
   Trash2,
   Video,
 } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState, InlineErrorState } from '@/components/ui/ErrorState';
@@ -25,6 +25,7 @@ import { UploadButton } from '@/components/media/UploadButton';
 import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid';
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
+import { FadeUp } from '@/components/ui/motion';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useUploads } from '@/lib/upload/UploadContext';
@@ -70,21 +71,32 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <PageHeader
-        eyebrow="Overview"
-        title={user?.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard'}
-        description="Here is what is happening in your private library."
-        actions={
-          <>
+      <section className="gradient-border relative mb-6 overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-card sm:mb-8 sm:p-8">
+        {/* Aurora wash: two soft accent blobs, static, clipped to the card. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_120%_at_100%_0%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_60%),radial-gradient(40%_90%_at_0%_100%,color-mix(in_srgb,var(--accent-2)_12%,transparent),transparent_70%)]"
+        />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-2">Overview</p>
+            <h1 className="bg-linear-to-b from-foreground to-foreground/85 bg-clip-text text-3xl font-semibold leading-tight tracking-tight text-transparent sm:text-[40px]">
+              {user?.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Dashboard'}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-muted sm:text-[15px]">
+              Here is what is happening in your private library — everything you have stored, in one place.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Button variant="secondary" onClick={() => crud.setIsCreateOpen(true)}>
               <FolderPlus className="h-4 w-4" />
               <span className="hidden sm:inline">Create folder</span>
               <span className="sm:hidden">Folder</span>
             </Button>
-            <UploadButton onFilesSelected={(files) => addFiles(files, null)} label="Upload" />
-          </>
-        }
-      />
+            <UploadButton onFilesSelected={(files) => addFiles(files, null)} label="Upload files" />
+          </div>
+        </div>
+      </section>
 
       {statsQuery.isError ? (
         <ErrorState error={statsQuery.error} onRetry={() => statsQuery.refetch()} subject="your library stats" />
@@ -101,19 +113,60 @@ export default function DashboardPage() {
             Array.from({ length: 6 }).map((_, index) => <StatCardSkeleton key={index} />)
           ) : (
             <>
-              <StatCard icon={FolderClosed} label="Folders" value={String(stats.data.totalFolders)} />
-              <StatCard icon={ImageIcon} label="Images" value={String(stats.data.totalImages)} accent="success" />
-              <StatCard icon={Video} label="Videos" value={String(stats.data.totalVideos)} accent="warning" />
-              <StatCard icon={FileText} label="Documents" value={String(stats.data.totalDocuments)} />
-              <StatCard icon={HardDrive} label="Storage used" value={formatBytes(stats.data.storageUsedBytes)} />
-              <StatCard icon={Trash2} label="In trash" value={String(stats.data.trashItems)} accent="danger" />
+              <StatCard
+                index={0}
+                icon={Layers}
+                label="Total files"
+                value={String(stats.data.totalImages + stats.data.totalVideos + stats.data.totalDocuments)}
+                hint="Across your library"
+              />
+              <StatCard
+                index={1}
+                icon={ImageIcon}
+                label="Images"
+                value={String(stats.data.totalImages)}
+                hint="Photos & graphics"
+                color="#38bdf8"
+              />
+              <StatCard
+                index={2}
+                icon={Video}
+                label="Videos"
+                value={String(stats.data.totalVideos)}
+                hint="Clips & recordings"
+                color="#fbbf24"
+              />
+              <StatCard
+                index={3}
+                icon={FileText}
+                label="Documents"
+                value={String(stats.data.totalDocuments)}
+                hint="PDF, Word, Excel, text"
+                color="#34d399"
+              />
+              <StatCard
+                index={4}
+                icon={FolderClosed}
+                label="Folders"
+                value={String(stats.data.totalFolders)}
+                hint="Top-level & nested"
+                color="var(--accent-2)"
+              />
+              <StatCard
+                index={5}
+                icon={HardDrive}
+                label="Storage used"
+                value={formatBytes(stats.data.storageUsedBytes)}
+                hint={stats.data.trashItems > 0 ? `${stats.data.trashItems} in trash` : 'Trash is empty'}
+                color="var(--accent)"
+              />
             </>
           )}
         </div>
       )}
 
       {stats && (
-        <div className="app-content-enter mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
+        <FadeUp index={6} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
           <StorageOverview
             usedBytes={stats.data.storageUsedBytes}
             images={stats.data.totalImages}
@@ -145,10 +198,10 @@ export default function DashboardPage() {
               ))}
             </CardBody>
           </Card>
-        </div>
+        </FadeUp>
       )}
 
-      <section className="mt-6 sm:mt-8">
+      <FadeUp as="section" index={7} className="mt-6 sm:mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Recent folders</h2>
           <Link href="/folders" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
@@ -180,9 +233,9 @@ export default function DashboardPage() {
             }
           />
         )}
-      </section>
+      </FadeUp>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
+      <FadeUp index={8} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
         <Card className="min-w-0 xl:col-span-2">
           <CardHeader>
             <h2 className="text-base font-semibold tracking-tight text-foreground">Recent uploads</h2>
@@ -289,7 +342,7 @@ export default function DashboardPage() {
             )}
           </CardBody>
         </Card>
-      </div>
+      </FadeUp>
 
       <MediaViewerModals viewer={viewer} />
       <FolderCrudModals crud={crud} />

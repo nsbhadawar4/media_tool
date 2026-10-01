@@ -49,7 +49,7 @@ export const viewport: Viewport = {
 };
 
 // Runs before first paint so a saved theme preference never flashes the wrong colors.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("media_tool_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})()`;
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("media_tool_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("media_tool_reduce_motion")==="1")document.documentElement.setAttribute("data-motion","reduce");}catch(e){}})()`;
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (

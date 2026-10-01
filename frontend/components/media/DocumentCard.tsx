@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEvent } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { Check, Download, Eye, FolderInput, PencilLine, Trash2 } from 'lucide-react';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { extensionOf, iconForDocument, toneForDocument } from '@/utils/fileIcons';
@@ -17,6 +17,8 @@ interface DocumentCardProps {
   isSelected?: boolean;
   onToggleSelect?: (id: string, extendRange: boolean) => void;
   isSelectionActive?: boolean;
+  /** Position in the grid, for the staggered entrance. */
+  index?: number;
 }
 
 /**
@@ -33,6 +35,7 @@ export function DocumentCard({
   isSelected = false,
   onToggleSelect,
   isSelectionActive = false,
+  index = 0,
 }: DocumentCardProps) {
   const isSelectable = Boolean(onToggleSelect);
   const tone = toneForDocument(media.mimeType);
@@ -50,8 +53,9 @@ export function DocumentCard({
 
   return (
     <div
+      style={{ '--i': index } as CSSProperties}
       className={cn(
-        'card-interactive group relative flex flex-col overflow-hidden rounded-2xl border bg-surface',
+        'anim-rise-scale card-interactive group relative flex flex-col overflow-hidden rounded-2xl border bg-surface',
         isSelected ? 'border-accent ring-2 ring-accent/30' : 'border-border',
       )}
     >
@@ -96,7 +100,7 @@ export function DocumentCard({
                 : 'opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100',
             )}
           >
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            <Check className={cn('h-3.5 w-3.5 transition-transform duration-200 ease-[var(--ease-spring)]', isSelected ? 'scale-100' : 'scale-0')} strokeWidth={3} />
           </button>
         )}
 

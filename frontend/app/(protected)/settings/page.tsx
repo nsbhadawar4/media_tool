@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, HardDrive, KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpRight, HardDrive, KeyRound, LogOut, Monitor, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { Tabs } from '@/components/ui/Tabs';
+import { Toggle } from '@/components/ui/Toggle';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useTheme } from '@/lib/theme/ThemeContext';
 import { useToast } from '@/lib/toast/ToastContext';
@@ -28,6 +29,7 @@ const SECTIONS = [
   { value: 'appearance', label: 'Appearance' },
   { value: 'storage', label: 'Storage' },
   { value: 'security', label: 'Security' },
+  { value: 'preferences', label: 'Preferences' },
 ] as const;
 
 type Section = (typeof SECTIONS)[number]['value'];
@@ -50,6 +52,94 @@ function SettingRow({
       </div>
       <div className="shrink-0">{children}</div>
     </div>
+  );
+}
+
+const MOTION_KEY = 'media_tool_reduce_motion';
+const VIEW_KEYS = { media: 'media_tool_view_media', documents: 'media_tool_view_documents' } as const;
+
+/** Reads a stored value without letting a blocked storage break the page. */
+function readStored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Not remembering a preference is harmless.
+  }
+}
+
+/** Device-level preferences, kept in this browser like the theme. */
+function PreferencesPanel() {
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [views, setViews] = useState<{ media: string; documents: string }>({ media: 'grid', documents: 'grid' });
+
+  // Read after mount: storage does not exist while rendering on the server.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReduceMotion(readStored(MOTION_KEY) === '1');
+    setViews({
+      media: readStored(VIEW_KEYS.media) === 'list' ? 'list' : 'grid',
+      documents: readStored(VIEW_KEYS.documents) === 'list' ? 'list' : 'grid',
+    });
+  }, []);
+
+  const changeMotion = (next: boolean) => {
+    setReduceMotion(next);
+    writeStored(MOTION_KEY, next ? '1' : '0');
+    if (next) document.documentElement.setAttribute('data-motion', 'reduce');
+    else document.documentElement.removeAttribute('data-motion');
+  };
+
+  const changeView = (kind: 'media' | 'documents', next: 'grid' | 'list') => {
+    setViews((current) => ({ ...current, [kind]: next }));
+    writeStored(VIEW_KEYS[kind], next);
+  };
+
+  const renderViewPicker = (kind: 'media' | 'documents') => (
+    <div role="radiogroup" aria-label={`${kind} layout`} className="flex rounded-xl border border-border bg-surface p-1">
+      {(['grid', 'list'] as const).map((option) => (
+        <button
+          key={option}
+          type="button"
+          role="radio"
+          aria-checked={views[kind] === option}
+          onClick={() => changeView(kind, option)}
+          className={cn(
+            'rounded-lg px-3 py-1 text-[13px] font-medium capitalize transition-colors duration-200',
+            views[kind] === option ? 'bg-surface-elevated text-foreground shadow-card' : 'text-muted hover:text-foreground',
+          )}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-base font-semibold tracking-tight text-foreground">Preferences</h2>
+        <p className="mt-0.5 text-xs text-muted">Saved in this browser only.</p>
+      </CardHeader>
+      <CardBody padded={false}>
+        <SettingRow title="Reduce motion" description="Turns off page transitions and hover animations.">
+          <Toggle checked={reduceMotion} onChange={changeMotion} label="Reduce motion" />
+        </SettingRow>
+        <SettingRow title="Media layout" description="How photos and videos are shown by default.">
+          {renderViewPicker('media')}
+        </SettingRow>
+        <SettingRow title="Documents layout" description="How documents are shown by default.">
+          {renderViewPicker('documents')}
+        </SettingRow>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -79,6 +169,7 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl">
       <PageHeader
+        icon={SlidersHorizontal}
         eyebrow="Preferences"
         title="Settings"
         description="Manage your account and how media_tool looks on this device."
@@ -188,6 +279,8 @@ export default function SettingsPage() {
             </CardBody>
           </Card>
         )}
+
+        {section === 'preferences' && <PreferencesPanel />}
 
         {section === 'security' && (
           <Card>
