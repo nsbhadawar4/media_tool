@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { RotateCcw, Shuffle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useInterval } from '@/hooks/useInterval';
 import { cn } from '@/utils/cn';
-import { GameControls } from './GameControls';
-import { GameLayout } from './GameLayout';
-import { GameResult } from './GameResult';
-import { findGame, formatClock } from './games';
+import { GameControls } from '../GameControls';
+import { GameLayout } from '../GameLayout';
+import { GameResult } from '../GameResult';
+import { SoundToggle, useGameSound } from '../useGameSound';
+import { findGame, formatClock } from '../games';
 
 const SIZE = 3;
 /** Tile numbers by square, row by row; 0 is the empty square. */
@@ -49,6 +50,9 @@ function shuffledBoard(): number[] {
 
 export default function NumberPuzzle() {
   const game = findGame('number-puzzle')!;
+  const { muted, toggleMute, play } = useGameSound();
+  // The tile that moved last keeps a soft highlight, so the eye can follow the slide.
+  const [lastMoved, setLastMoved] = useState<number | null>(null);
   const [board, setBoard] = useState<number[]>(SOLVED);
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
@@ -56,6 +60,10 @@ export default function NumberPuzzle() {
   const initial = useRef<number[]>(SOLVED);
 
   const won = hasStarted && isSolved(board);
+  useEffect(() => {
+    if (won) play('win');
+  }, [won, play]);
+
   useInterval(() => setSeconds((s) => s + 1), hasStarted && !won ? 1000 : null);
 
   const load = useCallback((next: number[]) => {
@@ -63,6 +71,7 @@ export default function NumberPuzzle() {
     setMoves(0);
     setSeconds(0);
     setHasStarted(false);
+    setLastMoved(null);
   }, []);
 
   const newGame = useCallback(() => {
@@ -88,8 +97,10 @@ export default function NumberPuzzle() {
       setBoard(next);
       setMoves((m) => m + 1);
       setHasStarted(true);
+      setLastMoved(board[index]!);
+      play('move');
     },
-    [board, won],
+    [board, won, play],
   );
 
   // Arrow keys slide the tile that is on the opposite side of the empty square.
@@ -139,6 +150,7 @@ export default function NumberPuzzle() {
             <Shuffle className="h-4 w-4" />
             New game
           </Button>
+          <SoundToggle muted={muted} onToggle={toggleMute} />
         </GameControls>
       }
     >
@@ -155,21 +167,24 @@ export default function NumberPuzzle() {
                 type="button"
                 onClick={() => move(index)}
                 aria-label={`Tile ${tile}${canMove ? ', can move' : ''}`}
-                className="puzzle-tile absolute p-1 focus-visible:outline-2 focus-visible:outline-accent"
+                className="puzzle-tile absolute touch-manipulation p-1 focus-visible:outline-2 focus-visible:outline-accent"
                 style={{
+                  '--i': tile,
                   left: `${(index % SIZE) * cell}%`,
                   top: `${Math.floor(index / SIZE) * cell}%`,
                   width: `${cell}%`,
                   height: `${cell}%`,
-                }}
+                } as CSSProperties}
               >
                 <span
                   className={cn(
-                    'flex h-full w-full items-center justify-center rounded-xl border text-3xl font-semibold tabular-nums shadow-card sm:text-4xl',
+                    'flex h-full w-full items-center justify-center rounded-xl border text-3xl font-semibold tabular-nums shadow-card transition-[box-shadow,border-color,background-color] duration-200 sm:text-4xl',
                     inPlaceNow
-                      ? 'border-accent/50 bg-linear-to-br from-accent to-accent-2 text-accent-foreground'
+                      ? 'border-sky-300/40 bg-linear-to-br from-sky-500 to-violet-500 text-white'
                       : 'border-border-strong bg-surface-elevated text-foreground',
-                    canMove && !inPlaceNow && 'hover:border-accent/60 hover:bg-surface-hover',
+                    canMove && !won && 'border-sky-300/40 shadow-[0_0_18px_-6px_#38bdf8] hover:bg-surface-hover',
+                    lastMoved === tile && !won && 'ring-2 ring-violet-400/60',
+                    won && 'np-win',
                   )}
                 >
                   {tile}

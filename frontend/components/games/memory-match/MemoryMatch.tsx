@@ -1,14 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Cloud, Flame, Gem, Heart, Moon, RotateCcw, Rocket, Star, Sun, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useInterval } from '@/hooks/useInterval';
 import { cn } from '@/utils/cn';
-import { GameControls } from './GameControls';
-import { GameLayout } from './GameLayout';
-import { GameResult } from './GameResult';
-import { findGame, formatClock } from './games';
+import { GameControls } from '../GameControls';
+import { GameLayout } from '../GameLayout';
+import { GameResult } from '../GameResult';
+import { SoundToggle, useGameSound } from '../useGameSound';
+import { findGame, formatClock } from '../games';
 
 interface Face {
   Icon: LucideIcon;
@@ -51,6 +52,9 @@ function shuffled(): CardState[] {
 
 export default function MemoryMatch() {
   const game = findGame('memory-match')!;
+  const { muted, toggleMute, play } = useGameSound();
+  // Bumped on every shuffle so the grid remounts and the cards deal in again.
+  const [deal, setDeal] = useState(0);
   const [cards, setCards] = useState<CardState[]>(ORDERED_DECK);
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
@@ -62,6 +66,10 @@ export default function MemoryMatch() {
   const pairsFound = cards.filter((c) => c.isMatched).length / 2;
   const isWon = pairsFound === FACES.length;
 
+  useEffect(() => {
+    if (isWon) play('win');
+  }, [isWon, play]);
+
   useInterval(() => setSeconds((s) => s + 1), hasStarted && !isWon ? 1000 : null);
 
   const reset = useCallback(() => {
@@ -72,6 +80,7 @@ export default function MemoryMatch() {
     setSeconds(0);
     setHasStarted(false);
     setIsLocked(false);
+    setDeal((d) => d + 1);
   }, []);
 
   // Shuffled once on mount (not during render, which would not match the server markup).
@@ -86,6 +95,7 @@ export default function MemoryMatch() {
     const card = cards[index]!;
     if (isLocked || card.isFlipped || card.isMatched || isWon) return;
     if (!hasStarted) setHasStarted(true);
+    play('flip');
 
     const open = cards.map((c, i) => (c.isFlipped && !c.isMatched ? i : -1)).filter((i) => i >= 0);
     const next = cards.map((c, i) => (i === index ? { ...c, isFlipped: true } : c));
@@ -98,6 +108,7 @@ export default function MemoryMatch() {
         // A match: mark both after a beat so the flip finishes first.
         timers.current.push(
           setTimeout(() => {
+            play('match');
             setCards((prev) => prev.map((c, i) => (i === first || i === index ? { ...c, isMatched: true } : c)));
           }, 350),
         );
@@ -128,10 +139,11 @@ export default function MemoryMatch() {
             <RotateCcw className="h-4 w-4" />
             {hasStarted ? 'Restart' : 'Shuffle'}
           </Button>
+          <SoundToggle muted={muted} onToggle={toggleMute} />
         </GameControls>
       }
     >
-      <div className="mx-auto grid w-full max-w-md grid-cols-4 gap-2.5 max-md:max-w-[min(100%,58dvh)] sm:gap-3">
+      <div key={deal} className="mx-auto grid w-full max-w-md grid-cols-4 gap-2 max-md:max-w-[min(100%,56dvh)] sm:gap-3">
         {cards.map((card, index) => {
           const { Icon, color } = FACES[card.face]!;
           const isOpen = card.isFlipped || card.isMatched;
@@ -142,20 +154,21 @@ export default function MemoryMatch() {
               onClick={() => flip(index)}
               aria-label={isOpen ? `Card ${index + 1}, shown` : `Card ${index + 1}, face down`}
               aria-pressed={isOpen}
-              className="flip-scene block aspect-square w-full rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              style={{ '--i': index } as CSSProperties}
+              className="flip-scene anim-rise-scale block aspect-square w-full touch-manipulation rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <span className="flip-inner" data-flipped={isOpen}>
                 {/* Back: the pattern a face-down card shows. */}
-                <span className="flip-face flex items-center justify-center rounded-2xl border border-border-strong bg-linear-to-br from-accent/30 to-accent/5 shadow-card transition-colors hover:from-accent/45">
-                  <span className="h-1/3 w-1/3 rounded-lg border border-accent/40 bg-accent/10" />
+                <span className="flip-face memory-back flex items-center justify-center rounded-2xl border border-white/10 shadow-card transition duration-200 hover:brightness-125">
+                  <span className="h-1/3 w-1/3 rotate-45 rounded-md border border-white/25 bg-white/10" />
                 </span>
                 {/* Front: the picture. */}
                 <span
                   className={cn(
                     'flip-face flip-front flex items-center justify-center rounded-2xl border bg-surface-elevated',
-                    card.isMatched ? 'anim-match border-success/50' : 'border-border-strong',
+                    card.isMatched ? 'anim-match border-fuchsia-400/60' : 'border-border-strong',
                   )}
-                  style={card.isMatched ? { boxShadow: '0 0 24px -8px #22c55e' } : undefined}
+                  style={card.isMatched ? { boxShadow: '0 0 26px -6px #d946ef' } : undefined}
                 >
                   <Icon className="h-1/2 w-1/2" style={{ color }} strokeWidth={1.8} />
                 </span>
@@ -171,6 +184,7 @@ export default function MemoryMatch() {
           subtitle="Every pair found."
           stats={[
             { label: 'Moves', value: moves },
+            { label: 'Pairs', value: `${pairsFound} / ${FACES.length}` },
             { label: 'Time', value: formatClock(seconds) },
           ]}
           onPlayAgain={reset}

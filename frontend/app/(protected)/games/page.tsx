@@ -42,7 +42,7 @@ export default function GamesPage() {
     <div>
       <PageHeader
         icon={Gamepad2}
-        eyebrow={`${GAMES.length} games`}
+        eyebrow={`${GAMES.length} Games`}
         title="Games"
         description="Take a quick break and play some mini games."
       />

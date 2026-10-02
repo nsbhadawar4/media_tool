@@ -27,11 +27,13 @@ const load = (importer: () => Promise<{ default: ComponentType }>) =>
   dynamic(importer, { loading: () => <GameSkeleton /> });
 
 const PLAYERS: Record<string, ComponentType> = {
-  'water-race': load(() => import('./WaterRace')),
-  'memory-match': load(() => import('./MemoryMatch')),
-  'reaction-test': load(() => import('./ReactionTest')),
-  'target-click': load(() => import('./TargetClick')),
-  'number-puzzle': load(() => import('./NumberPuzzle')),
+  'water-race': load(() => import('./water-race/WaterRace')),
+  'memory-match': load(() => import('./memory-match/MemoryMatch')),
+  'reaction-test': load(() => import('./reaction-test/ReactionTest')),
+  'target-click': load(() => import('./target-click/TargetClick')),
+  'number-puzzle': load(() => import('./number-puzzle/NumberPuzzle')),
+  snake: load(() => import('./snake/SnakeGame')),
+  ludo: load(() => import('./ludo/LudoGame')),
 };
 
 /** Picks the game for a URL slug, or says plainly that there is no such game. */
