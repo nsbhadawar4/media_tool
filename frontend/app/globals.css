@@ -1171,3 +1171,190 @@ a,
 }
 .quit-overlay { animation: quit-overlay 0.22s ease-out both; }
 .quit-panel { animation: quit-panel 0.26s var(--ease-out) both; }
+
+/* ===========================================================================
+   Ludo loading indicator (LudoLoading). Motion is transform + opacity only.
+=========================================================================== */
+.ludo-load {
+  position: relative;
+  width: 128px;
+  height: 128px;
+}
+.ludo-load-ring,
+.ludo-load-ring-inner {
+  position: absolute;
+  border-radius: 9999px;
+}
+/* Outer ring: the four Ludo colours as a thin arc, turning slowly. */
+.ludo-load-ring {
+  inset: 0;
+  background: conic-gradient(from 0deg, #f4c430, #3fae49, #e53935, #3d8fe8, #f4c430);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  opacity: 0.85;
+  animation: ludo-load-spin 1.8s linear infinite;
+}
+/* Inner ring: faint dashes turning the other way. */
+.ludo-load-ring-inner {
+  inset: 20px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  animation: ludo-load-spin 2.4s linear infinite reverse;
+}
+/* Four token dots at the corners of the ring, pulsing in turn: yellow, green, red, blue. */
+.ludo-load-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  opacity: 0.35;
+  animation: ludo-load-pulse 1.6s ease-in-out infinite;
+}
+.ludo-load-dot-y { left: 28px; top: 28px; background: #f4c430; }
+.ludo-load-dot-g { right: 28px; top: 28px; background: #3fae49; animation-delay: 0.4s; }
+.ludo-load-dot-r { right: 28px; bottom: 28px; background: #e53935; animation-delay: 0.8s; }
+.ludo-load-dot-b { left: 28px; bottom: 28px; background: #3d8fe8; animation-delay: 1.2s; }
+/* Centre: a small die. */
+.ludo-load-die {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #fff, #d9dde7);
+  display: grid;
+  place-items: center;
+  animation: ludo-load-tilt 3s ease-in-out infinite;
+}
+.ludo-load-die i {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #1d2230;
+}
+.ludo-load-text {
+  animation: ludo-load-fade 1.8s ease-in-out infinite;
+}
+@keyframes ludo-load-tilt { 0%, 100% { transform: rotate(-9deg) scale(1); } 50% { transform: rotate(9deg) scale(1.06); } }
+@keyframes ludo-load-spin { to { transform: rotate(360deg); } }
+@keyframes ludo-load-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes ludo-load-fade { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .ludo-load-ring,
+  .ludo-load-ring-inner,
+  .ludo-load-dot,
+  .ludo-load-die,
+  .ludo-load-text {
+    animation: none;
+  }
+  .ludo-load-dot,
+  .ludo-load-die { opacity: 1; }
+}
+
+/* ===========================================================================
+   Game loaders (components/games/loaders). One visual per game, same 128px box.
+   Motion is transform + opacity only. The base styles are the clean static state,
+   so reduced motion simply turns the animations off.
+=========================================================================== */
+.gl-visual { position: relative; width: 128px; height: 128px; }
+.gl-visual > * { position: absolute; }
+.gl-fadein { animation: gl-fadein 0.3s ease-out both; }
+@keyframes gl-fadein { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- Snake: a 5x5 grid, a 4-segment snake walking its edge, a pulsing food dot */
+.gl-snake-grid {
+  inset: 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.gl-snake-seg {
+  left: 13px; top: 13px; width: 18px; height: 18px; border-radius: 6px;
+  background: #10b981; opacity: 0.55;
+  animation: gl-snake-walk 4s linear infinite;
+}
+.gl-snake-seg:nth-of-type(2) { animation-delay: -0.12s; opacity: 0.7; }
+.gl-snake-seg:nth-of-type(3) { animation-delay: -0.24s; opacity: 0.85; }
+.gl-snake-seg.head { animation-delay: -0.36s; opacity: 1; background: #34d399; }
+.gl-snake-seg.head::after { content: ''; position: absolute; right: 3px; top: 4px; width: 3px; height: 3px; border-radius: 9999px; background: #052e1c; box-shadow: 0 7px 0 #052e1c; }
+@keyframes gl-snake-walk {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(88px, 0); }
+  50% { transform: translate(88px, 88px); }
+  75% { transform: translate(0, 88px); }
+  100% { transform: translate(0, 0); }
+}
+.gl-snake-food { left: 57px; top: 57px; width: 14px; height: 14px; border-radius: 9999px; background: #fb7185; animation: gl-food 1.4s ease-in-out infinite; }
+@keyframes gl-food { 0%, 100% { transform: scale(0.8); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 1; } }
+
+/* ---- Memory Match: three cards flipping in turn */
+.gl-cards { inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; perspective: 400px; }
+.gl-card { position: relative !important; width: 34px; height: 48px; transform-style: preserve-3d; animation: gl-flip 3s ease-in-out infinite; }
+.gl-card:nth-child(2) { animation-delay: 0.5s; }
+.gl-card:nth-child(3) { animation-delay: 1s; }
+.gl-card b, .gl-card i {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 8px;
+  font-style: normal; font-weight: 700; font-size: 18px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.gl-card b { background: linear-gradient(145deg, #7c3aed, #db2777); color: rgba(255, 255, 255, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); }
+.gl-card i { background: #17171d; border: 1px solid rgba(255, 255, 255, 0.16); transform: rotateY(180deg); }
+.gl-card:nth-child(1) i { color: #f43f5e; }
+.gl-card:nth-child(2) i { color: #fbbf24; }
+.gl-card:nth-child(3) i { color: #38bdf8; }
+@keyframes gl-flip { 0%, 12% { transform: rotateY(0); } 32%, 62% { transform: rotateY(180deg); } 82%, 100% { transform: rotateY(360deg); } }
+
+/* ---- Number Puzzle: eight tiles, two of them sliding into the gap in turn */
+.gl-tiles { inset: 9px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 4px; }
+.gl-tile {
+  position: relative !important; display: grid; place-items: center; border-radius: 8px; font-weight: 700; font-size: 17px; color: #fff;
+  background: linear-gradient(145deg, #3b82f6, #7c5cff); border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.gl-tile-slide-x { animation: gl-slide-x 4s ease-in-out infinite; }
+.gl-tile-slide-y { animation: gl-slide-y 4s ease-in-out infinite; }
+@keyframes gl-slide-x { 0%, 8% { transform: translateX(0); } 22%, 42% { transform: translateX(calc(100% + 4px)); } 56%, 100% { transform: translateX(0); } }
+@keyframes gl-slide-y { 0%, 58% { transform: translateY(0); } 72%, 92% { transform: translateY(calc(100% + 4px)); } 100% { transform: translateY(0); } }
+
+/* ---- Target Click: a target that drifts, with a ring pulsing out of it */
+.gl-target { inset: 0; animation: gl-target-drift 4.5s ease-in-out infinite; }
+.gl-target i { position: absolute; border-radius: 9999px; inset: 0; margin: auto; border: 2px solid #22c55e; }
+.gl-target i:nth-child(1) { width: 84px; height: 84px; opacity: 0.35; }
+.gl-target i:nth-child(2) { width: 56px; height: 56px; opacity: 0.65; border-color: #06b6d4; }
+.gl-target i:nth-child(3) { width: 28px; height: 28px; background: #22c55e; border: 0; animation: gl-target-core 1.5s ease-in-out infinite; }
+.gl-target i:nth-child(4) { width: 84px; height: 84px; opacity: 0; animation: gl-target-ring 1.5s ease-out infinite; }
+@keyframes gl-target-drift { 0%, 100% { transform: translate(-12px, 6px); } 33% { transform: translate(10px, -10px); } 66% { transform: translate(6px, 12px); } }
+@keyframes gl-target-core { 0%, 100% { transform: scale(0.85); } 50% { transform: scale(1.05); } }
+@keyframes gl-target-ring { from { transform: scale(0.5); opacity: 0.7; } to { transform: scale(1.25); opacity: 0; } }
+
+/* ---- Reaction Test: one light easing READY -> WAIT -> GO with slow fades, never flashing */
+.gl-light { inset: 0; display: grid; place-items: center; }
+.gl-light-core { position: absolute !important; width: 76px; height: 76px; border-radius: 9999px; }
+.gl-light-core.r { background: radial-gradient(circle at 35% 30%, #fca5a5, #ef4444 55%, #7f1d1d); animation: gl-state-a 6s ease-in-out infinite; }
+.gl-light-core.a { background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b 55%, #78350f); opacity: 0; animation: gl-state-b 6s ease-in-out infinite; }
+.gl-light-core.g { background: radial-gradient(circle at 35% 30%, #bbf7d0, #22c55e 55%, #14532d); opacity: 0; animation: gl-state-c 6s ease-in-out infinite; }
+.gl-light-ring { position: absolute !important; width: 76px; height: 76px; border-radius: 9999px; border: 2px solid rgba(255, 255, 255, 0.35); animation: gl-light-ring 2s ease-out infinite; }
+.gl-light-text { position: absolute !important; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: 0.22em; color: rgba(255, 255, 255, 0.8); opacity: 0; }
+.gl-light-text.r { opacity: 1; animation: gl-state-a 6s ease-in-out infinite; }
+.gl-light-text.a { animation: gl-state-b 6s ease-in-out infinite; }
+.gl-light-text.g { animation: gl-state-c 6s ease-in-out infinite; }
+@keyframes gl-state-a { 0%, 28% { opacity: 1; } 38%, 94% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes gl-state-b { 0%, 28% { opacity: 0; } 38%, 62% { opacity: 1; } 72%, 100% { opacity: 0; } }
+@keyframes gl-state-c { 0%, 62% { opacity: 0; } 72%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes gl-light-ring { from { transform: scale(1); opacity: 0.5; } to { transform: scale(1.45); opacity: 0; } }
+
+/* ---- Water Race: two buckets filling against each other */
+.gl-buckets { inset: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
+.gl-bucket { position: relative !important; width: 44px; height: 64px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.35); border-top: 0; border-radius: 4px 4px 14px 14px; background: rgba(255, 255, 255, 0.04); }
+.gl-water { position: absolute !important; inset: 0; transform-origin: bottom; transform: scaleY(0.6); animation: gl-fill 3s ease-in-out infinite; }
+.gl-bucket.a .gl-water { background: linear-gradient(180deg, #38bdf8, #0369a1); }
+.gl-bucket.b .gl-water { background: linear-gradient(180deg, #a78bfa, #5b21b6); animation-delay: -1.5s; }
+.gl-drop { position: absolute !important; top: 18px; width: 5px; height: 7px; border-radius: 9999px; animation: gl-drip 1.5s ease-in infinite; opacity: 0; }
+.gl-drop.a { left: 30px; background: #38bdf8; }
+.gl-drop.b { right: 30px; background: #a78bfa; animation-delay: -0.7s; }
+@keyframes gl-fill { 0%, 100% { transform: scaleY(0.2); } 50% { transform: scaleY(0.85); } }
+@keyframes gl-drip { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 0.9; } 100% { transform: translateY(26px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-visual *, .gl-visual *::before, .gl-visual *::after, .gl-fadein { animation: none !important; }
+  .gl-card { transform: rotateY(180deg); }
+}

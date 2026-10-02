@@ -60,7 +60,7 @@ function GameFrame({ game, stats, children, controls, hasExit }: Omit<GameFullsc
   const [c1, c2] = game.colors;
 
   return (
-    <div className="game-screen max-md:fixed max-md:inset-0 max-md:z-40 max-md:flex max-md:flex-col max-md:overflow-x-hidden max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background md:mx-auto md:w-full md:max-w-4xl">
+    <div className="game-screen gl-fadein max-md:fixed max-md:inset-0 max-md:z-40 max-md:flex max-md:flex-col max-md:overflow-x-hidden max-md:overflow-y-auto max-md:overscroll-contain max-md:bg-background md:mx-auto md:w-full md:max-w-4xl">
       {/* Phone only: a wash of the game's own colour at the top of the screen. */}
       <div
         aria-hidden

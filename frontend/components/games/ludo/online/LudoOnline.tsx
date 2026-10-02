@@ -8,6 +8,7 @@ import { GameControls } from '../../GameControls';
 import { GameLayout } from '../../GameLayout';
 import { findGame } from '../../games';
 import { SoundToggle, useGameSound } from '../../useGameSound';
+import { GameLoading } from '../../shared/GameLoading';
 import { LudoRules } from '../LudoRules';
 import { LUDO_CSS } from '../ludoStyles';
 import { ConnectionBadge } from './ConnectionBadge';
@@ -111,10 +112,9 @@ export function LudoOnline({ onMenu }: { onMenu: () => void }) {
 
       {!room ? (
         resuming ? (
-          <div className="mx-auto flex min-h-[260px] w-full max-w-sm flex-col items-center justify-center gap-3 text-center">
+          <GameLoading variant="ludo" label="Rejoining your room...">
             <ConnectionBadge state={connection === 'connected' ? 'connecting' : connection} />
-            <p className="text-sm text-muted">Rejoining your room…</p>
-          </div>
+          </GameLoading>
         ) : (
           <OnlineEntry api={api} connection={connection} onMenu={onMenu} />
         )

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe2, Loader2, Users } from 'lucide-react';
+import { Globe2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GameLayout } from '../GameLayout';
 import { findGame } from '../games';
 import LudoLocal from './LudoLocal';
 import { LudoOnline } from './online/LudoOnline';
+import { GameLoading } from '../shared/GameLoading';
 import { clearLudoSession, loadLudoSession, type PersistedLocalGame } from './persistence';
 
 type View =
@@ -58,14 +59,9 @@ export default function LudoGame() {
 
   return (
     <GameLayout game={game} stats={[]}>
-      {view.kind === 'boot' && <div className="min-h-[420px]" aria-hidden />}
+      {view.kind === 'boot' && <GameLoading variant="ludo" />}
 
-      {view.kind === 'restoring' && (
-        <div role="status" className="mx-auto flex min-h-[420px] w-full max-w-sm flex-col items-center justify-center gap-3 text-center">
-          <Loader2 className="h-6 w-6 animate-spin text-accent-2" />
-          <p className="text-sm font-medium text-foreground">Restoring your game...</p>
-        </div>
-      )}
+      {view.kind === 'restoring' && <GameLoading variant="ludo" label="Restoring your game..." />}
 
       {view.kind === 'expired' && (
         <div className="ludo-enter mx-auto flex min-h-[420px] w-full max-w-sm flex-col items-center justify-center gap-4 text-center">

@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
 import { FullPageSpinner } from '@/components/ui/Spinner';
+import { GameLoading, isGameLoaderVariant } from '@/components/games/shared/GameLoading';
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { UploadProvider } from '@/lib/upload/UploadContext';
@@ -18,6 +19,9 @@ import { UploadProvider } from '@/lib/upload/UploadContext';
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, sessionError, refresh } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  // /games/<slug>: the first thing on screen while the session is checked is that game's own loader.
+  const gameSlug = /^\/games\/([^/]+)\/?$/.exec(pathname)?.[1];
 
   // Only a session the server has actually rejected sends anyone away, and it leaves
   // with the marker that stops proxy.ts sending them back — see lib/auth/session.ts.
@@ -36,7 +40,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }
 
   if (isLoading || !user) {
-    return <FullPageSpinner />;
+    return gameSlug && isGameLoaderVariant(gameSlug) ? <GameLoading variant={gameSlug} layout="boot" /> : <FullPageSpinner />;
   }
 
   // Inside the gate, not outside it: the queue and its progress panel belong to a signed-in

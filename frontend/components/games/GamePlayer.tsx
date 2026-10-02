@@ -5,40 +5,28 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Gamepad2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { GameLoading, isGameLoaderVariant, type GameLoaderVariant } from './shared/GameLoading';
 
-function GameSkeleton() {
-  return (
-    <div className="mx-auto w-full max-w-4xl space-y-4" role="status" aria-label="Loading game">
-      <Skeleton className="h-6 w-32" />
-      <Skeleton className="h-14 w-72" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 rounded-xl" />
-        ))}
-      </div>
-      <Skeleton className="h-96 rounded-3xl" />
-    </div>
-  );
-}
+/**
+ * Each game is its own chunk, so the hub page does not pay for code it may never run. While a chunk
+ * loads, the fallback is that game's own loader (never a generic skeleton or spinner).
+ */
+const load = (slug: GameLoaderVariant, importer: () => Promise<{ default: ComponentType }>) =>
+  dynamic(importer, { loading: () => <GameLoading variant={slug} layout="screen" /> });
 
-/** Each game is its own chunk, so the hub page does not pay for code it may never run. */
-const load = (importer: () => Promise<{ default: ComponentType }>) =>
-  dynamic(importer, { loading: () => <GameSkeleton /> });
-
-const PLAYERS: Record<string, ComponentType> = {
-  'water-race': load(() => import('./water-race/WaterRace')),
-  'memory-match': load(() => import('./memory-match/MemoryMatch')),
-  'reaction-test': load(() => import('./reaction-test/ReactionTest')),
-  'target-click': load(() => import('./target-click/TargetClick')),
-  'number-puzzle': load(() => import('./number-puzzle/NumberPuzzle')),
-  snake: load(() => import('./snake/SnakeGame')),
-  ludo: load(() => import('./ludo/LudoGame')),
+const PLAYERS: Record<GameLoaderVariant, ComponentType> = {
+  'water-race': load('water-race', () => import('./water-race/WaterRace')),
+  'memory-match': load('memory-match', () => import('./memory-match/MemoryMatch')),
+  'reaction-test': load('reaction-test', () => import('./reaction-test/ReactionTest')),
+  'target-click': load('target-click', () => import('./target-click/TargetClick')),
+  'number-puzzle': load('number-puzzle', () => import('./number-puzzle/NumberPuzzle')),
+  snake: load('snake', () => import('./snake/SnakeGame')),
+  ludo: load('ludo', () => import('./ludo/LudoGame')),
 };
 
 /** Picks the game for a URL slug, or says plainly that there is no such game. */
 export function GamePlayer({ slug }: { slug: string }) {
-  const Game = PLAYERS[slug];
+  const Game = isGameLoaderVariant(slug) ? PLAYERS[slug] : undefined;
 
   if (!Game) {
     return (
