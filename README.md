@@ -27,7 +27,7 @@ cp backend/.env.example backend/.env             # then fill it in, see section 
 cp frontend/.env.local.example frontend/.env.local
 
 npm run create-admin -- you@example.com "your-password"   # optional: first admin
-npm run dev                      # backend :5000, frontend :3000
+npm run dev                      
 ```
 
 Open `http://localhost:3000`, sign up, and you land on your dashboard.
