@@ -2,7 +2,7 @@
 // Zero-dependency on purpose so the root workspace stays free of tooling deps.
 import { spawn, execFileSync } from "node:child_process";
 
-const targets = ["backend", "frontend"];
+const targets = ["backend", "frontend", "realtime"];
 
 let shuttingDown = false;
 const children = [];

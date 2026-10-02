@@ -5,7 +5,9 @@
   "description": "Private personal media management app — Next.js frontend + Express/MongoDB backend.",
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "realtime",
+    "packages/*"
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",
@@ -26,6 +28,8 @@
     "test:backend": "npm run test --workspace backend",
     "test:frontend": "tsx --test frontend/tests/uploadAccept.test.ts",
     "smoke": "npm run smoke:vercel --workspace backend",
-    "lint": "npm run lint --workspace frontend"
+    "lint": "npm run lint --workspace frontend",
+    "dev:realtime": "npm run dev --workspace realtime",
+    "test:realtime": "npm run test --workspace realtime"
   }
 }

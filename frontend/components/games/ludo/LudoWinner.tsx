@@ -9,15 +9,18 @@ interface LudoWinnerProps {
   captures: number;
   seconds: number;
   onPlayAgain: () => void;
+  /** Online: the winner's display name (shown instead of the colour). */
+  name?: string;
+  playAgainLabel?: string;
 }
 
 /** The win modal: the shared result card, themed with the winner's colour. */
-export function LudoWinner({ winner, moves, captures, seconds, onPlayAgain }: LudoWinnerProps) {
+export function LudoWinner({ winner, moves, captures, seconds, onPlayAgain, name, playAgainLabel = 'Play Again' }: LudoWinnerProps) {
   return (
     <GameResult
       variant="win"
       accent={COLOR_HEX[winner]}
-      title={`🎉 ${COLOR_NAME[winner].toUpperCase()} PLAYER WINS!`}
+      title={name ? `🎉 ${name.toUpperCase()} WINS!` : `🎉 ${COLOR_NAME[winner].toUpperCase()} PLAYER WINS!`}
       subtitle="All 4 tokens reached home."
       stats={[
         { label: 'Moves', value: moves },
@@ -25,7 +28,7 @@ export function LudoWinner({ winner, moves, captures, seconds, onPlayAgain }: Lu
         { label: 'Time', value: formatClock(seconds) },
       ]}
       onPlayAgain={onPlayAgain}
-      playAgainLabel="Play Again"
+      playAgainLabel={playAgainLabel}
     />
   );
 }

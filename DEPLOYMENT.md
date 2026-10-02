@@ -523,3 +523,13 @@ them into `frontend/.env.local`. That file is gitignored, so pulled secrets stay
 is the one case where backend secrets legitimately live there.
 
 `npm run smoke` needs none of that, which is why it is the recommended route.
+
+---
+
+## Online Ludo needs a second service
+
+Everything above is one Vercel project. Online Ludo is the exception: it uses WebSockets, which
+Vercel's serverless functions cannot hold open. The realtime server in `realtime/` must be
+hosted separately on any Node host with persistent connections (Render, Fly.io, Railway, …).
+Set `NEXT_PUBLIC_REALTIME_URL` in the Vercel project to its URL. The rest of the app, and the
+other games, work without it. See `realtime/README.md`.

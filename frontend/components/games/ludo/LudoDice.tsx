@@ -54,7 +54,7 @@ export function LudoDice({ value, rollCount, rolling, color, canRoll, onRoll, ca
       disabled={!canRoll}
       aria-label={canRoll ? 'Roll Dice' : rolling ? 'Rolling' : `Dice shows ${value ?? 'nothing'}`}
       className={cn(
-        'group flex min-h-[44px] flex-col items-center gap-2 rounded-2xl border bg-white/[0.04] px-4 py-3 backdrop-blur-md transition duration-200 enabled:cursor-pointer enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'group flex min-h-[44px] flex-col items-center gap-2 rounded-2xl border bg-white/[0.04] px-3 py-3 sm:px-4 transition duration-200 enabled:cursor-pointer enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         value === 6 && !rolling && 'ludo-six',
       )}
       style={{ borderColor: `${color}88`, boxShadow: canRoll ? `0 0 28px -10px ${color}` : undefined } as CSSProperties}
@@ -86,7 +86,7 @@ export function LudoDice({ value, rollCount, rolling, color, canRoll, onRoll, ca
           ))}
         </span>
       </span>
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground-soft">{caption}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground-soft">{caption}</span>
     </button>
   );
 }

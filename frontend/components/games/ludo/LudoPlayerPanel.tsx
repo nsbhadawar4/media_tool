@@ -5,7 +5,14 @@ import type { Controller, GameState, PlayerColor } from './ludoTypes';
 
 interface LudoPlayerPanelProps {
   state: GameState;
-  controllers: Record<PlayerColor, Controller>;
+  controllers?: Record<PlayerColor, Controller>;
+  /** Online: the display name for each colour. */
+  names?: Partial<Record<PlayerColor, string>>;
+  /** Online: the colour this device plays. */
+  youColor?: PlayerColor | null;
+  /** Online: colours whose player is currently offline, and colours a bot is playing. */
+  offline?: ReadonlySet<PlayerColor>;
+  botColors?: ReadonlySet<PlayerColor>;
   /** 'bot' mode names the human "You"; 'local' just uses the colour. */
   vsBot: boolean;
   active: PlayerColor | null;
@@ -17,7 +24,7 @@ export function playerLabel(color: PlayerColor, controller: Controller, vsBot: b
 }
 
 /** One card per player: who they are, tokens home and in base, and a glowing "turn" tag. */
-export function LudoPlayerPanel({ state, controllers, vsBot, active }: LudoPlayerPanelProps) {
+export function LudoPlayerPanel({ state, controllers, vsBot, active, names, youColor, offline, botColors }: LudoPlayerPanelProps) {
   return (
     <ul
       aria-label="Players"
@@ -28,7 +35,11 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active }: LudoPlaye
         const base = p.tokens.filter((t) => t.progress === PROGRESS_YARD).length;
         const isActive = active === p.color;
         const hex = COLOR_HEX[p.color];
-        const controller = controllers[p.color];
+        const controller: Controller = controllers?.[p.color] ?? 'human';
+        const isYou = youColor === p.color;
+        const label = names ? `${names[p.color] ?? COLOR_NAME[p.color]}${isYou ? ' (You)' : ''}` : playerLabel(p.color, controller, vsBot);
+        const isBot = controller === 'bot' || botColors?.has(p.color);
+        const isOffline = offline?.has(p.color);
         return (
           <li
             key={p.color}
@@ -48,18 +59,23 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active }: LudoPlaye
                 className="h-3 w-3 shrink-0 rounded-full"
                 style={{ background: hex, boxShadow: `0 0 8px ${hex}` }}
               />
-              <span className="truncate text-[13px] font-semibold text-foreground">{playerLabel(p.color, controller, vsBot)}</span>
+              <span className="truncate text-[13px] font-semibold text-foreground">{label}</span>
             </div>
             <p className="mt-0.5 text-[11px] tabular-nums text-muted">
-              4 Tokens · <span className="font-semibold text-foreground-soft">{home} Home</span>
+              4 Tokens<span className="max-sm:hidden"> · </span>
+              <span className="max-sm:block" />
+              <span className="font-semibold text-foreground-soft">{home} Home</span>
               <span className="max-sm:hidden"> · {base} in base</span>
             </p>
+            {names && (isOffline || isBot) && (
+              <span className="ml-1 text-[9px] font-semibold uppercase tracking-wider text-warning">{isBot ? 'bot' : 'offline'}</span>
+            )}
             {isActive && (
               <span
                 className="mt-1 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-black"
                 style={{ background: hex }}
               >
-                {controller === 'bot' ? 'Bot turn' : vsBot ? 'Your turn' : 'Turn'}
+                {names ? (isYou ? 'Your turn' : 'Turn') : isBot ? 'Bot turn' : vsBot ? 'Your turn' : 'Turn'}
               </span>
             )}
           </li>

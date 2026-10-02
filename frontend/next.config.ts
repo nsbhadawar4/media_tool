@@ -2,6 +2,9 @@ import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /** Shared Ludo rules (TypeScript source in packages/ludo-core), compiled along with the app. */
+  transpilePackages: ["ludo-core"],
+
   /**
    * The backend lives one level up, outside this directory. Tracing defaults to the
    * Next.js project folder, so without this the compiled backend and its dependencies

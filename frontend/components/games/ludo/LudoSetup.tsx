@@ -58,7 +58,13 @@ function Segment<T extends string | number>({
 }
 
 /** Pre-game screen: a dimmed board preview behind a glass panel with the options. */
-export function LudoSetup({ onStart }: { onStart: (count: PlayerCount, mode: GameMode, level: BotLevel) => void }) {
+export function LudoSetup({
+  onStart,
+  onBack,
+}: {
+  onStart: (count: PlayerCount, mode: GameMode, level: BotLevel) => void;
+  onBack?: () => void;
+}) {
   const [count, setCount] = useState<PlayerCount>(4);
   const [mode, setMode] = useState<GameMode>('local');
   const [level, setLevel] = useState<BotLevel>('medium');
@@ -109,6 +115,11 @@ export function LudoSetup({ onStart }: { onStart: (count: PlayerCount, mode: Gam
           <Play className="h-4 w-4" />
           START GAME
         </Button>
+        {onBack && (
+          <button type="button" onClick={onBack} className="min-h-11 text-sm font-medium text-muted transition hover:text-foreground">
+            ← Change game type
+          </button>
+        )}
       </div>
     </div>
   );

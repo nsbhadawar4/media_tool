@@ -1,0 +1,12 @@
+{
+  "name": "ludo-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pure Ludo rules, board geometry and wire protocol. Shared by the browser and the realtime server so both run exactly the same code.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  }
+}

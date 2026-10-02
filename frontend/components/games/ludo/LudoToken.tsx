@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { cn } from '@/utils/cn';
 import { COLOR_DARK, COLOR_HEX, COLOR_LIGHT, COLOR_NAME } from './ludoLayout';
 import type { PlayerColor } from './ludoTypes';
@@ -18,11 +18,11 @@ interface LudoTokenProps {
   returning: boolean;
   /** Changes on every step so the hop animation restarts. */
   hopKey: number;
-  onSelect: () => void;
+  onSelect: (tokenId: number) => void;
 }
 
 /** A glossy pawn: ground shadow, tapered body, domed head with a specular highlight. */
-export function LudoToken({ color, id, left, top, size, scale, valid, dimmed, moving, returning, hopKey, onSelect }: LudoTokenProps) {
+function LudoTokenView({ color, id, left, top, size, scale, valid, dimmed, moving, returning, hopKey, onSelect }: LudoTokenProps) {
   const main = COLOR_HEX[color];
   const dark = COLOR_DARK[color];
   const light = COLOR_LIGHT[color];
@@ -31,7 +31,7 @@ export function LudoToken({ color, id, left, top, size, scale, valid, dimmed, mo
     <button
       type="button"
       disabled={!valid}
-      onClick={onSelect}
+      onClick={() => onSelect(id)}
       aria-label={`${COLOR_NAME[color]} token ${id + 1}${valid ? ', can move' : ''}`}
       className={cn(
         'ludo-token absolute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default',
@@ -52,6 +52,7 @@ export function LudoToken({ color, id, left, top, size, scale, valid, dimmed, mo
         } as CSSProperties
       }
     >
+      <span aria-hidden className="ludo-ring" />
       {/* Generous hit area around the small pawn. */}
       <span aria-hidden className="absolute -inset-[30%]" />
       <span key={hopKey} className={cn('ludo-pawn absolute inset-0 block', moving && 'ludo-hop')}>
@@ -75,3 +76,6 @@ export function LudoToken({ color, id, left, top, size, scale, valid, dimmed, mo
   );
 }
 
+
+/** Memoised: a token re-renders only when its own position or state changes, not on every turn. */
+export const LudoToken = memo(LudoTokenView);

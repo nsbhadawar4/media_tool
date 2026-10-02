@@ -1,0 +1,25 @@
+{
+  "name": "media-tool-realtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Realtime Ludo room server (Socket.IO). Runs as its own long-lived Node process, separate from the Vercel-hosted app.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test tests/rooms.test.ts"
+  },
+  "dependencies": {
+    "ludo-core": "*",
+    "socket.io": "^4.8.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "socket.io-client": "^4.8.1",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

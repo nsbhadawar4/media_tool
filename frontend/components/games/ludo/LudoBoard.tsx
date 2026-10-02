@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from 'react';
+import { memo, type CSSProperties, type ReactElement } from 'react';
 import {
   ALL_COLORS,
   COLOR_DARK,
@@ -89,8 +89,13 @@ const PINWHEEL: Record<PlayerColor, string> = {
 const pct = (v: number) => (v / GRID) * 100;
 const TOKEN_SIZE = 0.78;
 
-/** The static board art. Redrawn only when the active colour or the seating changes. */
-function BoardSvg({ seated, active }: { seated: readonly PlayerColor[]; active: PlayerColor | null }) {
+/**
+ * The static board art. It depends only on which colours are seated, so it is drawn once and
+ * never again when the turn changes or tokens move. Anything that animates lives in separate
+ * HTML layers above it; animating inside the SVG is what used to force the whole board to be
+ * re-rasterised (and look pixelated) every time the active player changed.
+ */
+function BoardSvgView({ seated }: { seated: readonly PlayerColor[] }) {
   const cells: ReactElement[] = [];
   LOOP.forEach(([c, r], i) => {
     const startOf = ALL_COLORS.find((col) => START_INDEX[col] === i);
@@ -127,14 +132,10 @@ function BoardSvg({ seated, active }: { seated: readonly PlayerColor[]; active: 
 
       {ALL_COLORS.map((color) => {
         const [ox, oy] = YARD_ORIGIN[color];
-        const isActive = active === color;
         const dim = seated.includes(color) ? 1 : 0.35;
         return (
           <g key={`y${color}`} opacity={dim}>
             <rect x={ox} y={oy} width={6} height={6} fill={`url(#yard-${color})`} />
-            {isActive && (
-              <rect x={ox + 0.12} y={oy + 0.12} width={5.76} height={5.76} fill="none" stroke="#fff" strokeWidth={0.14} className="ludo-glow" />
-            )}
             <rect x={ox + 0.95} y={oy + 0.95} width={4.1} height={4.1} rx={0.55} fill="#ffffff" stroke={COLOR_DARK[color]} strokeWidth={0.08} />
             {[
               [2, 2],
@@ -165,7 +166,6 @@ function BoardSvg({ seated, active }: { seated: readonly PlayerColor[]; active: 
             fill={COLOR_HEX[color]}
             stroke={COLOR_DARK[color]}
             strokeWidth={0.05}
-            className={active === color ? 'ludo-glow' : undefined}
           />
         )),
       )}
@@ -192,6 +192,38 @@ function BoardSvg({ seated, active }: { seated: readonly PlayerColor[]; active: 
   );
 }
 
+const BoardSvg = memo(BoardSvgView, (a, b) => a.seated.join() === b.seated.join());
+
+const CELL = 100 / GRID;
+const LANE_RECT: Record<PlayerColor, { x: number; y: number; w: number; h: number }> = {
+  yellow: { x: 1, y: 7, w: 6, h: 1 },
+  green: { x: 7, y: 1, w: 1, h: 6 },
+  red: { x: 8, y: 7, w: 6, h: 1 },
+  blue: { x: 7, y: 8, w: 1, h: 6 },
+};
+
+/** Highlights the active player's base and home lane with an opacity-only pulse in its own layer. */
+function ActiveGlow({ color }: { color: PlayerColor }) {
+  const [ox, oy] = YARD_ORIGIN[color];
+  const lane = LANE_RECT[color];
+  const box = (x: number, y: number, w: number, h: number): CSSProperties => ({
+    left: `${x * CELL}%`,
+    top: `${y * CELL}%`,
+    width: `${w * CELL}%`,
+    height: `${h * CELL}%`,
+  });
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      <div
+        key={color}
+        className="ludo-pulse-opacity absolute rounded-[2px] border-[3px] border-white/90"
+        style={{ ...box(ox, oy, 6, 6), boxShadow: 'inset 0 0 0 2px rgba(0,0,0,.18)' }}
+      />
+      <div key={`${color}-lane`} className="ludo-pulse-opacity absolute bg-white/45" style={box(lane.x, lane.y, lane.w, lane.h)} />
+    </div>
+  );
+}
+
 interface LudoBoardProps {
   state: GameState;
   anim: AnimOverride | null;
@@ -203,6 +235,7 @@ interface LudoBoardProps {
   burst: BurstFx | null;
   returning: ReadonlySet<string>;
   hopKey: number;
+  /** Stable callback: tokens are memoised and call it with their own id. */
   onSelect: (tokenId: number) => void;
   /** Where the active colour's valid tokens would land. */
   hints: ReadonlyArray<{ color: PlayerColor; cell: Cell }>;
@@ -213,31 +246,32 @@ export function LudoBoard({ state, anim, active, validIds, selectable, burst, re
   const seated = state.players.map((p) => p.color);
   return (
     <div
-      className="ludo-enter relative aspect-square w-full rounded-[26px] p-[1.6%]"
+      className="ludo-appear relative aspect-square w-full rounded-[26px] p-[1.6%]"
       style={{
         background: 'linear-gradient(145deg, #2b3170, #12142c)',
         boxShadow: '0 30px 60px -24px rgba(0,0,0,.85), 0 0 60px -26px #7c5cff, inset 0 1px 0 rgba(255,255,255,.12)',
       }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-[16px] ring-2 ring-amber-400/70">
-        <BoardSvg seated={seated} active={active} />
+        <BoardSvg seated={seated} />
+        {active && <ActiveGlow color={active} />}
         <div aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_0_28px_rgba(0,0,0,0.28)]" />
 
-        <svg viewBox={`0 0 ${GRID} ${GRID}`} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
-          {hints.map((h, i) => (
-            <circle
-              key={i}
-              className="ludo-dest"
-              cx={h.cell[0] + 0.5}
-              cy={h.cell[1] + 0.5}
-              r={0.44}
-              fill="rgba(255,255,255,.35)"
-              stroke={COLOR_DARK[h.color]}
-              strokeWidth={0.09}
-              strokeDasharray="0.16 0.14"
-            />
-          ))}
-        </svg>
+        {hints.map((h, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="ludo-dot pointer-events-none absolute rounded-full border-2 border-dashed bg-white/35"
+            style={{
+              left: `${(h.cell[0] + 0.5) * CELL}%`,
+              top: `${(h.cell[1] + 0.5) * CELL}%`,
+              width: `${CELL * 0.86}%`,
+              aspectRatio: '1',
+              transform: 'translate(-50%, -50%)',
+              borderColor: COLOR_DARK[h.color],
+            }}
+          />
+        ))}
 
         {placed.map((t) => {
           const isActive = active === t.color;
@@ -258,7 +292,7 @@ export function LudoBoard({ state, anim, active, validIds, selectable, burst, re
               moving={moving}
               returning={returning.has(`${t.color}-${t.id}`)}
               hopKey={moving ? hopKey : 0}
-              onSelect={() => onSelect(t.id)}
+              onSelect={onSelect}
             />
           );
         })}
