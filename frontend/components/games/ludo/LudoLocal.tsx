@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { BookOpen, DoorOpen, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GameControls } from '../GameControls';
+import { useGameLeave } from '../GameLeave';
 import { GameLayout } from '../GameLayout';
 import { findGame } from '../games';
 import { SoundToggle, useGameSound } from '../useGameSound';
@@ -18,6 +18,7 @@ import { LudoWinner } from './LudoWinner';
 import { COLOR_HEX, COLOR_NAME, PROGRESS_YARD, SEATS, tokenCell } from './ludoLayout';
 import { applyMove, applyRoll, createGame, currentPlayer, getValidMoves, rollDie } from './ludoEngine';
 import { LUDO_CSS, ROLL_MS, STEP_MS } from './ludoStyles';
+import { clearLudoSession, saveLudoSession, type PersistedLocalGame } from './persistence';
 import type { BotLevel, Controller, GameMode, GameState, PlayerColor, PlayerCount } from './ludoTypes';
 
 const PASS_MS = 1000;
@@ -31,34 +32,80 @@ interface Config {
   level: BotLevel;
 }
 
-export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
+/** Exit button: asks "Leave this game?" while a game is in progress, then clears the saved session. */
+function ExitButton() {
+  const leave = useGameLeave();
+  return (
+    <Button variant="ghost" onClick={leave} aria-label="Exit to games" className="gap-2 md:ml-auto">
+      <DoorOpen className="h-4 w-4" />
+      <span className="max-sm:hidden">Exit</span>
+    </Button>
+  );
+}
+
+interface LudoLocalProps {
+  onMenu?: () => void;
+  /** A saved game to continue instead of starting at the setup screen. */
+  restore?: PersistedLocalGame;
+}
+
+const ALL_HUMAN: Record<PlayerColor, Controller> = { yellow: 'human', green: 'human', red: 'human', blue: 'human' };
+
+export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const game = findGame('ludo')!;
-  const router = useRouter();
   const { muted, toggleMute, play } = useGameSound();
 
-  const [config, setConfig] = useState<Config | null>(null);
-  const [controllers, setControllers] = useState<Record<PlayerColor, Controller>>({
-    yellow: 'human',
-    green: 'human',
-    red: 'human',
-    blue: 'human',
-  });
-  const [state, setState] = useState<GameState | null>(null);
+  const [config, setConfig] = useState<Config | null>(restore?.config ?? null);
+  const [controllers, setControllers] = useState<Record<PlayerColor, Controller>>(restore?.controllers ?? ALL_HUMAN);
+  const [state, setState] = useState<GameState | null>(restore?.state ?? null);
   const [busy, setBusyState] = useState<Busy>('idle');
-  const [shownDie, setShownDie] = useState<number | null>(null);
+  const [shownDie, setShownDie] = useState<number | null>(restore?.shownDie ?? null);
   const [rollCount, setRollCount] = useState(0);
   const [note, setNote] = useState('');
   const [anim, setAnim] = useState<AnimOverride | null>(null);
   const [hopKey, setHopKey] = useState(0);
   const [burst, setBurst] = useState<BurstFx | null>(null);
   const [returning, setReturning] = useState<ReadonlySet<string>>(() => new Set());
-  const [tally, setTally] = useState({ moves: 0, captures: 0 });
-  const [seconds, setSeconds] = useState(0);
+  const [tally, setTally] = useState(restore?.tally ?? { moves: 0, captures: 0 });
+  const [seconds, setSeconds] = useState(restore?.seconds ?? 0);
   const [rulesOpen, setRulesOpen] = useState(false);
 
   const busyRef = useRef<Busy>('idle');
   const burstId = useRef(0);
   const startedAt = useRef(0);
+  // What the saved session needs besides the game state; kept in refs so saving never re-renders.
+  const configRef = useRef<Config | null>(restore?.config ?? null);
+  const controllersRef = useRef<Record<PlayerColor, Controller>>(restore?.controllers ?? ALL_HUMAN);
+  const tallyRef = useRef(restore?.tally ?? { moves: 0, captures: 0 });
+  const dieRef = useRef<number | null>(restore?.shownDie ?? null);
+  const secondsRef = useRef(restore?.seconds ?? 0);
+
+  /**
+   * Saves the LOGICAL game state, and only at decision points (new game, dice resolved, move chosen),
+   * never per animation step. After a refresh mid-animation the game comes back at the committed result.
+   */
+  const persist = useCallback((next: GameState) => {
+    const cfg = configRef.current;
+    if (!cfg) return;
+    saveLudoSession({
+      gameMode: cfg.mode === 'bot' ? 'bot' : 'local',
+      local: {
+        config: cfg,
+        controllers: controllersRef.current,
+        state: next,
+        shownDie: dieRef.current,
+        tally: tallyRef.current,
+        seconds: secondsRef.current,
+        elapsedMs: performance.now() - startedAt.current,
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    // The clock continues from where the saved game left off.
+    startedAt.current = performance.now() - (restore?.elapsedMs ?? 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [timers] = useState(() => new Set<number>());
 
   const setBusy = useCallback((b: Busy) => {
@@ -105,19 +152,24 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
       clearTimers();
       resetFx();
       const seats = SEATS[cfg.count];
-      setControllers({
-        yellow: 'human',
-        green: 'human',
-        red: 'human',
-        blue: 'human',
+      const ctl = {
+        ...ALL_HUMAN,
         ...Object.fromEntries(seats.map((c, i) => [c, cfg.mode === 'bot' && i > 0 ? 'bot' : 'human'])),
-      } as Record<PlayerColor, Controller>);
+      } as Record<PlayerColor, Controller>;
+      const fresh = createGame(cfg.count);
+      setControllers(ctl);
       setConfig(cfg);
-      setState(createGame(cfg.count));
+      setState(fresh);
       startedAt.current = performance.now();
+      configRef.current = cfg;
+      controllersRef.current = ctl;
+      tallyRef.current = { moves: 0, captures: 0 };
+      dieRef.current = null;
+      secondsRef.current = 0;
+      persist(fresh);
       play('tap');
     },
-    [clearTimers, play, resetFx],
+    [clearTimers, persist, play, resetFx],
   );
 
   const toSetup = useCallback(() => {
@@ -125,11 +177,15 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
     resetFx();
     setState(null);
     setConfig(null);
+    configRef.current = null;
+    // Choosing a new game on purpose is the one place (besides Exit) the saved game is discarded.
+    clearLudoSession();
   }, [clearTimers, resetFx]);
 
   const roll = useCallback(() => {
     if (!state || state.phase !== 'roll' || busyRef.current !== 'idle') return;
     const die = rollDie(Math.random);
+    dieRef.current = die;
     setBusy('rolling');
     setNote('ROLLING...');
     setShownDie(die);
@@ -137,6 +193,8 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
     play('dice');
     schedule(() => {
       const res = applyRoll(state, die);
+      // Commit the outcome now: a refresh during the "no moves" pause must not allow a re-roll.
+      persist(res.state);
       if (res.kind === 'move') {
         setState(res.state);
         setNote('');
@@ -151,13 +209,18 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
         setBusy('idle');
       }, PASS_MS);
     }, ROLL_MS);
-  }, [state, play, schedule, setBusy]);
+  }, [state, play, schedule, setBusy, persist]);
 
   const moveToken = useCallback(
     (tokenId: number) => {
       if (!state || state.phase !== 'move' || state.die === null || busyRef.current !== 'idle') return;
       if (!getValidMoves(state, state.die).includes(tokenId)) return;
       const { state: next, events } = applyMove(state, tokenId);
+      // The move is decided: save its final logical result before animating it.
+      tallyRef.current = { moves: tallyRef.current.moves + 1, captures: tallyRef.current.captures + events.captures.length };
+      if (events.won) secondsRef.current = Math.round((performance.now() - startedAt.current) / 1000);
+      dieRef.current = state.die;
+      persist(next);
       setBusy('moving');
       setNote('');
       events.progressSteps.forEach((progress, i) => {
@@ -190,7 +253,7 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
         setBusy('idle');
       }, events.progressSteps.length * STEP_MS + 40);
     },
-    [state, play, schedule, setBusy],
+    [state, play, schedule, setBusy, persist],
   );
 
   const active = state && state.phase !== 'over' ? currentPlayer(state) : null;
@@ -277,15 +340,17 @@ export default function LudoLocal({ onMenu }: { onMenu?: () => void }) {
         <span className="max-sm:hidden">Setup</span>
       </Button>
       <SoundToggle muted={muted} onToggle={toggleMute} />
-      <Button variant="ghost" onClick={() => router.push('/games')} aria-label="Exit to games" className="gap-2 md:ml-auto">
-        <DoorOpen className="h-4 w-4" />
-        <span className="max-sm:hidden">Exit</span>
-      </Button>
+      <ExitButton />
     </GameControls>
   );
 
   return (
-    <GameLayout game={game} stats={[]} controls={controls}>
+    <GameLayout
+      game={game}
+      stats={[]}
+      controls={controls}
+      leave={{ confirm: state !== null && !state.winner, onLeave: clearLudoSession }}
+    >
       <style>{LUDO_CSS}</style>
 
       {!state || !config ? (

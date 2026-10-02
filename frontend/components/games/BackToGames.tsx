@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useGameLeave } from './GameLeave';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -15,11 +15,11 @@ interface BackToGamesProps {
  * game lands in the same place however the player arrived.
  */
 export function BackToGames({ variant = 'bar', className }: BackToGamesProps) {
-  const router = useRouter();
+  const leave = useGameLeave();
   return (
     <button
       type="button"
-      onClick={() => router.push('/games')}
+      onClick={leave}
       className={cn(
         'group inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated/80 text-sm font-medium text-foreground backdrop-blur-sm transition duration-150 hover:bg-surface-hover active:scale-95',
         variant === 'bar' ? 'px-3.5' : 'w-full px-4',

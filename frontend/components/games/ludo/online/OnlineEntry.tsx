@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ArrowLeft, LogIn, Plus } from 'lucide-react';
 import { MAX_PLAYERS, NAME_MAX, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from 'ludo-core';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import { ConnectionBadge } from './ConnectionBadge';
-import { readSavedName, saveName, type Connection, type LudoRoomApi } from './useLudoRoom';
+import type { Connection, LudoRoomApi } from './useLudoRoom';
 
 const ALLOWED = new Set(ROOM_CODE_ALPHABET);
 
@@ -31,11 +31,6 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
   const [error, setError] = useState<{ field: Field; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // The remembered name is read after mount so the server and first client render agree.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setName(readSavedName());
-  }, []);
 
   const validName = () => {
     const trimmed = name.trim();
@@ -49,7 +44,6 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
   const create = async () => {
     const n = validName();
     if (!n || busy) return;
-    saveName(n);
     setBusy(true);
     setError(null);
     const ack = await api.createRoom(n);
@@ -65,7 +59,6 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
       setError({ field: 'code', text: `Enter the ${ROOM_CODE_LENGTH}-character room code.` });
       return;
     }
-    saveName(n);
     setBusy(true);
     setError(null);
     const ack = await api.joinRoom(code, n);

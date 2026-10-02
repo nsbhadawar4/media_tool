@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { GameFullscreenLayout } from './GameFullscreenLayout';
+import type { GameLeaveConfig } from './GameLeave';
 import type { GameStat } from './GameHeader';
 import type { GameMeta } from './games';
 
@@ -8,6 +9,7 @@ interface GameLayoutProps {
   stats: GameStat[];
   children: ReactNode;
   controls?: ReactNode;
+  leave?: GameLeaveConfig;
 }
 
 /**

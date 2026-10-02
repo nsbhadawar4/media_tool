@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { Ack, ClientToServer, GameEvent, JoinData, PlayerColor, RoomState, ServerToClient } from 'ludo-core';
+import { clearLudoSession, loadLudoSession, saveLudoSession } from '../persistence';
 
 export type Connection = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'unavailable';
 
@@ -18,15 +19,9 @@ interface Session {
   name: string;
 }
 
-const SESSION_KEY = 'ludo_online_session';
-const NAME_KEY = 'ludo_online_name';
 type LudoSocket = Socket<ServerToClient, ClientToServer>;
 
-/**
- * Where the realtime server lives. It is a separate long-running Node process (Vercel's
- * serverless functions cannot hold WebSocket connections), so production must set
- * NEXT_PUBLIC_REALTIME_URL. On localhost it falls back to the dev server's default port.
- */
+/** Where the realtime server lives. See realtime/README.md: it is a separate long-running process. */
 function realtimeUrl(): string | null {
   const configured = process.env.NEXT_PUBLIC_REALTIME_URL?.trim();
   if (configured) return configured.replace(/\/$/, '');
@@ -40,35 +35,22 @@ function realtimeUrl(): string | null {
   return null;
 }
 
-function readSession(): Session | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
-    return null;
-  }
+/** The saved multiplayer seat for this browser, if there is a valid one. */
+function readSession(): { session: Session; lastRoom: RoomState | null } | null {
+  const read = loadLudoSession();
+  if (read.kind !== 'valid' || read.session.gameMode !== 'multiplayer') return null;
+  const { roomCode, playerId, playerName, lastRoom } = read.session;
+  return { session: { code: roomCode!, playerId: playerId!, name: playerName! }, lastRoom: lastRoom ?? null };
 }
-function writeSession(session: Session | null) {
-  try {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    // Storage blocked: reconnecting after a page reload just will not work.
-  }
-}
-export function readSavedName(): string {
-  try {
-    return sessionStorage.getItem(NAME_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-export function saveName(name: string) {
-  try {
-    sessionStorage.setItem(NAME_KEY, name);
-  } catch {
-    // ignore
-  }
+
+function writeSession(session: Session, lastRoom: RoomState | null) {
+  saveLudoSession({
+    gameMode: 'multiplayer',
+    roomCode: session.code,
+    playerId: session.playerId,
+    playerName: session.name,
+    ...(lastRoom ? { lastRoom } : {}),
+  });
 }
 
 /** A new random player identity, kept for the browser tab so a reload or reconnect is the same player. */
@@ -96,6 +78,20 @@ export function useLudoRoom() {
   const toastId = useRef(0);
   const toastTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const everConnected = useRef(false);
+  const roomRef = useRef<RoomState | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Writes the latest known room next to the identity. Coalesced: bursts of events cost one write. */
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    const session = sessionRef.current;
+    if (session) writeSession(session, roomRef.current);
+  }, []);
+  const scheduleSave = useCallback(() => {
+    if (saveTimer.current) return;
+    saveTimer.current = setTimeout(flushSave, 300);
+  }, [flushSave]);
 
   const toast = useCallback((text: string, kind: Toast['kind'] = 'info') => {
     const id = ++toastId.current;
@@ -110,7 +106,10 @@ export function useLudoRoom() {
 
   const forget = useCallback(() => {
     sessionRef.current = null;
-    writeSession(null);
+    roomRef.current = null;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = null;
+    clearLudoSession();
     setRoom(null);
     setPlayerId(null);
     buffer.current = [];
@@ -141,8 +140,10 @@ export function useLudoRoom() {
       if (session) {
         socket.emit('room:join', { code: session.code, name: session.name, playerId: session.playerId }, (ack: Ack<JoinData>) => {
           if (ack.ok && ack.data) {
+            roomRef.current = ack.data.room;
             setRoom(ack.data.room);
             setPlayerId(ack.data.playerId);
+            flushSave();
           } else {
             toast(ack.error ?? 'Room not found.', 'error');
             forget();
@@ -158,9 +159,18 @@ export function useLudoRoom() {
     socket.on('connect_error', () => {
       setConnection(everConnected.current ? 'reconnecting' : 'disconnected');
     });
-    socket.on('room:state', (state) => setRoom(state));
+    socket.on('room:state', (state) => {
+      roomRef.current = state;
+      setRoom(state);
+      scheduleSave();
+    });
     socket.on('game:event', (event) => {
       buffer.current = [...buffer.current.slice(-150), event];
+      // Keep the saved fallback current: the latest committed state after this event.
+      if (roomRef.current?.game) {
+        roomRef.current = { ...roomRef.current, game: { state: event.state, seq: event.seq } };
+        scheduleSave();
+      }
       listeners.current.forEach((fn) => fn(event));
     });
     socket.on('notice', ({ kind, text }) => toast(text, kind === 'error' ? 'error' : 'info'));
@@ -169,7 +179,20 @@ export function useLudoRoom() {
       forget();
     });
     return socket;
-  }, [forget, toast]);
+  }, [flushSave, forget, scheduleSave, toast]);
+
+  // Backup only: the session is already saved after each change. This catches the last few hundred ms.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    };
+    window.addEventListener('pagehide', flushSave);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', flushSave);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [flushSave]);
 
   useEffect(() => {
     const timers = toastTimers.current;
@@ -182,9 +205,16 @@ export function useLudoRoom() {
 
   /** Resumes a room after a page reload, if this tab has a saved seat. Returns whether one was found. */
   const resume = useCallback((): boolean => {
-    const session = readSession();
-    if (!session) return false;
-    sessionRef.current = session;
+    const saved = readSession();
+    if (!saved) return false;
+    sessionRef.current = saved.session;
+    setPlayerId(saved.session.playerId);
+    if (saved.lastRoom) {
+      // Temporary: shown until the server answers the rejoin. A "starting" countdown is not resumable.
+      const fallback = saved.lastRoom.status === 'starting' ? { ...saved.lastRoom, status: 'lobby' as const } : saved.lastRoom;
+      roomRef.current = fallback;
+      setRoom(fallback);
+    }
     ensureSocket();
     return true;
   }, [ensureSocket]);
@@ -194,7 +224,8 @@ export function useLudoRoom() {
       if (ack.ok && ack.data) {
         const session = { playerId: ack.data.playerId, code: ack.data.room.code, name };
         sessionRef.current = session;
-        writeSession(session);
+        roomRef.current = ack.data.room;
+        writeSession(session, ack.data.room);
         setPlayerId(ack.data.playerId);
         setRoom(ack.data.room);
         setClosedReason(null);
@@ -279,11 +310,15 @@ export function useLudoRoom() {
         const socket = socketRef.current;
         if (!socket || !socket.connected) return resolve(null);
         socket.emit('room:sync', (a: Ack<RoomState>) => {
-          if (a.ok && a.data) setRoom(a.data);
+          if (a.ok && a.data) {
+            roomRef.current = a.data;
+            setRoom(a.data);
+            scheduleSave();
+          }
           resolve(a.ok && a.data ? a.data : null);
         });
       }),
-    [],
+    [scheduleSave],
   );
 
   const onEvent = useCallback((fn: (e: GameEvent) => void) => {

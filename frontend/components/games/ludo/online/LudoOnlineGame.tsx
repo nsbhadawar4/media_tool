@@ -171,6 +171,23 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
     setDisplay(snap.game.state);
   }, [api, clearAll]);
 
+  /**
+   * The server's snapshot wins. After a reconnect (or a refresh, which starts from a saved copy)
+   * the room carries the authoritative game; if it is ahead of what is on screen and nothing is
+   * animating, show it. While events are playing it is ignored, since they lead to the same state.
+   */
+  const snapshotSeq = room.game?.seq ?? -1;
+  const snapshotState = room.game?.state ?? null;
+  useEffect(() => {
+    if (!snapshotState || snapshotSeq <= lastSeq.current) return;
+    if (running.current || queue.current.length > 0) return;
+    lastSeq.current = snapshotSeq;
+    setDisplay(snapshotState);
+    setBusy('idle');
+    setNote('');
+    setWaiting(false);
+  }, [snapshotSeq, snapshotState]);
+
   const receive = useCallback(
     (e: GameEvent) => {
       if (e.seq <= lastSeq.current && !running.current && queue.current.length === 0) return; // already shown
@@ -215,8 +232,10 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
   const activeColor = active?.color ?? null;
   const isMyTurn = activeColor !== null && activeColor === myColor;
   const idle = busy === 'idle' && !waiting;
-  const canRoll = isMyTurn && display.phase === 'roll' && idle;
-  const canPick = isMyTurn && display.phase === 'move' && busy === 'idle' && !waiting;
+  // Nothing is playable while the socket is down: the board may be a saved copy until the server answers.
+  const live = api.connection === 'connected';
+  const canRoll = live && isMyTurn && display.phase === 'roll' && idle;
+  const canPick = live && isMyTurn && display.phase === 'move' && busy === 'idle' && !waiting;
 
   const validIds = useMemo(
     () => (display.phase === 'move' && display.die !== null ? getValidMoves(display, display.die) : []),

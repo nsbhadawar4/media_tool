@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { BackToGames } from './BackToGames';
+import { GameLeaveProvider, useGameLeave, type GameLeaveConfig } from './GameLeave';
 import { GameHeader, StatsStrip, type GameStat } from './GameHeader';
 import { GameInstructions } from './GameInstructions';
 import type { GameMeta } from './games';
@@ -16,6 +16,8 @@ interface GameFullscreenLayoutProps {
   children: ReactNode;
   /** A GameControls row. Pinned to the bottom edge on phones. */
   controls?: ReactNode;
+  /** When set, leaving the game asks for confirmation and runs `onLeave` (see GameLeave). */
+  leave?: GameLeaveConfig;
 }
 
 /**
@@ -30,7 +32,30 @@ interface GameFullscreenLayoutProps {
  * From 768px up it is the original in-app layout. It is a single tree styled by breakpoint
  * rather than two trees, so the game itself is mounted exactly once either way.
  */
-export function GameFullscreenLayout({ game, stats, children, controls }: GameFullscreenLayoutProps) {
+export function GameFullscreenLayout({ leave, ...props }: GameFullscreenLayoutProps) {
+  return (
+    <GameLeaveProvider leave={leave}>
+      <GameFrame {...props} />
+    </GameLeaveProvider>
+  );
+}
+
+/** Desktop "Back to Games" link: goes through the same leave flow as the phone Back button. */
+function DesktopBack() {
+  const leave = useGameLeave();
+  return (
+    <button
+      type="button"
+      onClick={leave}
+      className="group mb-5 inline-flex items-center gap-2 rounded-lg py-1 text-sm font-medium text-muted transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />
+      Back to Games
+    </button>
+  );
+}
+
+function GameFrame({ game, stats, children, controls }: Omit<GameFullscreenLayoutProps, 'leave'>) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [c1, c2] = game.colors;
 
@@ -64,13 +89,7 @@ export function GameFullscreenLayout({ game, stats, children, controls }: GameFu
 
       {/* ---- Tablet / desktop header ---- */}
       <div className="max-md:hidden">
-        <Link
-          href="/games"
-          className="group mb-5 inline-flex items-center gap-2 rounded-lg py-1 text-sm font-medium text-muted transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />
-          Back to Games
-        </Link>
+        <DesktopBack />
         <GameHeader game={game} stats={stats} />
       </div>
 
