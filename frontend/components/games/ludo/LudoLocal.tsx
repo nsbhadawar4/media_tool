@@ -251,7 +251,10 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const vsBot = config?.mode === 'bot';
   const humanCanAct = state !== null && !isBotTurn && busy === 'idle';
   const canRoll = humanCanAct && state.phase === 'roll';
-  const canPick = humanCanAct && state.phase === 'move';
+  // With exactly one legal move there is nothing to choose: the game plays it (see below), so tokens are
+  // not offered for clicking. Two or more legal moves is a real choice and stays selectable.
+  const legalCount = state && state.phase === 'move' && state.die !== null ? getValidMoves(state, state.die).length : 0;
+  const canPick = humanCanAct && state.phase === 'move' && legalCount !== 1;
 
   // Bots take their turns on a short delay so the player can follow what happened.
   useEffect(() => {
@@ -285,6 +288,19 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
     [state],
   );
 
+  /**
+   * One legal move: play it automatically, through the same moveToken() a click would call (same engine,
+   * same capture / home / winner / extra-turn handling, same step animation). moveToken refuses to run
+   * while another move or roll is in progress, so it cannot fire twice. Bots already move on their own.
+   */
+  const soleMove = state && state.phase === 'move' && validIds.length === 1 ? validIds[0]! : null;
+  const autoMoving = soleMove !== null && !isBotTurn;
+  useEffect(() => {
+    if (soleMove === null || isBotTurn || busy !== 'idle') return;
+    const id = window.setTimeout(() => moveToken(soleMove), 450);
+    return () => window.clearTimeout(id);
+  }, [soleMove, isBotTurn, busy, moveToken]);
+
   const hints = useMemo(() => {
     if (!state || !active || !canPick || state.die === null) return [];
     return validIds.map((id) => {
@@ -304,7 +320,9 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
       : '';
   const subtitle =
     note ||
-    (canRoll
+    (autoMoving || (busy === 'moving' && !isBotTurn)
+      ? 'Moving…'
+      : canRoll
       ? 'Roll the dice to play'
       : canPick
         ? 'Choose a token to move'

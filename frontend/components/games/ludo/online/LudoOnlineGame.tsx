@@ -235,7 +235,9 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
   // Nothing is playable while the socket is down: the board may be a saved copy until the server answers.
   const live = api.connection === 'connected';
   const canRoll = live && isMyTurn && display.phase === 'roll' && idle;
-  const canPick = live && isMyTurn && display.phase === 'move' && busy === 'idle' && !waiting;
+  const legalCount = display.phase === 'move' && display.die !== null ? getValidMoves(display, display.die).length : 0;
+  // One legal move is played for you (below); only a real choice (2+) offers selectable tokens.
+  const canPick = live && isMyTurn && display.phase === 'move' && busy === 'idle' && !waiting && legalCount !== 1;
 
   const validIds = useMemo(
     () => (display.phase === 'move' && display.die !== null ? getValidMoves(display, display.die) : []),
@@ -262,6 +264,15 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
     [api],
   );
 
+  // Exactly one legal move: send it for the player. The server still validates it like any other move,
+  // and `waiting` blocks a second send until the server's answer arrives.
+  const soleMove = isMyTurn && live && idle && validIds.length === 1 ? validIds[0]! : null;
+  useEffect(() => {
+    if (soleMove === null) return;
+    const id = window.setTimeout(() => void onSelect(soleMove), 450);
+    return () => window.clearTimeout(id);
+  }, [soleMove, onSelect]);
+
   // Space / Enter rolls on your own turn.
   useEffect(() => {
     if (!canRoll) return;
@@ -286,7 +297,9 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
   const activeOffline = activeColor !== null && offline.has(activeColor);
   const subtitle =
     note ||
-    (activeOffline
+    (soleMove !== null || (busy === 'moving' && isMyTurn)
+      ? 'Moving…'
+      : activeOffline
       ? `Waiting for ${activeName} to reconnect…`
       : canRoll
         ? 'Roll the dice to play'

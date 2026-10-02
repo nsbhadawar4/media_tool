@@ -54,7 +54,7 @@ export function LudoDice({ value, rollCount, rolling, color, canRoll, onRoll, ca
       disabled={!canRoll}
       aria-label={canRoll ? 'Roll Dice' : rolling ? 'Rolling' : `Dice shows ${value ?? 'nothing'}`}
       className={cn(
-        'group flex min-h-[44px] flex-col items-center gap-2 rounded-2xl border bg-white/[0.04] px-3 py-3 sm:px-4 transition duration-200 enabled:cursor-pointer enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'group flex min-h-[44px] w-[100px] flex-col items-center gap-2 whitespace-nowrap rounded-2xl border bg-white/[0.04] px-2 py-3 sm:w-[108px] transition duration-200 enabled:cursor-pointer enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         value === 6 && !rolling && 'ludo-six',
       )}
       style={{ borderColor: `${color}88`, boxShadow: canRoll ? `0 0 28px -10px ${color}` : undefined } as CSSProperties}

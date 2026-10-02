@@ -23,6 +23,7 @@ export const LUDO_CSS = `
 .ludo-valid .ludo-pawn { animation: ludo-bob 1.1s ease-in-out infinite; }
 .ludo-ring { position: absolute; inset: -22% -26% -4%; border-radius: 9999px; background: radial-gradient(closest-side, var(--ludo-c), transparent); opacity: 0; pointer-events: none; }
 .ludo-valid .ludo-ring { animation: ludo-ring 1.1s ease-in-out infinite; }
+.ludo-moving .ludo-ring { opacity: .7; }
 .ludo-pulse-opacity { animation: ludo-fade 1.6s ease-in-out infinite; will-change: opacity; }
 .ludo-dot { animation: ludo-ring 1.4s ease-in-out infinite; }
 .ludo-hop { animation: ludo-hop ${STEP_MS}ms ease-out; }

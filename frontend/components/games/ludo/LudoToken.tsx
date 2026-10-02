@@ -37,6 +37,7 @@ function LudoTokenView({ color, id, left, top, size, scale, valid, dimmed, movin
         'ludo-token absolute focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default',
         valid && 'ludo-valid cursor-pointer',
         returning && 'ludo-returning',
+        moving && 'ludo-moving',
       )}
       style={
         {

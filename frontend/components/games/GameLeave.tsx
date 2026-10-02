@@ -88,18 +88,73 @@ export function GameLeaveProvider({ leave, children }: { leave?: GameLeaveConfig
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
+  /** Where QUIT GAME goes: /games for EXIT and Back, or the link the player was heading to. */
+  const destination = useRef<string | null>(null);
+  const active = !!leave?.confirm;
 
   const quit = useCallback(() => {
     leave?.onLeave();
-    router.push('/games'); // client-side navigation: no browser reload
+    const href = destination.current ?? '/games';
+    destination.current = null;
+    router.push(href); // client-side navigation: no browser reload
   }, [leave, router]);
 
+  const ask = useCallback((from: HTMLElement | null, href: string | null) => {
+    trigger.current = from;
+    destination.current = href;
+    setOpen(true);
+  }, []);
+
   const request = useCallback(() => {
-    if (leave?.confirm) {
-      trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setOpen(true);
-    } else quit();
-  }, [leave?.confirm, quit]);
+    if (leave?.confirm) ask(document.activeElement instanceof HTMLElement ? document.activeElement : null, null);
+    else quit();
+  }, [leave?.confirm, ask, quit]);
+
+  // While a game is running, the browser's own reload / close confirmation is switched on. Browsers
+  // show a fixed native message here (custom text is not allowed). It is registered only while the
+  // game is active and removed the moment it is not (setup, winner, quit).
+  useEffect(() => {
+    if (!active) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [active]);
+
+  // Internal navigation (sidebar, other games, any in-app link) asks first. Capture phase, so it runs
+  // before Next's own link handling; links that stay on this page, open elsewhere, or use modifier
+  // keys are left alone.
+  useEffect(() => {
+    if (!active) return;
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      event.preventDefault();
+      event.stopPropagation();
+      ask(anchor, url.pathname + url.search + url.hash);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [active, ask]);
+
+  // The browser's Back button: a duplicate history entry absorbs the first press and opens the dialog,
+  // so Back cannot silently walk away from a running game.
+  useEffect(() => {
+    if (!active) return;
+    window.history.pushState(window.history.state, '', window.location.href);
+    const onPop = () => {
+      window.history.pushState(window.history.state, '', window.location.href);
+      ask(document.activeElement instanceof HTMLElement ? document.activeElement : null, null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [active, ask]);
 
   const cancel = useCallback(() => {
     setOpen(false);

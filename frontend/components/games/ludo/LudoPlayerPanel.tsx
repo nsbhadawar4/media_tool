@@ -70,14 +70,17 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active, names, youC
             {names && (isOffline || isBot) && (
               <span className="ml-1 text-[9px] font-semibold uppercase tracking-wider text-warning">{isBot ? 'bot' : 'offline'}</span>
             )}
-            {isActive && (
-              <span
-                className="mt-1 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-black"
-                style={{ background: hex }}
-              >
-                {names ? (isYou ? 'Your turn' : 'Turn') : isBot ? 'Bot turn' : vsBot ? 'Your turn' : 'Turn'}
-              </span>
-            )}
+            {/* Always rendered so every card is the same height; only its visibility changes. This is what keeps the layout from shifting when the turn passes. */}
+            <span
+              aria-hidden={!isActive}
+              className={cn(
+                'mt-1 inline-block rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-black transition-opacity duration-200',
+                !isActive && 'invisible opacity-0',
+              )}
+              style={{ background: hex }}
+            >
+              {names ? (isYou ? 'Your turn' : 'Turn') : isBot ? 'Bot turn' : vsBot ? 'Your turn' : 'Turn'}
+            </span>
           </li>
         );
       })}
