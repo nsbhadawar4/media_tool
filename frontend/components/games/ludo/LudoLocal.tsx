@@ -1,10 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, DoorOpen, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { BookOpen, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GameControls } from '../GameControls';
-import { useGameLeave } from '../GameLeave';
 import { GameLayout } from '../GameLayout';
 import { findGame } from '../games';
 import { SoundToggle, useGameSound } from '../useGameSound';
@@ -30,17 +29,6 @@ interface Config {
   count: PlayerCount;
   mode: GameMode;
   level: BotLevel;
-}
-
-/** Exit button: asks "Leave this game?" while a game is in progress, then clears the saved session. */
-function ExitButton() {
-  const leave = useGameLeave();
-  return (
-    <Button variant="ghost" onClick={leave} aria-label="Exit to games" className="gap-2 md:ml-auto">
-      <DoorOpen className="h-4 w-4" />
-      <span className="max-sm:hidden">Exit</span>
-    </Button>
-  );
 }
 
 interface LudoLocalProps {
@@ -191,10 +179,11 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
     setShownDie(die);
     setRollCount((n) => n + 1);
     play('dice');
+    // The outcome is decided and saved right now, before the 700ms tumble: refreshing during the
+    // animation (or the "no moves" pause) restores this result and can never produce a re-roll.
+    const res = applyRoll(state, die);
+    persist(res.state);
     schedule(() => {
-      const res = applyRoll(state, die);
-      // Commit the outcome now: a refresh during the "no moves" pause must not allow a re-roll.
-      persist(res.state);
       if (res.kind === 'move') {
         setState(res.state);
         setNote('');
@@ -340,7 +329,6 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         <span className="max-sm:hidden">Setup</span>
       </Button>
       <SoundToggle muted={muted} onToggle={toggleMute} />
-      <ExitButton />
     </GameControls>
   );
 
@@ -364,7 +352,10 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
               className="w-full max-w-[600px] rounded-2xl border bg-white/[0.04] px-4 py-2.5 text-center transition-colors duration-300"
               style={{ borderColor: `${diceColor}77`, boxShadow: `0 0 26px -12px ${diceColor}` }}
             >
-              <div className="text-base font-bold tracking-wide text-foreground">{banner}</div>
+              <div className="flex items-center justify-center gap-2 text-base font-bold tracking-wide text-foreground">
+              <span aria-hidden className="ludo-dot h-2 w-2 shrink-0 rounded-full" style={{ background: diceColor }} />
+              {banner.replace(/^\S+\s/, '')}
+            </div>
               <div className="min-h-4 text-xs text-muted">{subtitle}</div>
             </div>
 

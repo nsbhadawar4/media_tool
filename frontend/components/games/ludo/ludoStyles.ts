@@ -29,6 +29,8 @@ export const LUDO_CSS = `
 .ludo-six { animation: ludo-six 1.2s ease-in-out 2; }
 .ludo-spark { position: absolute; width: 7px; height: 7px; border-radius: 9999px; animation: ludo-burst 650ms var(--ease-out) forwards; pointer-events: none; }
 .ludo-impact { position: absolute; width: 38px; height: 38px; border-radius: 9999px; border: 3px solid #fff; animation: ludo-impact 520ms ease-out forwards; pointer-events: none; }
+@keyframes ludo-throw { 0%,100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-7px) scale(1.14); } }
+.ludo-throw { animation: ludo-throw ${ROLL_MS}ms ease-in-out; }
 .ludo-cube { transform-style: preserve-3d; transition: transform ${ROLL_MS}ms cubic-bezier(.2,.8,.25,1); }
 .ludo-face { position: absolute; inset: 0; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); place-items: center; padding: 14%; border-radius: 18%; backface-visibility: hidden; background: linear-gradient(145deg, #ffffff, #dfe3ec); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08), inset 0 -6px 12px rgba(0,0,0,.08); }
 `;

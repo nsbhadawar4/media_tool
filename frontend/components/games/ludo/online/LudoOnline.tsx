@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { BookOpen, Check, Copy, LogOut } from 'lucide-react';
+import { BookOpen, Check, Copy } from 'lucide-react';
 import { MAX_PLAYERS } from 'ludo-core';
 import { Button } from '@/components/ui/Button';
 import { GameControls } from '../../GameControls';
 import { GameLayout } from '../../GameLayout';
-import { useGameLeave } from '../../GameLeave';
 import { findGame } from '../../games';
 import { SoundToggle, useGameSound } from '../../useGameSound';
 import { LudoRules } from '../LudoRules';
@@ -18,17 +17,6 @@ import { OnlineEntry } from './OnlineEntry';
 import { StartCountdown } from './StartCountdown';
 import { ToastStack } from './ToastStack';
 import { useLudoRoom } from './useLudoRoom';
-
-/** Leave button: confirms during a running game; leaving clears the saved seat and returns to /games. */
-function LeaveButton() {
-  const leave = useGameLeave();
-  return (
-    <Button variant="ghost" onClick={leave} className="gap-2">
-      <LogOut className="h-4 w-4" />
-      Leave
-    </Button>
-  );
-}
 
 /** Online Ludo: entry (create / join) → lobby → live game, all driven by the server's room state. */
 export function LudoOnline({ onMenu }: { onMenu: () => void }) {
@@ -81,9 +69,7 @@ export function LudoOnline({ onMenu }: { onMenu: () => void }) {
 
   const controls = (
     <GameControls>
-      {room ? (
-        <LeaveButton />
-      ) : (
+      {room ? null : (
         <Button variant="ghost" onClick={onMenu} className="gap-2">
           Back
         </Button>

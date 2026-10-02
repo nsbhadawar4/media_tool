@@ -307,7 +307,10 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
             className="w-full max-w-[600px] rounded-2xl border bg-white/[0.04] px-4 py-2.5 text-center transition-colors duration-300"
             style={{ borderColor: `${diceColor}77` }}
           >
-            <div className="text-base font-bold tracking-wide text-foreground">{banner}</div>
+            <div className="flex items-center justify-center gap-2 text-base font-bold tracking-wide text-foreground">
+              <span aria-hidden className="ludo-dot h-2 w-2 shrink-0 rounded-full" style={{ background: diceColor }} />
+              {banner.replace(/^\S+\s/, '')}
+            </div>
             <div className="min-h-4 text-xs text-muted">{subtitle}</div>
           </div>
 

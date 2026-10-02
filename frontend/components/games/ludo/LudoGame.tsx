@@ -70,7 +70,6 @@ export default function LudoGame() {
       {view.kind === 'expired' && (
         <div className="ludo-enter mx-auto flex min-h-[420px] w-full max-w-sm flex-col items-center justify-center gap-4 text-center">
           <h2 className="text-xl font-semibold text-foreground">Your previous Ludo session has expired.</h2>
-          <p className="text-sm text-muted">Saved games are kept for 24 hours.</p>
           <Button
             size="lg"
             className="min-h-12 w-full"

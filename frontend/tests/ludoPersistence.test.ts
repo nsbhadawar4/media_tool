@@ -76,11 +76,11 @@ describe('ludo session persistence', () => {
     }
   });
 
-  it('expires after the TTL', () => {
+  it('keeps a game until it is quit (no expiry by default)', () => {
     const s = mem();
     saveLudoSession({ gameMode: 'bot', local: localPayload() }, s, 0);
-    assert.equal(loadLudoSession(s, LUDO_SESSION_TTL_MS - 1).kind, 'valid');
-    assert.equal(loadLudoSession(s, LUDO_SESSION_TTL_MS + 1).kind, 'expired');
+    assert.equal(loadLudoSession(s, 400 * 24 * 3600 * 1000).kind, 'valid');
+    assert.equal(LUDO_SESSION_TTL_MS, Number.POSITIVE_INFINITY);
   });
 
   it('clears corrupt JSON and wrong versions instead of crashing', () => {

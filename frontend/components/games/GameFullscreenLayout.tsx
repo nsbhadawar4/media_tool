@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { BackToGames } from './BackToGames';
-import { GameLeaveProvider, useGameLeave, type GameLeaveConfig } from './GameLeave';
+import { GameExitButton, GameLeaveProvider, useGameLeave, type GameLeaveConfig } from './GameLeave';
 import { GameHeader, StatsStrip, type GameStat } from './GameHeader';
 import { GameInstructions } from './GameInstructions';
 import type { GameMeta } from './games';
@@ -35,7 +35,7 @@ interface GameFullscreenLayoutProps {
 export function GameFullscreenLayout({ leave, ...props }: GameFullscreenLayoutProps) {
   return (
     <GameLeaveProvider leave={leave}>
-      <GameFrame {...props} />
+      <GameFrame {...props} hasExit={!!leave} />
     </GameLeaveProvider>
   );
 }
@@ -55,7 +55,7 @@ function DesktopBack() {
   );
 }
 
-function GameFrame({ game, stats, children, controls }: Omit<GameFullscreenLayoutProps, 'leave'>) {
+function GameFrame({ game, stats, children, controls, hasExit }: Omit<GameFullscreenLayoutProps, 'leave'> & { hasExit: boolean }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [c1, c2] = game.colors;
 
@@ -75,6 +75,9 @@ function GameFrame({ game, stats, children, controls }: Omit<GameFullscreenLayou
         <div className="grid h-14 grid-cols-[auto_1fr_auto] items-center gap-2 px-3">
           <BackToGames />
           <h1 className="truncate text-center text-base font-semibold tracking-tight text-foreground">{game.name}</h1>
+          {hasExit ? (
+            <GameExitButton />
+          ) : (
           <button
             type="button"
             onClick={() => setHelpOpen(true)}
@@ -83,6 +86,7 @@ function GameFrame({ game, stats, children, controls }: Omit<GameFullscreenLayou
           >
             <CircleHelp className="h-5 w-5" />
           </button>
+          )}
         </div>
         <StatsStrip stats={stats} compact />
       </div>
@@ -90,7 +94,7 @@ function GameFrame({ game, stats, children, controls }: Omit<GameFullscreenLayou
       {/* ---- Tablet / desktop header ---- */}
       <div className="max-md:hidden">
         <DesktopBack />
-        <GameHeader game={game} stats={stats} />
+        <GameHeader game={game} stats={stats} actions={hasExit ? <GameExitButton /> : undefined} />
       </div>
 
       {/* ---- Board ---- */}

@@ -60,7 +60,7 @@ export function LudoDice({ value, rollCount, rolling, color, canRoll, onRoll, ca
       style={{ borderColor: `${color}88`, boxShadow: canRoll ? `0 0 28px -10px ${color}` : undefined } as CSSProperties}
     >
       <span
-        className="relative block"
+        className={cn('relative block', rolling && 'ludo-throw')}
         style={{ '--size': '56px', '--half': '28px', width: 56, height: 56, perspective: 420 } as CSSProperties}
       >
         <span

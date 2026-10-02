@@ -1162,3 +1162,12 @@ a,
   animation: np-win 0.7s var(--ease-out) both;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
+
+/* Quit-game dialog: backdrop fades, panel fades and rises a few pixels. */
+@keyframes quit-overlay { from { opacity: 0; } to { opacity: 1; } }
+@keyframes quit-panel {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.quit-overlay { animation: quit-overlay 0.22s ease-out both; }
+.quit-panel { animation: quit-panel 0.26s var(--ease-out) both; }

@@ -29,8 +29,11 @@ import {
  */
 export const LUDO_SESSION_KEY = 'media-tool:ludo:session';
 export const LUDO_SESSION_VERSION = 1;
-/** How long a saved game can be resumed. Change this one constant to change the policy. */
-export const LUDO_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * How long a saved game can be resumed. For now a game is kept until the player quits it, so there is
+ * no limit; set a number of milliseconds (e.g. 24 * 60 * 60 * 1000) here to add one later.
+ */
+export const LUDO_SESSION_TTL_MS: number = Number.POSITIVE_INFINITY;
 
 export type LudoSessionMode = 'local' | 'bot' | 'multiplayer';
 
