@@ -74,10 +74,10 @@ export function KidClassPage({ classSlug }: { classSlug: string }) {
             </div>
           </div>
           <div className="relative mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-            <KidStat icon={Sparkles} label="XP in this class" value={summary.xp.toLocaleString('en-IN')} tone="bg-amber-400/15 text-amber-500" />
+            <KidStat icon={Sparkles} label="Class XP" value={summary.xp.toLocaleString('en-IN')} tone="bg-amber-400/15 text-amber-500" />
             <KidStat icon={Flame} label="Daily Streak" value={dayCount(currentStreak(progress))} tone="bg-orange-500/15 text-orange-500" />
             <KidStat icon={Trophy} label="Best Score" value={summary.bestScore ?? '—'} tone="bg-violet-500/15 text-violet-400" />
-            <KidStat icon={Target} label="Games Completed" value={`${summary.completed} / ${summary.total}`} tone="bg-emerald-500/15 text-emerald-500" />
+            <KidStat icon={Target} label="Completed" value={`${summary.completed} / ${summary.total}`} tone="bg-emerald-500/15 text-emerald-500" />
           </div>
         </section>
       </div>
@@ -172,9 +172,9 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
               <KidProgressBar value={summary.percent} label={`${info.name} progress`} size="lg" />
               <Link href={gameHref(next)} className="kg-btn mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold">
                 <Gamepad2 aria-hidden className="h-4 w-4" />
-                <span className="shrink-0">{summary.completed === 0 ? 'Start:' : summary.completed === summary.total ? 'Play again:' : 'Next up:'}</span>
-                <span className="truncate" lang={subject === 'hindi' ? 'hi' : 'en'}>
-                  {next.title}
+                <span className="truncate">
+                  {summary.completed === 0 ? 'Start' : summary.completed === summary.total ? 'Play again' : 'Next up'}:{' '}
+                  <span lang={subject === 'hindi' ? 'hi' : 'en'}>{next.title}</span>
                 </span>
               </Link>
             </div>
