@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Check, Circle, Flame, Lock, PartyPopper, Play, Rocket, Target, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { Select } from '@/components/ui/Select';
+import { BarChart3, Check, ChevronRight, Circle, Flame, Lock, Map as MapIcon, PartyPopper, Play, Rocket, Target, Trophy } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { CLASS_INFO, CLASS_LEVELS, SUBJECTS, SUBJECT_INFO, findLearningGame, gameHref } from '@/lib/kid-games/catalog';
 import {
@@ -16,6 +18,7 @@ import {
   type KidProgress,
   type SavedSession,
 } from '@/lib/kid-games/progress';
+import type { ClassLevel, Subject } from '@/lib/kid-games/types';
 import { classStyle, subjectStyle } from '../theme';
 import { ClassIcon, KidProgressBar, KidStars, SubjectIcon } from '../shared/KidUi';
 
@@ -241,58 +244,136 @@ export function AchievementsGrid({ progress }: { progress: KidProgress }) {
   );
 }
 
-/** Per-class bars, and the active class's per-subject bars. */
-export function ProgressOverview({ progress }: { progress: KidProgress }) {
-  const active = activeClass(progress);
+const SUBJECT_ROW: Record<Subject, { glyph: string; blurb: string }> = {
+  hindi: { glyph: 'अ', blurb: 'Words & language' },
+  english: { glyph: 'A', blurb: 'Words & grammar' },
+  math: { glyph: '123', blurb: 'Numbers & puzzles' },
+};
+
+const CLASS_OPTIONS = CLASS_LEVELS.map((level) => ({ label: `Class ${level}`, value: String(level) }));
+
+/**
+ * "Your Learning Journey": every class as a tappable progress row, beside the subjects of one class
+ * (the one the child last played, switchable in place without a reload). Real figures only: zero
+ * shows as zero, with a friendly line so an empty bar does not look dead.
+ */
+export function LearningJourney({ progress }: { progress: KidProgress }) {
+  const [chosen, setChosen] = useState<ClassLevel | null>(null);
+  const selected = chosen ?? activeClass(progress);
+
   return (
-    <section aria-labelledby="kg-progress" className="grid gap-4 lg:grid-cols-2">
-      <div className={panel}>
-        <h2 id="kg-progress" className="text-base font-bold text-foreground">
-          Class Progress
+    <section aria-labelledby="kg-journey">
+      <div className="mb-4">
+        <h2 id="kg-journey" className="flex items-center gap-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">
+          <MapIcon aria-hidden className="h-5 w-5 text-accent-2" />
+          Your Learning Journey
         </h2>
-        <ul className="mt-3 space-y-3">
-          {CLASS_LEVELS.map((level) => {
-            const summary = summarise(progress, level);
-            return (
-              <li key={level} style={classStyle(level)}>
-                <Link href={`/kid-games/${CLASS_INFO[level].slug}`} className="group block rounded-xl focus-visible:outline-2 focus-visible:outline-accent">
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className="flex items-center gap-1.5 font-semibold text-foreground group-hover:underline">
-                      <ClassIcon level={level} className="kg-text h-4 w-4" />
-                      Class {level}
-                    </span>
-                    <span className="tabular-nums text-muted">
-                      {summary.completed}/{summary.total} • {summary.percent}%
-                    </span>
-                  </div>
-                  <KidProgressBar value={summary.percent} label={`Class ${level} progress`} size="sm" />
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <p className="mt-0.5 text-sm text-muted">See how you&apos;re progressing across classes and subjects.</p>
       </div>
-      <div className={panel}>
-        <h2 className="text-base font-bold text-foreground">Class {active} Subjects</h2>
-        <ul className="mt-3 space-y-4">
-          {SUBJECTS.map((subject) => {
-            const summary = summarise(progress, active, subject);
-            return (
-              <li key={subject} style={subjectStyle(subject)}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                    <SubjectIcon subject={subject} className="kg-text h-4 w-4" />
-                    {SUBJECT_INFO[subject].name}
-                  </span>
-                  <span className="tabular-nums text-muted">
-                    {summary.completed} / {summary.total}
-                  </span>
-                </div>
-                <KidProgressBar value={summary.percent} label={`${SUBJECT_INFO[subject].name} progress`} />
-              </li>
-            );
-          })}
-        </ul>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        {/* Class progress */}
+        <div className="kg-journey-card rounded-3xl border border-border p-4 shadow-card sm:p-5" style={classStyle(selected)}>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400">
+              <BarChart3 aria-hidden className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Class Progress</h3>
+              <p className="text-xs text-muted">Tap a class to open it.</p>
+            </div>
+          </div>
+          <ul className="grid grid-cols-1 gap-1.5">
+            {CLASS_LEVELS.map((level) => {
+              const summary = summarise(progress, level);
+              const info = CLASS_INFO[level];
+              return (
+                <li key={level} style={classStyle(level)}>
+                  <Link
+                    href={`/kid-games/${info.slug}`}
+                    aria-label={`Class ${level}: ${summary.completed} of ${summary.total} games completed, ${summary.percent}%`}
+                    className="kg-row group flex min-h-16 items-center gap-3 rounded-2xl border border-transparent px-3 py-2.5"
+                  >
+                    <span className="kg-gradient kg-row-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-card">
+                      <ClassIcon level={level} className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="text-sm font-bold uppercase tracking-wide text-foreground">Class {level}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-muted">
+                          <span className="font-semibold text-foreground-soft">
+                            {summary.completed} / {summary.total}
+                          </span>
+                          <span className="ml-2 font-bold text-foreground">{summary.percent}%</span>
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">{summary.completed === 0 ? `${info.tagline} • Ready to begin!` : info.tagline}</span>
+                      <KidProgressBar value={summary.percent} label={`Class ${level} progress`} size="sm" className="mt-1.5" />
+                    </span>
+                    <ChevronRight aria-hidden className="kg-row-arrow h-4 w-4 shrink-0 text-muted opacity-60" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        {/* Subjects of one class */}
+        <div className="kg-journey-card rounded-3xl border border-border p-4 shadow-card sm:p-5" style={classStyle(selected)}>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-foreground">Class {selected} Subjects</h3>
+              <p className="text-xs text-muted">Pick a subject and keep learning.</p>
+            </div>
+            <Select
+              aria-label="Choose a class"
+              options={CLASS_OPTIONS}
+              value={String(selected)}
+              onChange={(e) => setChosen(Number(e.target.value) as ClassLevel)}
+              className="h-11 lg:h-9"
+            />
+          </div>
+          <ul className="grid grid-cols-1 gap-2.5">
+            {SUBJECTS.map((subject) => {
+              const summary = summarise(progress, selected, subject);
+              const row = SUBJECT_ROW[subject];
+              return (
+                <li key={subject} style={subjectStyle(subject)}>
+                  <Link
+                    href={`/kid-games/class-${selected}/${subject}`}
+                    aria-label={`Class ${selected} ${SUBJECT_INFO[subject].name}: ${summary.completed} of ${summary.total} games completed`}
+                    className="kg-row group flex items-center gap-3 rounded-2xl border border-border bg-surface-elevated/60 px-3 py-3"
+                  >
+                    <span
+                      aria-hidden
+                      lang={subject === 'hindi' ? 'hi' : 'en'}
+                      className={cn(
+                        'kg-gradient kg-row-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-xl font-bold text-white shadow-card',
+                        row.glyph.length > 1 ? 'text-base' : 'text-xl',
+                      )}
+                    >
+                      {row.glyph}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-sm font-bold uppercase tracking-wide text-foreground">{SUBJECT_INFO[subject].name}</span>
+                        <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground-soft">
+                          {summary.completed} / {summary.total}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-muted">
+                        {row.blurb}
+                        {summary.completed === 0 ? ' • Start your first game' : ` • ${summary.percent}% done`}
+                      </span>
+                      <KidProgressBar value={summary.percent} label={`${SUBJECT_INFO[subject].name} progress`} size="sm" className="mt-1.5" />
+                    </span>
+                    <ChevronRight aria-hidden className="kg-row-arrow h-4 w-4 shrink-0 text-muted opacity-60" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </section>
   );

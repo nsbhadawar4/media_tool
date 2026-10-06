@@ -8,7 +8,7 @@ import { ALL_GAMES, CLASS_LEVELS, SUBJECT_INFO } from '@/lib/kid-games/catalog';
 import { ACHIEVEMENTS, currentStreak, recommendations, summarise, useKidProgress, useSavedSession } from '@/lib/kid-games/progress';
 import type { LearningGame } from '@/lib/kid-games/types';
 import { ClassCard, KidGameCard } from '../cards/KidCards';
-import { AchievementsGrid, ContinueSection, DailyGoalCard, LevelCard, ProgressOverview, StreakCard } from '../progress/ProgressWidgets';
+import { AchievementsGrid, ContinueSection, DailyGoalCard, LevelCard, LearningJourney, StreakCard } from '../progress/ProgressWidgets';
 import { KidEmptyState, KidFloatingShapes, KidSectionTitle, KidStat, SubjectIcon } from '../shared/KidUi';
 import { ProgressLoadError } from './ProgressLoadError';
 import { dayCount } from '../theme';
@@ -145,7 +145,7 @@ export function KidGamesHome() {
       {/* Classes */}
       <section aria-labelledby="kg-classes">
         <KidSectionTitle id="kg-classes" icon={GraduationCap} title="Choose Your Class" hint="Every class has 30 games: 10 Hindi, 10 English and 10 Maths." />
-        <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {CLASS_LEVELS.map((level, i) => (
             <ClassCard key={level} level={level} summary={summarise(progress, level)} index={i} />
           ))}
@@ -210,7 +210,7 @@ export function KidGamesHome() {
         )}
       </section>
 
-      <ProgressOverview progress={progress} />
+      <LearningJourney progress={progress} />
       <AchievementsGrid progress={progress} />
     </div>
   );

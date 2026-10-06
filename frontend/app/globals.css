@@ -1544,3 +1544,35 @@ a,
 }
 :root[data-motion='reduce'] .kg-float,
 :root[data-motion='reduce'] .kg-burst { display: none; }
+
+/* ---- Kid Games: class cards (hover lift with a soft class-coloured glow) ---- */
+.kg-class-card { transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease, border-color 0.22s ease; }
+.kg-class-art { transition: transform 0.25s var(--ease-out); }
+@media (hover: hover) {
+  .kg-class-card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--kg) 50%, transparent);
+    box-shadow: var(--shadow-lift), 0 12px 32px -16px color-mix(in srgb, var(--kg) 55%, transparent);
+  }
+  .kg-class-card:hover .kg-class-art { transform: scale(1.03); }
+}
+.kg-class-card:focus-within { border-color: color-mix(in srgb, var(--kg) 60%, transparent); }
+.kg-cta:active { transform: scale(0.98); }
+
+/* ---- Kid Games: journey rows (class progress and subject rows) ---- */
+.kg-row { transition: background-color 0.2s ease, border-color 0.2s ease; }
+.kg-row-icon, .kg-row-arrow { transition: transform 0.2s var(--ease-out); }
+@media (hover: hover) {
+  .kg-row:hover { background-color: color-mix(in srgb, var(--kg) 9%, var(--surface)); border-color: color-mix(in srgb, var(--kg) 40%, transparent); }
+  .kg-row:hover .kg-row-icon { transform: scale(1.06); }
+  .kg-row:hover .kg-row-arrow { transform: translateX(3px); opacity: 1; }
+}
+.kg-row:focus-visible { outline: 2px solid var(--kg); outline-offset: 2px; }
+.kg-row:focus-visible .kg-row-arrow { opacity: 1; }
+.kg-journey-card {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--kg) 7%, var(--surface)), var(--surface) 55%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kg-class-card, .kg-class-art, .kg-row, .kg-row-icon, .kg-row-arrow { transition: none; }
+}

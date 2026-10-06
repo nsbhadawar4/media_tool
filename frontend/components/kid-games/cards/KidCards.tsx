@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { ArrowRight, CheckCircle2, Play, Sparkles, Star, Trophy } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Play, Sparkles, Star, Trophy, Zap } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { CLASS_INFO, SUBJECT_INFO, gameHref } from '@/lib/kid-games/catalog';
 import type { GameRecord, ProgressSummary } from '@/lib/kid-games/progress';
@@ -36,41 +36,91 @@ function ArtDots() {
   );
 }
 
-/** One class on the hub: artwork, a progress ring, what is done and what it has earned. */
+/** A friendly second line per class, so each card reads as its own stop on the journey. */
+const CLASS_SUBLINE: Record<ClassLevel, string> = {
+  1: 'Start your learning journey',
+  2: 'Words, sums and short stories',
+  3: 'Bigger ideas and new skills',
+  4: 'Think, solve and explain',
+  5: 'Become a learning champion',
+};
+
+/**
+ * One class on the hub, as a single card: artwork, what the class is, its numbers, the progress
+ * bar and the button. Every section has a fixed height, so cards in a row line up exactly and
+ * their buttons sit on the same line.
+ */
 export function ClassCard({ level, summary, index }: { level: ClassLevel; summary: ProgressSummary; index: number }) {
   const info = CLASS_INFO[level];
   const started = summary.completed > 0;
   return (
-    <article style={{ ...classStyle(level), ...stagger(index) }} className="kg-card kg-enter group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
-      <CardLink href={`/kid-games/${info.slug}`} label={`Class ${level}: ${info.tagline}. ${summary.completed} of ${summary.total} games completed.`} />
-      <div className="kg-gradient relative flex h-28 items-center justify-center overflow-hidden sm:h-32">
-        <ArtDots />
-        <info.icon aria-hidden className={cn('kg-bob relative text-white drop-shadow-lg', level <= 2 ? 'h-14 w-14' : 'h-12 w-12')} strokeWidth={1.75} />
-        <span className="absolute left-3 top-3 rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">Class {level}</span>
+    <article
+      style={{ ...classStyle(level), ...stagger(index) }}
+      className="kg-class-card kg-enter group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-card"
+    >
+      <CardLink href={`/kid-games/${info.slug}`} label={`Class ${level}: ${info.tagline}. ${summary.completed} of ${summary.total} games completed, ${summary.xp} XP.`} />
+
+      {/* Artwork */}
+      <div className="relative h-28 shrink-0 overflow-hidden">
+        <div className="kg-gradient kg-class-art absolute inset-0">
+          <ArtDots />
+        </div>
+        <span className="absolute left-4 top-3.5 rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
+          Class {level}
+        </span>
+        <span className="absolute inset-0 flex items-center justify-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/30 bg-white/15 shadow-lg backdrop-blur-sm">
+            <info.icon aria-hidden className="h-7 w-7 text-white" strokeWidth={1.9} />
+          </span>
+        </span>
       </div>
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <KidProgressRing value={summary.percent} label={`Class ${level} progress`} size={56} stroke={6} />
+
+      {/* Content */}
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-lg font-bold tracking-tight text-foreground">{info.tagline}</h3>
-            <p className="text-xs tabular-nums text-muted">
-              {summary.completed} / {summary.total} games
-            </p>
+            <h3 className="truncate text-lg font-bold leading-7 tracking-tight text-foreground">{info.tagline}</h3>
+            <p className="truncate text-sm leading-5 text-muted">{started ? CLASS_SUBLINE[level] : 'Ready to begin!'}</p>
           </div>
+          <KidProgressRing value={summary.percent} label={`Class ${level} progress`} size={48} stroke={5}>
+            <span className="text-[11px] font-bold">{summary.percent}%</span>
+          </KidProgressRing>
         </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1 font-semibold text-amber-500">
-            <Sparkles aria-hidden className="h-3.5 w-3.5" />
-            {summary.xp} XP
-          </span>
-          <span className="flex items-center gap-1 tabular-nums text-muted">
-            <Star aria-hidden className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-            {summary.stars} / {summary.maxStars}
-          </span>
+
+        {/* Stats */}
+        <dl className="mt-4 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-1.5">
+            <dt className="text-muted">Games</dt>
+            <dd className="font-bold tabular-nums text-foreground">
+              {summary.completed} / {summary.total}
+            </dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt>
+              <Star aria-hidden className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <span className="sr-only">Stars</span>
+            </dt>
+            <dd className="font-bold tabular-nums text-foreground">
+              {summary.stars} <span className="font-medium text-muted">/ {summary.maxStars}</span>
+            </dd>
+          </div>
+        </dl>
+
+        {/* Progress */}
+        <div className="mt-3">
+          <KidProgressBar value={summary.percent} label={`Class ${level} games completed`} size="sm" />
         </div>
-        <span className="kg-btn mt-auto inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-bold">
-          {started ? 'Continue' : 'Start Learning'}
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+        <p className="mt-3 flex items-center gap-1.5 text-sm">
+          <Zap aria-hidden className="h-4 w-4 fill-amber-400 text-amber-400" />
+          <span className="font-bold tabular-nums text-foreground">{summary.xp}</span>
+          <span className="text-muted">XP earned</span>
+        </p>
+
+        {/* CTA, always on the bottom line: the spacer takes up any height difference. */}
+        <div aria-hidden className="min-h-5 flex-1" />
+        <span className="kg-btn kg-cta inline-flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold">
+          {started ? 'Continue Learning' : 'Start Learning'}
+          <ArrowRight aria-hidden className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </span>
       </div>
     </article>
