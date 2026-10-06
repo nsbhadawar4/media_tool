@@ -52,7 +52,7 @@ interface GameLoadingProps {
 const MOBILE_FRAME =
   'fixed inset-0 z-40 pt-[calc(57px+env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)]';
 
-const LAYOUTS: Record<GameLoadingLayout, string> = {
+export const GAME_LOADING_LAYOUTS: Record<GameLoadingLayout, string> = {
   inline: 'max-md:min-h-[260px] max-md:flex-1 md:min-h-[420px]',
   screen: `${MOBILE_FRAME} bg-background md:static md:z-auto md:min-h-[60dvh] md:bg-transparent md:p-0`,
   boot: `${MOBILE_FRAME} bg-background md:pt-0`,
@@ -72,7 +72,7 @@ export function GameLoading({ variant, label = 'Loading game...', layout = 'inli
       role="status"
       aria-live="polite"
       aria-label={`${game?.name ?? 'Game'}: ${label}`}
-      className={cn('gl-fadein grid w-full place-items-center overflow-hidden', LAYOUTS[layout])}
+      className={cn('gl-fadein grid w-full place-items-center overflow-hidden', GAME_LOADING_LAYOUTS[layout])}
       style={{ backgroundImage: `radial-gradient(55% 40% at 50% 46%, color-mix(in srgb, ${glow} 12%, transparent), transparent 75%)` }}
     >
       <div className="flex flex-col items-center gap-5 text-center">

@@ -62,9 +62,10 @@ export function SidebarContent({
   const groups: Array<{ label?: string; items: typeof navItems }> = isAdminArea
     ? [{ items: navItems }]
     : [
-        { label: 'Library', items: navItems.slice(0, 5) },
-        { label: 'Manage', items: navItems.slice(5, 7) },
-        { label: 'Account', items: navItems.slice(7) },
+        // Library runs through Games and Kid Games; slicing by href keeps that true if items move.
+        { label: 'Library', items: navItems.slice(0, navItems.findIndex((item) => item.href === '/trash')) },
+        { label: 'Manage', items: navItems.slice(navItems.findIndex((item) => item.href === '/trash'), navItems.findIndex((item) => item.href === '/profile')) },
+        { label: 'Account', items: navItems.slice(navItems.findIndex((item) => item.href === '/profile')) },
       ];
 
   const labelClass = cn(

@@ -22,16 +22,33 @@ function describeTarget(uri: string): string {
   }
 }
 
+/** Set once the connection listeners are attached, so a retried connect does not log every event twice. */
+let listenersAttached = false;
+
+/**
+ * Whether a failed connect is worth trying again: the cluster did not answer in time, or
+ * the network dropped. A rejected password or a mistyped hostname fails the same way on
+ * every attempt, so retrying those would only delay the error message.
+ */
+export function isTransientConnectionError(err: unknown): boolean {
+  const text = err instanceof Error ? `${err.name} ${err.message}` : String(err);
+  if (/authentication failed|bad auth|ENOTFOUND|querySrv/i.test(text)) return false;
+  return /timed out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ServerSelection|ReplicaSetNoPrimary/i.test(text);
+}
+
 export async function connectDatabase(): Promise<void> {
-  mongoose.connection.on('error', (err) => {
-    logger.error('MongoDB connection error', err);
-  });
-  mongoose.connection.on('disconnected', () => {
-    logger.warn('MongoDB disconnected');
-  });
-  mongoose.connection.on('reconnected', () => {
-    logger.info('MongoDB reconnected');
-  });
+  if (!listenersAttached) {
+    listenersAttached = true;
+    mongoose.connection.on('error', (err) => {
+      logger.error('MongoDB connection error', err);
+    });
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('MongoDB disconnected');
+    });
+    mongoose.connection.on('reconnected', () => {
+      logger.info('MongoDB reconnected');
+    });
+  }
 
   const target = describeTarget(env.MONGODB_URI);
   logger.info(`Connecting to MongoDB at ${target}...`);

@@ -8,6 +8,7 @@ import activityRoutes from './activityRoutes';
 import searchRoutes from './searchRoutes';
 import adminRoutes from './adminRoutes';
 import healthRoutes from './healthRoutes';
+import kidGameRoutes from './kidGameRoutes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use('/activity', activityRoutes);
 router.use('/search', searchRoutes);
 router.use('/admin', adminRoutes);
 router.use('/health', healthRoutes);
+router.use('/kid-games', kidGameRoutes);
 
 export default router;

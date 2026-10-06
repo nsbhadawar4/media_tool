@@ -114,6 +114,7 @@ export const api = {
   post: <T>(path: string, body?: unknown, query?: RequestOptions['query']) =>
     apiRequest<T>(path, { method: 'POST', body, query }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
+  put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
   // Takes a body because permanent deletion requires an explicit typed confirmation.
   delete: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'DELETE', body }),
   postForm: <T>(path: string, formData: FormData) =>

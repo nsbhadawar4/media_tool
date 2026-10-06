@@ -20,7 +20,9 @@ async function bootstrap(): Promise<void> {
    */
   const { env } = await import('./config/env');
   const { createApp } = await import('./app');
-  const { connectDatabase, disconnectDatabase } = await import('./config/database');
+  const { connectDatabase, disconnectDatabase, isTransientConnectionError } = await import(
+    './config/database'
+  );
 
   // Ensure local-dev directories exist regardless of which storage provider is active,
   // since multer always writes incoming uploads to tmp/ first.
@@ -29,7 +31,25 @@ async function bootstrap(): Promise<void> {
     fs.mkdirSync(env.localStorageRoot, { recursive: true });
   }
 
-  await connectDatabase();
+  /**
+   * A cluster that does not answer is retried rather than fatal. One slow handshake (a
+   * flaky Wi-Fi or mobile connection is enough) used to end the process, and under
+   * `tsx watch` nothing restarts it until a file changes, so the frontend went on reporting
+   * "could not reach the server" with no backend behind it. Errors that will fail the same
+   * way every time, such as a wrong password, still exit straight away.
+   */
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await connectDatabase();
+      break;
+    } catch (err) {
+      if (attempt >= MAX_ATTEMPTS || !isTransientConnectionError(err)) throw err;
+      const delayMs = Math.min(2_000 * attempt, 10_000);
+      logger.warn(`Retrying MongoDB connection in ${delayMs / 1000}s (attempt ${attempt + 1} of ${MAX_ATTEMPTS})`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
 
   const app = createApp();
   const server = app.listen(env.PORT, () => {

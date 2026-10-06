@@ -9,6 +9,8 @@ import { GameLoading, isGameLoaderVariant } from '@/components/games/shared/Game
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { UploadProvider } from '@/lib/upload/UploadContext';
+import { KidGameLoader } from '@/components/kid-games/loaders/KidGameLoader';
+import { kidGameRouteSubject } from '@/lib/kid-games/routes';
 
 /**
  * The authoritative auth gate for every signed-in page. proxy.ts already redirects
@@ -22,6 +24,8 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   // /games/<slug>: the first thing on screen while the session is checked is that game's own loader.
   const gameSlug = /^\/games\/([^/]+)\/?$/.exec(pathname)?.[1];
+  // A Kid Game opens on its subject's own loader in the same way.
+  const kidSubject = kidGameRouteSubject(pathname);
 
   // Only a session the server has actually rejected sends anyone away, and it leaves
   // with the marker that stops proxy.ts sending them back — see lib/auth/session.ts.
@@ -40,6 +44,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }
 
   if (isLoading || !user) {
+    if (kidSubject) return <KidGameLoader variant={kidSubject} layout="boot" />;
     return gameSlug && isGameLoaderVariant(gameSlug) ? <GameLoading variant={gameSlug} layout="boot" /> : <FullPageSpinner />;
   }
 

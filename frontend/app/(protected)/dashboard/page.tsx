@@ -26,6 +26,7 @@ import { MediaViewerModals } from '@/components/modals/MediaViewerModals';
 import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid';
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { FadeUp } from '@/components/ui/motion';
+import { KidGamesDashboardCard } from '@/components/kid-games/KidGamesDashboardCard';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useUploads } from '@/lib/upload/UploadContext';
@@ -201,7 +202,11 @@ export default function DashboardPage() {
         </FadeUp>
       )}
 
-      <FadeUp as="section" index={7} className="mt-6 sm:mt-8">
+      <FadeUp index={7} className="mt-6 sm:mt-8">
+        <KidGamesDashboardCard />
+      </FadeUp>
+
+      <FadeUp as="section" index={8} className="mt-6 sm:mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Recent folders</h2>
           <Link href="/folders" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
@@ -235,7 +240,7 @@ export default function DashboardPage() {
         )}
       </FadeUp>
 
-      <FadeUp index={8} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
+      <FadeUp index={9} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
         <Card className="min-w-0 xl:col-span-2">
           <CardHeader>
             <h2 className="text-base font-semibold tracking-tight text-foreground">Recent uploads</h2>

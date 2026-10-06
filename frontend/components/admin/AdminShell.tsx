@@ -7,6 +7,7 @@ import { Topbar } from './Topbar';
 import { MobileTabBar } from './MobileTabBar';
 import { MobileDrawer } from './MobileDrawer';
 import { LogoutPromptProvider } from '@/components/auth/LogoutPrompt';
+import { isKidGameRoute } from '@/lib/kid-games/routes';
 
 const COLLAPSED_KEY = 'media_tool_sidebar_collapsed';
 
@@ -20,8 +21,8 @@ export function AdminShell({
   // Re-keying the content on navigation restarts its enter animation, which is what makes
   // a route change read as a screen transition rather than a repaint.
   const pathname = usePathname();
-  // A single game (not the hub): on phones it takes over the whole screen.
-  const isImmersiveGame = /^\/games\/[^/]+\/?$/.test(pathname);
+  // A single game (not a hub): on phones it takes over the whole screen.
+  const isImmersiveGame = /^\/games\/[^/]+\/?$/.test(pathname) || isKidGameRoute(pathname);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
