@@ -13,6 +13,17 @@ import {
   listUsersQuerySchema,
   setUserStatusSchema,
 } from '../validators/adminValidators';
+import {
+  listReviews,
+  reviewStats,
+  getReview,
+  approveReview,
+  rejectReview,
+  unpublishReview,
+  publishReview,
+  deleteReview,
+} from '../controllers/adminReviewController';
+import { adminReviewsQuerySchema, rejectReviewSchema, reviewIdParamSchema } from '../validators/reviewValidators';
 
 const router = Router();
 
@@ -28,5 +39,15 @@ router.patch(
   setUserStatus,
 );
 router.delete('/users/:id', validate({ params: userIdParamSchema }), deleteUser);
+
+// Review moderation (same guards as everything else in this router).
+router.get('/reviews', validate({ query: adminReviewsQuerySchema }), listReviews);
+router.get('/reviews/stats', reviewStats);
+router.get('/reviews/:id', validate({ params: reviewIdParamSchema }), getReview);
+router.patch('/reviews/:id/approve', validate({ params: reviewIdParamSchema }), approveReview);
+router.patch('/reviews/:id/reject', validate({ params: reviewIdParamSchema, body: rejectReviewSchema }), rejectReview);
+router.patch('/reviews/:id/unpublish', validate({ params: reviewIdParamSchema }), unpublishReview);
+router.patch('/reviews/:id/publish', validate({ params: reviewIdParamSchema }), publishReview);
+router.delete('/reviews/:id', validate({ params: reviewIdParamSchema }), deleteReview);
 
 export default router;

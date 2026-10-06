@@ -1576,3 +1576,39 @@ a,
 @media (prefers-reduced-motion: reduce) {
   .kg-class-card, .kg-class-art, .kg-row, .kg-row-icon, .kg-row-arrow { transition: none; }
 }
+
+/* ===========================================================================
+   Reviews
+=========================================================================== */
+/* Star picker: a small lift on hover, a pop when chosen. */
+.rv-star svg { transition: transform 0.18s var(--ease-spring), color 0.15s ease, fill 0.15s ease; }
+@media (hover: hover) { .rv-star:hover svg { transform: scale(1.15); } }
+.rv-star[aria-checked='true'] svg { animation: rv-pop 0.32s var(--ease-spring); }
+@keyframes rv-pop { 0% { transform: scale(1); } 45% { transform: scale(1.28); } 100% { transform: scale(1); } }
+
+.rv-success { animation: rise-scale 0.4s var(--ease-out) both; }
+.rv-enter { animation: rise 0.35s var(--ease-out) both; }
+
+/* Public carousel: how many cards fit depends on the space the carousel itself has. */
+.rv-track { container-type: inline-size; scroll-padding-inline: 0; }
+.rv-card-slot { flex: 0 0 100%; min-width: 0; }
+@container (min-width: 560px) { .rv-card-slot { flex-basis: calc((100% - 1rem) / 2); } }
+@container (min-width: 840px) { .rv-card-slot { flex-basis: calc((100% - 2rem) / 3); } }
+.rv-card { transition: transform 0.22s var(--ease-out), border-color 0.22s ease, box-shadow 0.22s ease; }
+@media (hover: hover) {
+  .rv-card:hover { transform: translateY(-2px); border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
+}
+
+/* Admin: a row whose status just changed glows once. */
+.rv-flash { animation: rv-flash 1.2s ease-out; }
+@keyframes rv-flash { 0% { background-color: color-mix(in srgb, var(--accent) 16%, transparent); } 100% { background-color: transparent; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-star svg, .rv-card { transition: none; }
+  .rv-star[aria-checked='true'] svg, .rv-success, .rv-enter, .rv-flash { animation: none; }
+}
+
+/* Admin review badges: a quick fade when a status changes. */
+.rv-badge { animation: rv-badge-in 0.28s var(--ease-out) both; }
+@keyframes rv-badge-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rv-badge { animation: none; } }

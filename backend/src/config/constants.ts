@@ -116,8 +116,25 @@ export const ACTIVITY_ACTIONS = [
   'user_activated',
   'user_deactivated',
   'user_deleted',
+  'review_submitted',
+  'review_updated',
+  'review_approved',
+  'review_rejected',
+  'review_published',
+  'review_unpublished',
+  'review_deleted',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
-export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user'] as const;
+export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review'] as const;
 export type ActivityTargetType = (typeof ACTIVITY_TARGET_TYPES)[number];
+
+/** Reviews: moderation states and what a review can be about. */
+export const REVIEW_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
+export const REVIEW_CATEGORIES = ['overall', 'media', 'documents', 'games', 'performance', 'other'] as const;
+export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
+
+export const REVIEW_TEXT_MIN = 10;
+export const REVIEW_TEXT_MAX = 500;

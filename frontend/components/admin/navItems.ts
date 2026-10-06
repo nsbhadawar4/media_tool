@@ -11,6 +11,7 @@ import {
   UserRound,
   Users,
   BarChart3,
+  Star,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ export const USER_NAV: readonly NavItem[] = [
 export const ADMIN_NAV: readonly NavItem[] = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/stats', label: 'Statistics', icon: BarChart3 },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
 ];
 
 /**

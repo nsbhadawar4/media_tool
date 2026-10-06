@@ -24,6 +24,7 @@ import { ApiError } from '@/lib/api/client';
 import { useToast } from '@/lib/toast/ToastContext';
 import { formatDate, formatRelativeTime } from '@/utils/format';
 import { cn } from '@/utils/cn';
+import { MyReviewCard } from '@/components/reviews/MyReviewCard';
 
 /**
  * The account's own details — what it signed up with, and the parts of that it can change.
@@ -45,6 +46,10 @@ export default function ProfilePage() {
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ProfileForm user={user} onSaved={refresh} toast={toast} />
         <PasswordForm toast={toast} />
+      </div>
+
+      <div className="mt-6">
+        <MyReviewCard />
       </div>
     </div>
   );

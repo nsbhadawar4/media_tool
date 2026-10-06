@@ -69,3 +69,18 @@ export const apiRateLimiter = rateLimit({
     sendError(res, 429, 'Too many requests. Please slow down.');
   },
 });
+
+/**
+ * Review submissions and edits, per account (it runs after requireAuth). Generous for a person
+ * fixing a typo, tight enough that an edit loop cannot flood the moderation queue.
+ */
+export const reviewWriteRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id ?? req.ip ?? 'unknown',
+  handler: (_req, res) => {
+    sendError(res, 429, 'You have updated your review a lot recently. Please try again later.');
+  },
+});

@@ -8,6 +8,7 @@ import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { ADMIN_NAV, TAB_SLOTS, USER_NAV, isNavItemActive, type NavItem } from './navItems';
+import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
 /**
@@ -111,14 +112,23 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
 
 function TabLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
   const Icon = item.icon;
+  const badge = useNavBadges()[item.href];
   return (
     <Link
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
+      aria-label={badge ? `${item.label}, ${badge} waiting` : undefined}
       className="flex flex-1 flex-col items-center justify-center gap-1 pt-1 transition active:scale-95"
     >
       <TabIconSlot isActive={isActive}>
-        <Icon className="h-5 w-5" />
+        <span className="relative">
+          <Icon className="h-5 w-5" />
+          {badge ? (
+            <span aria-hidden className="absolute -right-2.5 -top-1.5 rounded-full bg-accent px-1 text-[9px] font-bold leading-[14px] tabular-nums text-accent-foreground">
+              {badgeText(badge)}
+            </span>
+          ) : null}
+        </span>
       </TabIconSlot>
       <TabLabel isActive={isActive}>{item.label}</TabLabel>
     </Link>

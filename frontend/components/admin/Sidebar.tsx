@@ -11,6 +11,7 @@ import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { formatBytes } from '@/utils/format';
 import { ADMIN_NAV, USER_NAV, isNavItemActive } from './navItems';
+import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
 interface SidebarContentProps {
@@ -50,6 +51,7 @@ export function SidebarContent({
 
   const isAdminArea = variant === 'admin';
   const navItems = isAdminArea ? ADMIN_NAV : USER_NAV;
+  const badges = useNavBadges();
   // Only an administrator is offered the cross-link, and only from the other side.
   const crossLink = isAdminArea
     ? { href: '/dashboard', label: 'My library', icon: FolderClosed }
@@ -181,6 +183,17 @@ export function SidebarContent({
                       strokeWidth={1.85}
                     />
                     <span className={labelClass}>{item.label}</span>
+                    {badges[item.href] ? (
+                      <span
+                        aria-label={`${badges[item.href]} waiting`}
+                        className={cn(
+                          'rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-accent-foreground',
+                          collapsed ? 'absolute right-1 top-1' : 'ml-auto',
+                        )}
+                      >
+                        {badgeText(badges[item.href])}
+                      </span>
+                    ) : null}
                   </Link>
                 );
               })}
