@@ -196,7 +196,8 @@ function IdentityHeader({
             <Fact
               icon={user.isEmailVerified ? BadgeCheck : ShieldAlert}
               label="Email"
-              value={user.isEmailVerified ? 'Verified' : 'Not verified'}
+              // Mobile-signup accounts have no email at all, which is not the same as an unverified one.
+              value={!user.email ? 'Not added' : user.isEmailVerified ? 'Verified' : 'Not verified'}
               tone={user.isEmailVerified ? 'success' : 'warning'}
             />
             <Fact icon={CalendarDays} label="Member since" value={formatDate(user.createdAt)} />
@@ -299,7 +300,9 @@ function FormError({ message }: { message: string }) {
  */
 function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Promise<void>; toast: Toast }) {
   const [name, setName] = useState(user.name);
-  const [email, setEmail] = useState(user.email);
+  // Mobile-signup accounts have no email; they may add one here, but an existing one is never blanked.
+  const originalEmail = user.email ?? '';
+  const [email, setEmail] = useState(originalEmail);
   const [mobile, setMobile] = useState(user.mobile ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -307,7 +310,7 @@ function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Prom
   const trimmedMobile = mobile.trim();
   const originalMobile = user.mobile ?? '';
   const isDirty =
-    name.trim() !== user.name || email.trim() !== user.email || trimmedMobile !== originalMobile;
+    name.trim() !== user.name || email.trim() !== originalEmail || trimmedMobile !== originalMobile;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -317,7 +320,7 @@ function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Prom
     try {
       await authApi.updateProfile({
         ...(name.trim() !== user.name ? { name: name.trim() } : {}),
-        ...(email.trim() !== user.email ? { email: email.trim() } : {}),
+        ...(email.trim() && email.trim() !== originalEmail ? { email: email.trim() } : {}),
         // An emptied field is a deliberate "remove it", which null says and "" does not.
         ...(trimmedMobile !== originalMobile ? { mobile: trimmedMobile === '' ? null : trimmedMobile } : {}),
       });
@@ -353,7 +356,8 @@ function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Prom
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
-          required
+          required={Boolean(user.email)}
+          placeholder={user.email ? undefined : 'Add an email address (optional)'}
         />
         <AuthField
           id="profile-mobile"
@@ -366,7 +370,7 @@ function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Prom
           placeholder="+91 98765 43210"
         />
 
-        {email.trim() !== user.email && (
+        {user.email && email.trim() !== originalEmail && (
           <p className="rounded-xl bg-warning/10 px-3.5 py-2.5 text-xs text-warning">
             This is the address you sign in with, so you will need the new one next time.
           </p>
@@ -385,7 +389,7 @@ function ProfileForm({ user, onSaved, toast }: { user: User; onSaved: () => Prom
               variant="ghost"
               onClick={() => {
                 setName(user.name);
-                setEmail(user.email);
+                setEmail(originalEmail);
                 setMobile(user.mobile ?? '');
                 setError(null);
               }}
@@ -475,7 +479,7 @@ function PasswordForm({ toast }: { toast: Toast }) {
           required
         />
 
-        <p className="text-xs text-muted">At least 8 characters. You stay signed in on this device.</p>
+        <p className="text-xs text-muted">At least 8 characters. You stay signed in here; your other devices are signed out.</p>
 
         {error && <FormError message={error} />}
 

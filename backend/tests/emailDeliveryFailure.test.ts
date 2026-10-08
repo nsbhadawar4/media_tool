@@ -85,7 +85,7 @@ test('EMAIL_PROVIDER=smtp with no SMTP_HOST fails loudly too, naming what is mis
 test('a correctly configured provider (console, the test default) still answers 200', async () => {
   const { real, fake } = await runProbeWith({});
   assert.equal(real.status, 200, 'the fix must not break the working case');
-  // An unknown address is now refused outright (nothing is sent), unlike a real one.
-  assert.equal(fake.status, 404);
-  assert.match(fake.message, /No existing account/);
+  // An unknown address gets the identical answer (nothing is sent), so it reveals nothing.
+  assert.equal(fake.status, real.status);
+  assert.equal(fake.message, real.message);
 });

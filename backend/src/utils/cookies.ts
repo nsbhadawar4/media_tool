@@ -38,3 +38,32 @@ export function clearSessionCookie(res: Response): void {
     path: '/',
   });
 }
+
+/**
+ * The nonce for one Google sign-in attempt. HTTP-only, scoped to the Google endpoints, and
+ * short-lived; Google echoes the same value inside its signed ID token, and the sign-in is
+ * refused unless the two match. That binds the token to the browser that asked for it, which
+ * stops a replayed token and a cross-site "log in as me" request.
+ */
+export const GOOGLE_NONCE_COOKIE = 'mt_google_nonce';
+
+export function setGoogleNonceCookie(res: Response, nonce: string): void {
+  res.cookie(GOOGLE_NONCE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: env.COOKIE_SAMESITE,
+    domain: env.COOKIE_DOMAIN,
+    maxAge: 10 * 60 * 1000,
+    path: '/api/auth/google',
+  });
+}
+
+export function clearGoogleNonceCookie(res: Response): void {
+  res.clearCookie(GOOGLE_NONCE_COOKIE, {
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: env.COOKIE_SAMESITE,
+    domain: env.COOKIE_DOMAIN,
+    path: '/api/auth/google',
+  });
+}

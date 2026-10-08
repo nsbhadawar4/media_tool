@@ -53,6 +53,10 @@ export class AppError extends Error {
    * right for an unexpected fault and useless for one whose cause is a variable nobody
    * set.
    */
+  static tooManyRequests(message: string, code?: string) {
+    return new AppError(message, 429, undefined, code);
+  }
+
   static unavailable(message: string, code?: string) {
     return new AppError(message, 503, undefined, code);
   }

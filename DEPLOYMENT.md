@@ -446,11 +446,13 @@ Two things to know while reading those:
 
 ## 6. Known limitations
 
-**Rate limiting is per-instance.** `express-rate-limit` keeps its counters in memory, and
-a serverless deployment runs many instances, so the effective limit is the configured one
-multiplied by however many instances are live. The login limiter is a real security
-control, so if this matters, either put a Vercel Firewall rate-limit rule in front of
-`/api/auth/login`, or give `express-rate-limit` a shared store.
+**Only the general API limiter is per-instance.** The authentication limiters (sign-in per
+address and per account, signup, password-reset requests and code checks, mobile-signup texts
+and code checks) keep their counters in MongoDB — the `ratelimits` collection, which empties
+itself through a TTL index — so every serverless instance counts against the same window.
+The loose general limiter (300 requests a minute per address across the whole API) still
+counts in memory, so its effective limit grows with the number of live instances; a Vercel
+Firewall rule is the place for a hard global cap if one is ever needed.
 
 **Thumbnails are skipped for images over 64 MB.** A direct upload never passes through the
 server, so a thumbnail means downloading the object back. Past that ceiling it is not

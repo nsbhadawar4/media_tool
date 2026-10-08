@@ -7,7 +7,8 @@ import { Ellipsis, LogOut, Users, FolderClosed } from 'lucide-react';
 import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
-import { ADMIN_NAV, TAB_SLOTS, USER_NAV, isNavItemActive, type NavItem } from './navItems';
+import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
+import { ADMIN_NAV_GROUPS, TAB_SLOTS, USER_NAV_GROUPS, isNavItemActive, liveNavItems, type NavItem } from './navItems';
 import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
@@ -25,15 +26,15 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const isAdminArea = variant === 'admin';
-  const nav = isAdminArea ? ADMIN_NAV : USER_NAV;
+  const nav = liveNavItems(isAdminArea ? ADMIN_NAV_GROUPS : USER_NAV_GROUPS);
   const tabs = nav.slice(0, TAB_SLOTS);
   const overflow = nav.slice(TAB_SLOTS);
 
   // Only an administrator is offered the cross-link, and only from the other side.
   const crossLink: NavItem | null = isAdminArea
-    ? { href: '/dashboard', label: 'My library', icon: FolderClosed }
+    ? { href: USER_HOME_PATH, label: 'My library', icon: FolderClosed }
     : isAdmin
-      ? { href: '/admin/users', label: 'Administration', icon: Users }
+      ? { href: ADMIN_HOME_PATH, label: 'Administration', icon: Users }
       : null;
 
   // "More" reads as selected whenever the open page lives behind it, so the bar never shows

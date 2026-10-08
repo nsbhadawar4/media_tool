@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { accountLabel } from '@/lib/auth/account';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronsLeft, FolderClosed, HardDrive, LogOut, Users } from 'lucide-react';
@@ -9,8 +10,10 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { dashboardApi } from '@/lib/api/dashboard';
+import { adminApi } from '@/lib/api/admin';
 import { formatBytes } from '@/utils/format';
-import { ADMIN_NAV, USER_NAV, isNavItemActive } from './navItems';
+import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
+import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive } from './navItems';
 import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
@@ -41,7 +44,14 @@ export function SidebarContent({
     queryFn: () => dashboardApi.stats(),
     enabled: variant === 'user',
   });
-  const storageUsed = statsQuery.data?.data.storageUsedBytes ?? null;
+  // The admin panel's equivalent: the whole installation, shared with the admin dashboard's cards.
+  const adminStatsQuery = useQuery({
+    queryKey: ['admin', 'stats'],
+    queryFn: ({ signal }) => adminApi.stats(signal),
+    enabled: variant === 'admin',
+  });
+  const storageUsed =
+    (variant === 'admin' ? adminStatsQuery.data?.data.storageUsedBytes : statsQuery.data?.data.storageUsedBytes) ?? null;
 
   const { requestLogout } = useLogoutPrompt();
   const handleLogout = () => {
@@ -50,25 +60,16 @@ export function SidebarContent({
   };
 
   const isAdminArea = variant === 'admin';
-  const navItems = isAdminArea ? ADMIN_NAV : USER_NAV;
   const badges = useNavBadges();
   // Only an administrator is offered the cross-link, and only from the other side.
   const crossLink = isAdminArea
-    ? { href: '/dashboard', label: 'My library', icon: FolderClosed }
+    ? { href: USER_HOME_PATH, label: 'My library', icon: FolderClosed }
     : isAdmin
-      ? { href: '/admin/users', label: 'Administration', icon: Users }
+      ? { href: ADMIN_HOME_PATH, label: 'Administration', icon: Users }
       : null;
 
-  // Groups the flat nav list into labelled sections. Admin has only two items, so it gets
-  // one unlabelled group; the user nav splits where the pages change character.
-  const groups: Array<{ label?: string; items: typeof navItems }> = isAdminArea
-    ? [{ items: navItems }]
-    : [
-        // Library runs through Games and Kid Games; slicing by href keeps that true if items move.
-        { label: 'Library', items: navItems.slice(0, navItems.findIndex((item) => item.href === '/trash')) },
-        { label: 'Manage', items: navItems.slice(navItems.findIndex((item) => item.href === '/trash'), navItems.findIndex((item) => item.href === '/profile')) },
-        { label: 'Account', items: navItems.slice(navItems.findIndex((item) => item.href === '/profile')) },
-      ];
+  // Planned entries are rendered too, as disabled "Soon" rows (the user nav has none).
+  const groups = isAdminArea ? ADMIN_NAV_GROUPS : USER_NAV_GROUPS;
 
   const labelClass = cn(
     'truncate transition-[opacity,max-width] duration-200',
@@ -85,7 +86,7 @@ export function SidebarContent({
       {/* Brand */}
       <div className={cn('flex h-[68px] shrink-0 items-center', collapsed ? 'justify-center px-2' : 'justify-between px-4')}>
         <Link
-          href={isAdminArea ? '/admin/users' : '/dashboard'}
+          href={isAdminArea ? ADMIN_HOME_PATH : USER_HOME_PATH}
           onClick={onNavigate}
           aria-label="media_tool home"
           className="group flex min-w-0 items-center gap-3"
@@ -136,8 +137,8 @@ export function SidebarContent({
 
       {/* Navigation */}
       <nav aria-label="Main" className={cn('app-scroll min-h-0 flex-1 space-y-5 overflow-y-auto py-3', collapsed ? 'px-2' : 'px-3')}>
-        {groups.map((group, groupIndex) => (
-          <div key={group.label ?? groupIndex}>
+        {groups.map((group) => (
+          <div key={group.label}>
             {group.label &&
               (collapsed ? (
                 <div aria-hidden className="mx-3 mb-2 h-px bg-border" />
@@ -148,8 +149,30 @@ export function SidebarContent({
               ))}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const isActive = isNavItemActive(pathname, item.href);
                 const Icon = item.icon;
+                if (item.planned) {
+                  // Not a link: the page does not exist yet, and a dead link is worse than a
+                  // clearly unavailable row.
+                  return (
+                    <div
+                      key={item.href}
+                      aria-disabled="true"
+                      aria-label={`${item.label} (coming soon)`}
+                      data-tooltip={collapsed ? `${item.label} · Soon` : undefined}
+                      data-tooltip-side="right"
+                      className={cn(linkClass, 'cursor-default select-none text-sidebar-foreground/45')}
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.85} />
+                      <span className={labelClass}>{item.label}</span>
+                      {!collapsed && (
+                        <span className="ml-auto rounded-md border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sidebar-foreground/55">
+                          Soon
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
+                const isActive = isNavItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}
@@ -204,9 +227,9 @@ export function SidebarContent({
 
       {/* Footer: storage, account, sign out */}
       <div className={cn('app-safe-bottom shrink-0 space-y-2 border-t border-border pb-4 pt-3', collapsed ? 'px-2' : 'px-3')}>
-        {!isAdminArea && storageUsed !== null && !collapsed && (
+        {storageUsed !== null && !collapsed && (
           <Link
-            href="/settings"
+            href={isAdminArea ? ADMIN_HOME_PATH : '/settings'}
             onClick={onNavigate}
             className="gradient-border group block rounded-xl bg-surface/80 px-3.5 py-3 transition-colors hover:bg-surface-elevated"
           >
@@ -217,7 +240,9 @@ export function SidebarContent({
             <p className="mt-1.5 text-lg font-semibold tabular-nums leading-none text-sidebar-active">
               {formatBytes(storageUsed)}
             </p>
-            <p className="mt-1 text-[11px] text-sidebar-foreground/70">used across your library</p>
+            <p className="mt-1 text-[11px] text-sidebar-foreground/70">
+              {isAdminArea ? 'used across all accounts' : 'used across your library'}
+            </p>
             <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-border">
               <div className="h-full w-1/3 rounded-full bg-linear-to-r from-accent to-accent-2 transition-[width] duration-700 group-hover:w-1/2" />
             </div>
@@ -248,7 +273,7 @@ export function SidebarContent({
           {!collapsed && user && (
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-[13px] font-medium text-sidebar-active">{user.name}</p>
-              <p className="truncate text-[11px] text-sidebar-foreground/70">{user.email}</p>
+              <p className="truncate text-[11px] text-sidebar-foreground/70">{accountLabel(user)}</p>
             </div>
           )}
           <button

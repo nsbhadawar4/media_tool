@@ -4,13 +4,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
+import { LOGIN_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
 
 /**
  * Gate for the administration area. Two separate outcomes on purpose: a signed-out
- * visitor goes to the admin login, while a signed-in *non-admin* is sent to their own
+ * visitor goes to sign in, while a signed-in *non-admin* is sent to their own
  * dashboard rather than a login form — asking them to sign in again would be misleading,
  * since their session is perfectly valid and simply lacks the role.
  *
@@ -28,8 +29,8 @@ export default function AdminAreaLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (isLoading || isUnreachable) return;
-    if (!user) router.replace(sessionError === 'rejected' ? sessionEndedUrl('/admin/login') : '/admin/login');
-    else if (!isAdmin) router.replace('/dashboard');
+    if (!user) router.replace(sessionError === 'rejected' ? sessionEndedUrl() : LOGIN_PATH);
+    else if (!isAdmin) router.replace(USER_HOME_PATH);
   }, [isLoading, isUnreachable, user, isAdmin, sessionError, router]);
 
   if (isUnreachable) {

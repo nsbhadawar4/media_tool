@@ -24,6 +24,7 @@ import { ConsoleEmailProvider } from '../src/services/email/ConsoleEmailProvider
 import { ResendEmailProvider } from '../src/services/email/ResendEmailProvider';
 import { SmtpEmailProvider } from '../src/services/email/SmtpEmailProvider';
 import type { EmailMessage } from '../src/services/email';
+import { flushBackgroundTasks } from '../src/services/backgroundTasks';
 
 let mongo: MongoMemoryServer;
 let server: Server;
@@ -40,6 +41,8 @@ async function forgot(email: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email }),
   });
+  // The email is sent after the response (no timing signal); wait for it before asserting.
+  await flushBackgroundTasks();
   return response.status;
 }
 
@@ -92,7 +95,8 @@ test('the entry is trimmed and lowercased, and that normalized address is the re
 });
 
 test('an address with no account sends nothing at all', async () => {
-  assert.equal(await forgot('stranger@example.com'), 404);
+  // Answered exactly like a real address (200), but nothing is sent.
+  assert.equal(await forgot('stranger@example.com'), 200);
   assert.equal(sent.length, 0);
 });
 

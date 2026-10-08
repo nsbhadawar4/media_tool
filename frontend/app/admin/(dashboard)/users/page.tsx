@@ -1,97 +1,195 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Suspense, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import {
-  Users,
+  ChevronRight,
+  Crown,
+  Mail,
   Search,
-  ShieldCheck,
-  UserRound,
-  HardDrive,
-  FolderClosed,
-  Image as ImageIcon,
+  Smartphone,
+  Sparkles,
+  UserCheck,
+  UserPlus,
+  UserX,
+  Users,
+  X,
+  Zap,
 } from 'lucide-react';
-import { adminApi } from '@/lib/api/admin';
+import { adminApi, type ListUsersParams, type UserSort } from '@/lib/api/admin';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useToast } from '@/lib/toast/ToastContext';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+import { Avatar } from '@/components/ui/Avatar';
 import { Select } from '@/components/ui/Select';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { ErrorState } from '@/components/ui/ErrorState';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ErrorState, InlineErrorState } from '@/components/ui/ErrorState';
 import { Pagination } from '@/components/ui/Pagination';
-import { formatBytes, formatDate } from '@/utils/format';
-import type { AdminUserSummary } from '@/types/api';
-
-type StatusFilter = '' | 'active' | 'inactive';
-type RoleFilter = '' | 'user' | 'admin';
+import { StatCard, StatCardSkeleton } from '@/components/admin/StatCard';
+import { UserStatusBadge, useUserStatusAction } from '@/components/admin/users/UserStatus';
+import { PlanBadge, ProviderBadge, RoleBadge, VerifiedMark } from '@/components/admin/users/AccountBadges';
+import { ALL_TIME, DateRangeFilter, rangeToBounds, type DateRange } from '@/components/admin/DateRangeFilter';
+import { formatDate, formatRelativeTime } from '@/utils/format';
+import { cn } from '@/utils/cn';
+import type { AdminUserSummary, AuthProvider } from '@/types/api';
+import { accountLabel } from '@/lib/auth/account';
 
 const PAGE_SIZE = 20;
 
 const STATUS_OPTIONS = [
   { label: 'All statuses', value: '' },
   { label: 'Active', value: 'active' },
-  { label: 'Deactivated', value: 'inactive' },
+  { label: 'Suspended', value: 'inactive' },
 ];
-
+const PROVIDER_OPTIONS = [
+  { label: 'All signup methods', value: '' },
+  { label: 'Email signup', value: 'email' },
+  { label: 'Mobile signup', value: 'mobile' },
+  { label: 'Google signup', value: 'google' },
+];
+const PLAN_OPTIONS = [
+  { label: 'All plans', value: '' },
+  { label: 'Free', value: 'free' },
+  { label: 'Pro', value: 'pro' },
+  { label: 'Premium', value: 'premium' },
+];
 const ROLE_OPTIONS = [
   { label: 'All roles', value: '' },
-  { label: 'Users', value: 'user' },
-  { label: 'Administrators', value: 'admin' },
+  { label: 'Normal users', value: 'user' },
+  { label: 'Admins', value: 'admin' },
+];
+const SORT_OPTIONS: Array<{ label: string; value: UserSort }> = [
+  { label: 'Newest first', value: 'newest' },
+  { label: 'Oldest first', value: 'oldest' },
+  { label: 'Recently active', value: 'last_active' },
+  { label: 'Recent login', value: 'last_login' },
+  { label: 'Name A–Z', value: 'name' },
 ];
 
+interface Filters {
+  status: '' | 'active' | 'inactive';
+  provider: '' | AuthProvider;
+  plan: '' | 'free' | 'pro' | 'premium';
+  role: '' | 'user' | 'admin';
+  joined: DateRange;
+  sort: UserSort;
+}
+
+const NO_FILTERS: Filters = { status: '', provider: '', plan: '', role: '', joined: ALL_TIME, sort: 'newest' };
+
+function shortDate(iso: string): string {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' });
+}
+
+const relative = (iso: string | null | undefined) => (iso ? formatRelativeTime(iso) : 'Never');
+
+/** Suspense because useSearchParams needs one on a statically rendered page. */
 export default function AdminUsersPage() {
-  const toast = useToast();
-  const queryClient = useQueryClient();
+  return (
+    <Suspense fallback={null}>
+      <AdminUsersView />
+    </Suspense>
+  );
+}
+
+/**
+ * /admin/users: every account with how and when it registered, when it was last seen, its plan
+ * and status. Search, filters, sorting and paging all run on the server. Each row opens
+ * /admin/users/[id] (details, usage and the activity timeline); suspend / activate is available
+ * from the row as well.
+ */
+function AdminUsersView() {
   const { user: currentUser } = useAuth();
+  const searchParams = useSearchParams();
+  const statusAction = useUserStatusAction();
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('');
-  const [role, setRole] = useState<RoleFilter>('');
+  // `?search=` pre-fills the box, so other admin screens can link straight to one account.
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [page, setPage] = useState(1);
-  const [pendingStatus, setPendingStatus] = useState<AdminUserSummary | null>(null);
-
   const debouncedSearch = useDebounce(search, 300);
 
-  const params = {
-    search: debouncedSearch || undefined,
-    status: status || undefined,
-    role: role || undefined,
+  const update = (patch: Partial<Filters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const bounds = rangeToBounds(filters.joined);
+  const params: ListUsersParams = {
+    search: debouncedSearch.trim() || undefined,
+    status: filters.status || undefined,
+    provider: filters.provider || undefined,
+    plan: filters.plan || undefined,
+    role: filters.role || undefined,
+    from: bounds.from,
+    to: bounds.to,
+    sort: filters.sort,
     page,
     limit: PAGE_SIZE,
   };
 
+  const statsQuery = useQuery({
+    queryKey: ['admin', 'users', 'stats'],
+    queryFn: ({ signal }) => adminApi.userStats(signal),
+  });
   const query = useQuery({
     queryKey: ['admin', 'users', params],
     queryFn: ({ signal }) => adminApi.listUsers(params, signal),
+    placeholderData: keepPreviousData,
   });
 
-  const statusMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => adminApi.setStatus(id, isActive),
-    onSuccess: (_result, variables) => {
-      toast.success(variables.isActive ? 'Account activated' : 'Account deactivated');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
-      setPendingStatus(null);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
+  const stats = statsQuery.data?.data;
   const users = query.data?.data ?? [];
   const meta = query.data?.meta;
+  const filtersActive =
+    Boolean(params.search) || filters.status !== '' || filters.provider !== '' || filters.plan !== '' || filters.role !== '' || filters.joined.preset !== 'all';
+
+  const pct = (n: number) => (stats?.total ? `${Math.round((n / stats.total) * 100)}% of accounts` : 'No accounts yet');
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageHeader
+        eyebrow="Manage"
+        icon={Users}
         title="Users"
-        description="Accounts on this installation. Their folders and files are never shown here."
+        description="Who has registered, how and when, when they were last seen, and their plan. Folders and files are counted, never shown."
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      {/* Headline figures */}
+      <section aria-label="User figures">
+        {statsQuery.isError ? (
+          <div className="rounded-2xl border border-border bg-surface">
+            <InlineErrorState error={statsQuery.error} onRetry={() => statsQuery.refetch()} subject="user figures" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+            {!stats ? (
+              Array.from({ length: 10 }).map((_, index) => <StatCardSkeleton key={index} />)
+            ) : (
+              <>
+                <StatCard index={0} icon={Users} label="Total users" value={stats.total.toLocaleString()} hint="All accounts" />
+                <StatCard index={1} icon={UserCheck} accent="success" label="Active" value={stats.active.toLocaleString()} hint={pct(stats.active)} />
+                <StatCard index={2} icon={UserPlus} color="var(--accent-2)" label="New users" value={stats.newUsers.toLocaleString()} hint={`Last ${stats.newUserWindowDays} days`} />
+                <StatCard index={3} icon={UserX} accent="danger" label="Suspended" value={stats.suspended.toLocaleString()} hint={stats.suspended ? 'Cannot sign in' : 'None suspended'} />
+                <StatCard index={4} icon={Mail} label="Email users" value={stats.byProvider.email.toLocaleString()} hint={pct(stats.byProvider.email)} />
+                <StatCard index={5} icon={Smartphone} color="var(--accent-2)" label="Mobile users" value={stats.byProvider.mobile.toLocaleString()} hint={pct(stats.byProvider.mobile)} />
+                <StatCard index={6} icon={Sparkles} accent="warning" label="Google users" value={stats.byProvider.google.toLocaleString()} hint={pct(stats.byProvider.google)} />
+                <StatCard index={7} icon={Users} label="Free plan" value={stats.byPlan.free.toLocaleString()} hint="Includes not yet chosen" />
+                <StatCard index={8} icon={Zap} color="var(--accent-2)" label="Pro plan" value={stats.byPlan.pro.toLocaleString()} hint="Active or pending" />
+                <StatCard index={9} icon={Crown} accent="warning" label="Premium plan" value={stats.byPlan.premium.toLocaleString()} hint="Active or pending" />
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Search and filters */}
+      <section aria-label="Search and filters" className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-surface p-3 sm:p-4">
+        <div className="relative min-w-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             type="search"
@@ -100,118 +198,205 @@ export default function AdminUsersPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search by name or email…"
+            placeholder="Search by name, email or mobile number…"
             aria-label="Search users"
-            className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="w-full rounded-xl border border-border bg-surface-elevated py-2.5 pl-9 pr-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
           />
         </div>
-        <Select
-          options={STATUS_OPTIONS}
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as StatusFilter);
-            setPage(1);
-          }}
-          aria-label="Filter by status"
-        />
-        <Select
-          options={ROLE_OPTIONS}
-          value={role}
-          onChange={(e) => {
-            setRole(e.target.value as RoleFilter);
-            setPage(1);
-          }}
-          aria-label="Filter by role"
-        />
-      </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Select options={STATUS_OPTIONS} value={filters.status} onChange={(e) => update({ status: e.target.value as Filters['status'] })} aria-label="Account status" />
+          <Select options={PROVIDER_OPTIONS} value={filters.provider} onChange={(e) => update({ provider: e.target.value as Filters['provider'] })} aria-label="Signup method" />
+          <Select options={PLAN_OPTIONS} value={filters.plan} onChange={(e) => update({ plan: e.target.value as Filters['plan'] })} aria-label="Plan" />
+          <Select options={ROLE_OPTIONS} value={filters.role} onChange={(e) => update({ role: e.target.value as Filters['role'] })} aria-label="Role" />
+          <DateRangeFilter label="Signed up" value={filters.joined} onChange={(joined) => update({ joined })} />
+          <div className="ml-auto flex items-center gap-2">
+            {filtersActive && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setFilters({ ...NO_FILTERS, sort: filters.sort });
+                  setPage(1);
+                }}
+                className="inline-flex h-10 items-center gap-1 rounded-xl px-3 text-xs font-medium text-muted transition hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </button>
+            )}
+            <Select options={SORT_OPTIONS} value={filters.sort} onChange={(e) => update({ sort: e.target.value as UserSort })} aria-label="Sort users" />
+          </div>
+        </div>
+        {meta && (
+          <p className="text-xs text-subtle" aria-live="polite">
+            {meta.total.toLocaleString()} {meta.total === 1 ? 'account' : 'accounts'}
+            {filtersActive ? ' match' : ''}
+          </p>
+        )}
+      </section>
 
+      {/* Results */}
       {query.isError ? (
         <ErrorState error={query.error} subject="users" onRetry={() => query.refetch()} />
       ) : query.isLoading ? (
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-hover" />
-          ))}
-        </div>
+        <UsersSkeleton />
       ) : users.length === 0 ? (
-        <EmptyState icon={Users} title="No users found" description="Try a different search or filter." />
+        <EmptyState
+          icon={Users}
+          title={filtersActive ? 'No matching users' : 'No users yet'}
+          description={filtersActive ? 'Try a different search or clear the filters.' : 'New accounts will appear here as people sign up.'}
+        />
       ) : (
-        <div className="flex flex-col gap-2">
-          {users.map((user) => {
-            const isSelf = user.id === currentUser?.id;
-            return (
-              <Card key={user.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                    {user.role === 'admin' ? (
-                      <ShieldCheck className="h-5 w-5" />
-                    ) : (
-                      <UserRound className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-                      {user.role === 'admin' && <Badge variant="accent">Admin</Badge>}
-                      {!user.isActive && <Badge variant="danger">Deactivated</Badge>}
-                      {isSelf && <Badge>You</Badge>}
+        <div className={cn('overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-opacity', query.isFetching && 'opacity-70')}>
+          {/* md and up: the full table, scrolling sideways inside its card when the screen is narrower than it. */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[1180px] text-sm">
+              <thead>
+                <tr className="whitespace-nowrap border-b border-border text-left text-[11px] font-medium uppercase tracking-wider text-subtle">
+                  <th scope="col" className="sticky left-0 z-10 bg-surface px-5 py-3 font-medium">User</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Email</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Mobile</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Signup</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Role</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Plan</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Status</th>
+                  <th scope="col" className="px-2 py-3 text-center font-medium" title="Email verified">Email ✓</th>
+                  <th scope="col" className="px-2 py-3 text-center font-medium" title="Mobile verified">Mobile ✓</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Joined</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Last login</th>
+                  <th scope="col" className="px-3 py-3 font-medium">Last active</th>
+                  <th scope="col" className="px-5 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {users.map((user) => (
+                  <UserRow
+                    key={user.id}
+                    user={user}
+                    isSelf={user.id === currentUser?.id}
+                    onToggleStatus={() => statusAction.request({ id: user.id, name: user.name, email: accountLabel(user), isActive: user.isActive })}
+                    statusBusy={statusAction.isPending}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Below md: one tappable card per account. */}
+          <ul className="divide-y divide-border md:hidden">
+            {users.map((user) => (
+              <li key={user.id}>
+                <Link href={`/admin/users/${user.id}`} className="flex items-start gap-3 px-4 py-3.5 transition-colors active:bg-surface-hover">
+                  <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-foreground">{user.name}</span>
+                      <UserStatusBadge isActive={user.isActive} />
                     </div>
-                    <p className="truncate text-xs text-muted">{user.email}</p>
-                    <p className="mt-0.5 text-xs text-muted">Joined {formatDate(user.createdAt)}</p>
+                    <p className="truncate text-xs text-muted">{accountLabel(user)}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <ProviderBadge provider={user.authProvider} />
+                      <RoleBadge role={user.role} />
+                      <PlanBadge user={user} />
+                    </div>
+                    <p className="mt-1.5 text-[11px] tabular-nums text-subtle">
+                      Joined {shortDate(user.createdAt)} · Active {relative(user.lastActiveAt).toLowerCase()}
+                    </p>
                   </div>
-                </div>
-
-                <div className="flex shrink-0 flex-wrap items-center gap-4 text-xs text-muted">
-                  <span className="inline-flex items-center gap-1.5" title="Folders">
-                    <FolderClosed className="h-3.5 w-3.5" />
-                    {user.folderCount}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5" title="Files">
-                    <ImageIcon className="h-3.5 w-3.5" />
-                    {user.mediaCount}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5" title="Storage used">
-                    <HardDrive className="h-3.5 w-3.5" />
-                    {formatBytes(user.storageUsedBytes)}
-                  </span>
-                </div>
-
-                <div className="shrink-0">
-                  <Button
-                    variant={user.isActive ? 'secondary' : 'primary'}
-                    size="sm"
-                    // Deactivating yourself would lock you out; the API refuses it too.
-                    disabled={isSelf || statusMutation.isPending}
-                    onClick={() => setPendingStatus(user)}
-                  >
-                    {user.isActive ? 'Deactivate' : 'Activate'}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-subtle" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {meta && meta.totalPages > 1 && <Pagination meta={meta} onPageChange={setPage} />}
+      {meta && meta.totalPages > 1 && <Pagination meta={meta} onPageChange={setPage} numbered />}
+      {statusAction.dialog}
+    </div>
+  );
+}
 
-      <ConfirmDialog
-        isOpen={pendingStatus !== null}
-        onClose={() => setPendingStatus(null)}
-        title={pendingStatus?.isActive ? 'Deactivate this account?' : 'Activate this account?'}
-        description={
-          pendingStatus?.isActive
-            ? `${pendingStatus?.email} will be signed out and unable to log in. Their folders and files are kept untouched.`
-            : `${pendingStatus?.email} will be able to log in again.`
-        }
-        confirmLabel={pendingStatus?.isActive ? 'Deactivate' : 'Activate'}
-        isDangerous={pendingStatus?.isActive}
-        isLoading={statusMutation.isPending}
-        onConfirm={() =>
-          pendingStatus &&
-          statusMutation.mutate({ id: pendingStatus.id, isActive: !pendingStatus.isActive })
-        }
-      />
+function UserRow({
+  user,
+  isSelf,
+  onToggleStatus,
+  statusBusy,
+}: {
+  user: AdminUserSummary;
+  isSelf: boolean;
+  onToggleStatus: () => void;
+  statusBusy: boolean;
+}) {
+  return (
+    <tr className="group transition-colors hover:bg-surface-hover/50">
+      <td className="sticky left-0 z-10 bg-surface px-5 py-3 transition-colors group-hover:bg-surface-hover">
+        <Link href={`/admin/users/${user.id}`} className="flex min-w-0 max-w-[220px] items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+          <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+          <span className="min-w-0">
+            <span className="block truncate font-medium text-foreground group-hover:text-accent" title={user.name}>
+              {user.name}
+            </span>
+            {isSelf && <span className="text-[11px] text-subtle">You</span>}
+          </span>
+        </Link>
+      </td>
+      <td className="max-w-[220px] truncate px-3 py-3 text-muted" title={user.email ?? undefined}>{user.email ?? '—'}</td>
+      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-muted">{user.phone ?? user.mobile ?? '—'}</td>
+      <td className="px-3 py-3"><ProviderBadge provider={user.authProvider} /></td>
+      <td className="px-3 py-3"><RoleBadge role={user.role} /></td>
+      <td className="whitespace-nowrap px-3 py-3"><PlanBadge user={user} /></td>
+      <td className="px-3 py-3"><UserStatusBadge isActive={user.isActive} /></td>
+      <td className="px-2 py-3 text-center"><VerifiedMark label="Email" verified={user.isEmailVerified} applicable={Boolean(user.email)} /></td>
+      <td className="px-2 py-3 text-center"><VerifiedMark label="Mobile" verified={user.mobileVerified} applicable={Boolean(user.phone || user.mobile)} /></td>
+      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-muted" title={formatDate(user.createdAt)}>{shortDate(user.createdAt)}</td>
+      <td className="whitespace-nowrap px-3 py-3 text-muted" title={user.lastLoginAt ? formatDate(user.lastLoginAt) : undefined}>{relative(user.lastLoginAt)}</td>
+      <td className="whitespace-nowrap px-3 py-3 text-muted" title={user.lastActiveAt ? formatDate(user.lastActiveAt) : undefined}>{relative(user.lastActiveAt)}</td>
+      <td className="whitespace-nowrap px-5 py-3 text-right">
+        <div className="inline-flex items-center gap-1.5">
+          <Link
+            href={`/admin/users/${user.id}`}
+            aria-label={`View ${user.name}`}
+            className="inline-flex items-center rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground-soft transition hover:border-accent/40 hover:bg-accent/10 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          >
+            View
+          </Link>
+          <button
+            type="button"
+            onClick={onToggleStatus}
+            disabled={isSelf || statusBusy}
+            title={isSelf ? 'You can’t change your own account’s status' : undefined}
+            aria-label={`${user.isActive ? 'Suspend' : 'Activate'} ${user.name}`}
+            className={cn(
+              'inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-40',
+              user.isActive
+                ? 'border-border text-muted hover:border-danger/40 hover:bg-danger/10 hover:text-danger focus-visible:ring-danger/40'
+                : 'border-success/40 text-success hover:bg-success/10 focus-visible:ring-success/40',
+            )}
+          >
+            {user.isActive ? 'Suspend' : 'Activate'}
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function UsersSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface" role="status" aria-label="Loading users">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 border-b border-border px-4 py-3.5 last:border-b-0 sm:px-5">
+          <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-surface-hover" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 w-1/4 animate-pulse rounded bg-surface-hover" />
+            <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface-hover" />
+          </div>
+          <div className="hidden h-5 w-14 animate-pulse rounded bg-surface-hover md:block" />
+          <div className="hidden h-5 w-14 animate-pulse rounded bg-surface-hover md:block" />
+          <div className="hidden h-5 w-16 animate-pulse rounded bg-surface-hover lg:block" />
+        </div>
+      ))}
     </div>
   );
 }

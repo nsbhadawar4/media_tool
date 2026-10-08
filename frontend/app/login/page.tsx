@@ -1,24 +1,40 @@
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { AuthHomeLink } from '@/components/auth/AuthHomeLink';
+import { SignupSuccessNotice } from '@/components/auth/SignupSuccessNotice';
+import { PasswordResetSuccessNotice } from '@/components/auth/PasswordResetSuccessNotice';
+import { SessionExpiredNotice } from '@/components/auth/SessionExpiredNotice';
+
+export const metadata: Metadata = {
+  title: 'Sign in — media_tool',
+};
 
 /**
- * Kept so links and bookmarks to /login still work. The sign-in form itself now lives at
- * `/` — see app/page.tsx — and this forwards there rather than rendering a second copy,
- * so there is only ever one sign-in page to maintain.
+ * The one sign-in page, for normal users and administrators alike — the account's role
+ * decides where a successful sign-in lands (see lib/auth/routes.ts), not which form was used.
  *
- * The query string is carried across, which matters for `?registered=1` (the post-signup
- * notice) and `?from=` (where to return to after signing in).
+ * A visitor who still has a session never sees this: proxy.ts sends them to their own area
+ * before it renders.
  */
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(await searchParams)) {
-    if (typeof value === 'string') params.set(key, value);
-    else if (Array.isArray(value)) for (const item of value) params.append(key, item);
-  }
-
-  const query = params.toString();
-  redirect(query ? `/?${query}` : '/');
+export default function LoginPage() {
+  return (
+    <main className="app-viewport-min-h auth-backdrop relative flex flex-col items-center justify-center bg-background px-4 py-20 sm:px-6 sm:py-16">
+      <AuthHomeLink />
+      <div className="w-full max-w-sm">
+        <Suspense fallback={null}>
+          <SignupSuccessNotice />
+        </Suspense>
+        <Suspense fallback={null}>
+          <PasswordResetSuccessNotice />
+        </Suspense>
+        <Suspense fallback={null}>
+          <SessionExpiredNotice />
+        </Suspense>
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
+      </div>
+    </main>
+  );
 }

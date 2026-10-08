@@ -192,6 +192,19 @@ test("downloading another user's file is refused", async () => {
   assert.equal(res.status, 404);
 });
 
+test('a session revoked by a password reset can no longer stream even its own files', async () => {
+  const { photo } = await alicesStuff();
+  // What a completed password reset does: every token signed before it is dead.
+  await User.updateOne({ _id: alice.id }, { $inc: { tokenVersion: 1 } });
+
+  try {
+    const res = await request(`/api/media/${photo._id}/raw`, alice);
+    assert.equal(res.status, 401, 'the cookie path must apply the same revocation rule as requireAuth');
+  } finally {
+    await User.updateOne({ _id: alice.id }, { $set: { tokenVersion: 0 } });
+  }
+});
+
 test("deleting another user's file leaves both the record and the bytes", async () => {
   const { photo } = await alicesStuff();
 
@@ -299,6 +312,19 @@ test('a normal user cannot reach the admin endpoints', async () => {
 
   const stats = await request('/api/admin/stats', bob);
   assert.equal(stats.status, 403);
+
+  const reviews = await request('/api/admin/reviews', bob);
+  assert.equal(reviews.status, 403);
+
+  const activity = await request('/api/admin/activity', bob);
+  assert.equal(activity.status, 403, 'installation-wide activity is admin-only');
+
+  const setStatus = await request(`/api/admin/users/${alice.id}/status`, bob, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive: false }),
+  });
+  assert.equal(setStatus.status, 403);
+  assert.equal((await User.findById(alice.id))!.isActive, true, 'a refused admin action must change nothing');
 });
 
 test('an administrator can list users but the response carries no password hash', async () => {
@@ -321,8 +347,8 @@ test('signup always creates a plain user, even when the body asks for admin', as
     body: JSON.stringify({
       name: 'Escalation Attempt',
       email: 'escalate@example.com',
-      password: 'longenoughpassword',
-      confirmPassword: 'longenoughpassword',
+      password: 'LongEnough-Passw0rd',
+      confirmPassword: 'LongEnough-Passw0rd',
       role: 'admin',
       isActive: true,
     }),

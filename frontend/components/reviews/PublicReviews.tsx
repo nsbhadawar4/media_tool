@@ -42,7 +42,9 @@ export function PublicReviews({ hideWhenEmpty = false, className }: { hideWhenEm
 
   return (
     <PublicShell className={className}>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:items-start">
+      {/* Summary above the cards, not beside them: the carousel then gets the full width, so it
+          shows 3 cards on desktop, 2 on tablet and 1 on a phone (see .rv-card-slot). */}
+      <div className="flex flex-col gap-6">
         <RatingSummary stats={stats} />
         <div className="min-w-0">
           <div className="mb-3 flex items-center justify-end gap-1" role="group" aria-label="Sort reviews">
@@ -85,16 +87,18 @@ function PublicShell({ children, className }: { children: React.ReactNode; class
 
 function RatingSummary({ stats }: { stats: PublicReviewStats }) {
   return (
-    <div className="gradient-border rounded-3xl border border-border bg-surface p-5 shadow-card">
-      <div className="flex items-end gap-3">
+    <div className="gradient-border flex flex-col gap-6 rounded-3xl border border-border bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:gap-10 sm:p-6">
+      <div className="flex shrink-0 items-center gap-5">
         <span className="text-5xl font-semibold tabular-nums tracking-tight text-foreground">{stats.averageRating.toFixed(1)}</span>
-        <span className="mb-1.5 text-sm text-muted">out of 5</span>
+        <div>
+          <StarDisplay value={stats.averageRating} size="md" />
+          <p className="mt-1 text-sm text-muted">
+            Average from <span className="font-semibold text-foreground">{stats.total}</span> public{' '}
+            {stats.total === 1 ? 'review' : 'reviews'}
+          </p>
+        </div>
       </div>
-      <StarDisplay value={stats.averageRating} size="md" className="mt-2" />
-      <p className="mt-1 text-xs text-muted">
-        Based on {stats.total} published {stats.total === 1 ? 'review' : 'reviews'}
-      </p>
-      <ul className="mt-4 space-y-1.5" aria-label="Rating distribution">
+      <ul className="min-w-0 flex-1 space-y-1.5 sm:max-w-md sm:border-l sm:border-border sm:pl-10" aria-label="Rating distribution">
         {([5, 4, 3, 2, 1] as const).map((star) => {
           const count = stats.distribution[String(star) as '1'] ?? 0;
           const pct = stats.total ? (count / stats.total) * 100 : 0;

@@ -7,11 +7,19 @@ import {
   setUserStatus,
   deleteUser,
   getAdminStats,
+  listActivity,
+  getUserStats,
+  updateUserSubscription,
+  getUserActivity,
 } from '../controllers/adminController';
 import {
   userIdParamSchema,
   listUsersQuerySchema,
   setUserStatusSchema,
+  listActivityQuerySchema,
+  updateSubscriptionSchema,
+  userActivityQuerySchema,
+  adminStatsQuerySchema,
 } from '../validators/adminValidators';
 import {
   listReviews,
@@ -30,15 +38,24 @@ const router = Router();
 // Both guards on the whole router: a route added later cannot forget one of them.
 router.use(requireAuth, requireAdmin);
 
-router.get('/stats', getAdminStats);
+router.get('/stats', validate({ query: adminStatsQuerySchema }), getAdminStats);
+router.get('/activity', validate({ query: listActivityQuerySchema }), listActivity);
+// Before /users/:id, so "stats" is never read as an id.
+router.get('/users/stats', getUserStats);
 router.get('/users', validate({ query: listUsersQuerySchema }), listUsers);
 router.get('/users/:id', validate({ params: userIdParamSchema }), getUser);
+router.get('/users/:id/activity', validate({ params: userIdParamSchema, query: userActivityQuerySchema }), getUserActivity);
 router.patch(
   '/users/:id/status',
   validate({ params: userIdParamSchema, body: setUserStatusSchema }),
   setUserStatus,
 );
 router.delete('/users/:id', validate({ params: userIdParamSchema }), deleteUser);
+router.patch(
+  '/users/:id/subscription',
+  validate({ params: userIdParamSchema, body: updateSubscriptionSchema }),
+  updateUserSubscription,
+);
 
 // Review moderation (same guards as everything else in this router).
 router.get('/reviews', validate({ query: adminReviewsQuerySchema }), listReviews);

@@ -9,11 +9,25 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/**
+ * Password rules for new accounts (both signup methods). Existing passwords are untouched —
+ * this only applies when an account is created. Mirrored in the signup form's checklist.
+ */
+export const strongPassword = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(200, 'Password is too long')
+  .regex(/[a-z]/, 'Password must include a lowercase letter')
+  .regex(/[A-Z]/, 'Password must include an uppercase letter')
+  .regex(/\d/, 'Password must include a number');
+
+const nameField = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long');
+
 export const signupSchema = z
   .object({
-    name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long'),
+    name: nameField,
     email: z.string().trim().toLowerCase().email('Enter a valid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters').max(200),
+    password: strongPassword,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     mobile: z
       .string()
@@ -29,6 +43,50 @@ export const signupSchema = z
   });
 
 export type SignupInput = z.infer<typeof signupSchema>;
+
+/** ISO 3166 country code (IN, US, …) plus the number as typed; normalised in the controller. */
+const countryField = z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, 'Choose a country');
+const nationalNumber = z
+  .string()
+  .trim()
+  .min(4, 'Enter your mobile number')
+  .max(20, 'Enter a valid mobile number')
+  .regex(/^[\d\s()-]+$/, 'Enter a valid mobile number');
+/** The canonical number echoed back by step 1, used for resend and verify. */
+const e164Field = z.string().trim().regex(/^\+[1-9]\d{6,14}$/, 'Invalid phone number');
+const signupTokenField = z.string().regex(/^[0-9a-f]{64}$/, 'This signup has expired. Please start again.');
+
+export const mobileSignupStartSchema = z
+  .object({
+    name: nameField,
+    country: countryField,
+    mobile: nationalNumber,
+    password: strongPassword,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+export type MobileSignupStartInput = z.infer<typeof mobileSignupStartSchema>;
+
+export const mobileSignupResendSchema = z.object({ phone: e164Field, signupToken: signupTokenField });
+export type MobileSignupResendInput = z.infer<typeof mobileSignupResendSchema>;
+
+export const mobileSignupVerifySchema = z.object({
+  phone: e164Field,
+  signupToken: signupTokenField,
+  otp: z.string().trim().regex(/^\d{4}$/, 'Enter the 4-digit code'),
+});
+export type MobileSignupVerifyInput = z.infer<typeof mobileSignupVerifySchema>;
+
+export const mobileLoginSchema = z.object({
+  country: countryField,
+  mobile: nationalNumber,
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().optional().default(false),
+});
+export type MobileLoginInput = z.infer<typeof mobileLoginSchema>;
 
 /**
  * The signup details an account may change afterwards.
@@ -121,3 +179,18 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/** The ID token Google handed the browser. Everything about the user is read from it, server-side. */
+export const googleSignInSchema = z.object({
+  credential: z.string().min(20, 'Missing Google credential').max(4096),
+});
+export type GoogleSignInInput = z.infer<typeof googleSignInSchema>;
+
+/**
+ * Only the plan's name is accepted. Its status (active / pending), dates and price are decided
+ * by the server — a client sending `subscriptionStatus: 'active'` is simply ignored.
+ */
+export const completeOnboardingSchema = z.object({
+  plan: z.enum(['free', 'pro', 'premium'], { errorMap: () => ({ message: 'Choose a valid plan' }) }),
+});
+export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;

@@ -15,7 +15,6 @@ import test, { before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -24,6 +23,7 @@ import { createApp } from '../src/app';
 import { env } from '../src/config/env';
 import { User } from '../src/models/User';
 import { signSessionToken } from '../src/services/tokenService';
+import { hashPasswordResetOtp } from '../src/services/passwordResetService';
 
 let mongo: MongoMemoryServer;
 let server: Server;
@@ -53,9 +53,8 @@ async function callApi<T>(
   return { status: response.status, payload: (await response.json()) as Envelope<T> };
 }
 
-function hashOtp(otp: string): string {
-  return crypto.createHash('sha256').update(otp).digest('hex');
-}
+/** The service's own hashing, so seeded codes are stored exactly as real ones are. */
+const hashOtp = (userId: string, otp: string) => hashPasswordResetOtp(userId, otp);
 
 async function createUser(overrides: Partial<{ email: string; role: 'user' | 'admin'; isActive: boolean }> = {}) {
   return User.create({
@@ -72,7 +71,7 @@ async function issueOtp(userId: string, otp = '1234', expiresInMs = 10 * 60 * 10
   await User.updateOne(
     { _id: userId },
     {
-      passwordResetOtpHash: hashOtp(otp),
+      passwordResetOtpHash: hashOtp(String(userId), otp),
       passwordResetOtpExpiresAt: new Date(Date.now() + expiresInMs),
       passwordResetOtpAttempts: 0,
     },
@@ -139,19 +138,20 @@ test('forgot-password with a non-existing email is refused and sends nothing', a
     console.warn = originalWarn;
   }
 
-  assert.equal(status, 404);
-  assert.equal(payload.error!.message, 'No existing account on this email address.');
+  // Same answer as for a real account, so the endpoint can't be used to find accounts.
+  assert.equal(status, 200);
+  assert.equal(payload.message, 'If an account exists for this email, a verification code has been sent.');
   assert.equal(sent.length, 0, 'no email may be dispatched for an unknown address');
   assert.equal(await User.countDocuments({}), 0, 'requesting a code must not create anything');
 });
 
-test('an inactive account is treated as having no account: refused, no code stored', async () => {
+test('an inactive account is treated as having no account: neutral answer, no code stored', async () => {
   const user = await createUser({ email: 'suspended@example.com', isActive: false });
 
   const { status, payload } = await callApi('POST', '/api/auth/forgot-password', { email: 'suspended@example.com' });
 
-  assert.equal(status, 404);
-  assert.match(payload.error!.message, /No existing account/);
+  assert.equal(status, 200);
+  assert.equal(payload.message, 'If an account exists for this email, a verification code has been sent.');
 
   const stored = await User.findById(user._id).select('+passwordResetOtpHash');
   assert.equal(stored!.passwordResetOtpHash, null);
@@ -279,7 +279,7 @@ test('requesting a fresh code after a lockout (or any time) resets the attempt c
 
   const stored = await User.findById(user._id).select('+passwordResetOtpHash +passwordResetOtpAttempts');
   assert.equal(stored!.passwordResetOtpAttempts, 0);
-  assert.notEqual(stored!.passwordResetOtpHash, hashOtp('4242'), 'the old code must have been replaced');
+  assert.notEqual(stored!.passwordResetOtpHash, hashOtp(user._id.toString(), '4242'), 'the old code must have been replaced');
 });
 
 /* -------------------------------------------------------------------------- */
@@ -479,8 +479,8 @@ test('a successful signup sets an HTTP-only session cookie that authenticates /m
   const signup = await rawPost('/api/auth/signup', {
     name: 'Fresh User',
     email: 'fresh@example.com',
-    password: 'longenoughpassword',
-    confirmPassword: 'longenoughpassword',
+    password: 'LongEnough-Passw0rd',
+    confirmPassword: 'LongEnough-Passw0rd',
   });
 
   assert.equal(signup.status, 201);
@@ -499,8 +499,8 @@ test('a rejected signup (duplicate email) sets no cookie', async () => {
   const signup = await rawPost('/api/auth/signup', {
     name: 'Copycat',
     email: 'taken@example.com',
-    password: 'longenoughpassword',
-    confirmPassword: 'longenoughpassword',
+    password: 'LongEnough-Passw0rd',
+    confirmPassword: 'LongEnough-Passw0rd',
   });
   assert.equal(signup.status, 409);
   assert.equal(signup.setCookie, '');

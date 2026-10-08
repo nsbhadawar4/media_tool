@@ -160,6 +160,20 @@ const envSchema = z.object({
    * (RESEND_API_KEY) against SMTP's four or five.
    */
   EMAIL_PROVIDER: z.enum(['console', 'resend', 'smtp']).default(secureByDefault ? 'resend' : 'console'),
+  /**
+   * Where verification texts go. Only `mock` exists today: it sends nothing, logs the message
+   * (with the code) only in development, and is refused in production — mobile signup then
+   * answers "not available" rather than pretending. Add a real provider in services/sms/.
+   */
+  SMS_PROVIDER: z.enum(['mock']).default('mock'),
+
+  /**
+   * OAuth client ID (Web application) from Google Cloud Console, for "Continue with Google".
+   * Public by design — it is sent to the browser — and the only Google setting needed: the
+   * ID-token flow used here has no client secret. Unset → Google sign-in reports itself as
+   * not configured instead of pretending to work.
+   */
+  GOOGLE_CLIENT_ID: optionalString,
   /** "From" address/header on outgoing mail, e.g. "media_tool <no-reply@yourdomain.com>". */
   EMAIL_FROM: optionalString,
   RESEND_API_KEY: optionalString,

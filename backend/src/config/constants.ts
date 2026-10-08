@@ -116,6 +116,7 @@ export const ACTIVITY_ACTIONS = [
   'user_activated',
   'user_deactivated',
   'user_deleted',
+  'subscription_updated',
   'review_submitted',
   'review_updated',
   'review_approved',
@@ -123,8 +124,41 @@ export const ACTIVITY_ACTIONS = [
   'review_published',
   'review_unpublished',
   'review_deleted',
+  // One-time codes: mobile signup and password reset (metadata.purpose says which).
+  'otp_requested',
+  'otp_resent',
+  'otp_verified',
+  'otp_failed',
+  'email_verified',
+  // First-time onboarding and plan choice.
+  'onboarding_started',
+  'plan_selected',
+  'onboarding_completed',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
+
+/** Whether the event succeeded — failed sign-ins and wrong codes are the security signal. */
+export const ACTIVITY_STATUSES = ['success', 'failure'] as const;
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
+
+/**
+ * Groups for the admin activity filters. An action may sit in more than one (a failed sign-in is
+ * both an authentication and a security event).
+ */
+export const ACTIVITY_CATEGORIES = {
+  auth: ['login', 'login_failed', 'logout'],
+  signup: ['signup', 'otp_requested', 'otp_resent', 'otp_verified', 'otp_failed', 'email_verified'],
+  security: ['login_failed', 'password_changed', 'password_reset_requested', 'password_reset', 'otp_failed', 'user_deactivated'],
+  account: ['profile_updated', 'avatar_updated', 'password_changed', 'user_activated', 'user_deactivated', 'user_deleted', 'email_verified'],
+  onboarding: ['onboarding_started', 'plan_selected', 'onboarding_completed', 'subscription_updated'],
+  content: [
+    'folder_created', 'folder_renamed', 'folder_updated', 'folder_deleted', 'folder_restored', 'folder_permanently_deleted',
+    'media_uploaded', 'media_renamed', 'media_updated', 'media_deleted', 'media_restored', 'media_permanently_deleted', 'media_moved',
+  ],
+  reviews: ['review_submitted', 'review_updated', 'review_approved', 'review_rejected', 'review_published', 'review_unpublished', 'review_deleted'],
+} as const satisfies Record<string, readonly ActivityAction[]>;
+export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;
+export const ACTIVITY_CATEGORY_NAMES = Object.keys(ACTIVITY_CATEGORIES) as ActivityCategory[];
 
 export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review'] as const;
 export type ActivityTargetType = (typeof ACTIVITY_TARGET_TYPES)[number];

@@ -36,6 +36,7 @@ export function LogoutPromptProvider({ children }: { children: ReactNode }) {
       await logout();
       setIsOpen(false);
       toast.success('Signed out');
+      // Back to the public website.
       router.replace('/');
     } catch {
       toast.error('Failed to sign out');

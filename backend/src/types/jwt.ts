@@ -13,6 +13,14 @@ export interface SessionTokenPayload {
    * default to anything else.
    */
   tokenVersion: number;
+  /**
+   * Random id for this one session, so it can be revoked on its own (logout) without
+   * signing the account out everywhere. Absent on tokens issued before this existed; those
+   * can still be ended by a tokenVersion bump (password change or reset).
+   */
+  sid?: string;
+  /** Whether the cookie was issued with "remember me", so a re-issued cookie keeps the same lifetime. */
+  persistent?: boolean;
 }
 
 export interface MediaTokenPayload {

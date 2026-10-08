@@ -1,10 +1,12 @@
 import type { NextFunction, Request, Response } from 'express';
+import type { Types } from 'mongoose';
 import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { verifySessionToken } from '../services/tokenService';
 import { clearSessionCookie } from '../utils/cookies';
-import { User } from '../models/User';
+import { User, accountLabel } from '../models/User';
+import { isSessionRevoked } from '../services/sessionService';
 
 /**
  * Requires a valid session cookie, and re-reads the account on every request rather than
@@ -18,6 +20,28 @@ import { User } from '../models/User';
  * — and /auth/logout, the endpoint that would otherwise clear it, sits behind this very
  * check, leaving nobody able to get rid of it.
  */
+/** How stale lastActiveAt may get before a request refreshes it. */
+export const LAST_ACTIVE_RESOLUTION_MS = 5 * 60 * 1000;
+
+/**
+ * "Last active" without a database write per request: only when the stored time is more than
+ * LAST_ACTIVE_RESOLUTION_MS old, and conditionally, so parallel requests (or instances) racing
+ * past the check write once between them. A failure here never fails the request.
+ */
+async function touchLastActive(userId: Types.ObjectId, lastActiveAt: Date | null): Promise<void> {
+  const now = Date.now();
+  if (lastActiveAt && now - lastActiveAt.getTime() < LAST_ACTIVE_RESOLUTION_MS) return;
+  const staleBefore = new Date(now - LAST_ACTIVE_RESOLUTION_MS);
+  try {
+    await User.updateOne(
+      { _id: userId, $or: [{ lastActiveAt: null }, { lastActiveAt: { $lt: staleBefore } }] },
+      { $set: { lastActiveAt: new Date(now) } },
+    );
+  } catch {
+    // Best effort only.
+  }
+}
+
 export const requireAuth = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies?.[env.COOKIE_NAME];
   if (!token) {
@@ -50,9 +74,24 @@ export const requireAuth = asyncHandler(async (req: Request, res: Response, next
     throw AppError.unauthorized('Session expired or invalid, please log in again');
   }
 
+  // Logged out elsewhere (or here, with a copy of the token): this one session is over.
+  if (payload.sid && (await isSessionRevoked(payload.sid))) {
+    clearSessionCookie(res);
+    throw AppError.unauthorized('Session expired or invalid, please log in again');
+  }
+
+  await touchLastActive(user._id, user.lastActiveAt ?? null);
+
+  req.authSession = {
+    id: payload.sid,
+    expiresAt: new Date(((payload as { exp?: number }).exp ?? 0) * 1000),
+    // Tokens from before this flag existed were always persistent cookies.
+    persistent: payload.persistent ?? true,
+  };
   req.user = {
     id: user._id.toString(),
-    email: user.email,
+    // Used to label log and activity entries: the email, or the verified phone for mobile accounts.
+    email: accountLabel(user),
     name: user.name,
     // Read from the database, not the token, so a role change takes effect immediately.
     role: user.role,

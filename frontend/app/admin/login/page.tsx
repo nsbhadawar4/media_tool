@@ -1,23 +1,23 @@
-import { Suspense } from 'react';
-import type { Metadata } from 'next';
-import { LoginForm } from '@/components/auth/LoginForm';
-import { SessionExpiredNotice } from '@/components/auth/SessionExpiredNotice';
+import { redirect } from 'next/navigation';
+import { LOGIN_PATH } from '@/lib/auth/routes';
 
-export const metadata: Metadata = {
-  title: 'Admin sign in — media_tool',
-};
+/**
+ * Kept so links and bookmarks to the old admin sign-in still work. There is one sign-in
+ * page now (/login); an administrator's role, not the form, sends them to /admin/dashboard.
+ *
+ * The query string is carried across, which matters for `?from=` and `?session=expired`.
+ */
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (typeof value === 'string') params.set(key, value);
+    else if (Array.isArray(value)) for (const item of value) params.append(key, item);
+  }
 
-export default function AdminLoginPage() {
-  return (
-    <main className="app-viewport-min-h auth-backdrop flex items-center justify-center bg-background px-6 py-16">
-      <div className="w-full max-w-sm">
-        <Suspense fallback={null}>
-          <SessionExpiredNotice />
-        </Suspense>
-        <Suspense fallback={null}>
-          <LoginForm variant="admin" />
-        </Suspense>
-      </div>
-    </main>
-  );
+  const query = params.toString();
+  redirect(query ? `${LOGIN_PATH}?${query}` : LOGIN_PATH);
 }

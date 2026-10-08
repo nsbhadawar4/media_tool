@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { accountLabel } from '@/lib/auth/account';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
@@ -67,10 +68,16 @@ export function Topbar({
               </button>
             )}
             <Logo className="h-8 w-8 shrink-0" />
-            <span className="truncate text-sm font-semibold text-foreground">
+            {/* In the admin area a narrow phone shows the badge alone: name + badge + the icons on
+                the right would otherwise truncate the name to "media_to…". */}
+            <span className={isAdminArea ? 'hidden truncate text-sm font-semibold text-foreground min-[420px]:inline' : 'truncate text-sm font-semibold text-foreground'}>
               media_tool
-              {isAdminArea && <span className="ml-1 text-xs font-normal text-muted">admin</span>}
             </span>
+            {isAdminArea && (
+              <span className="shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+                Admin
+              </span>
+            )}
           </div>
 
           {/* The full search field from `lg` up, exactly as before. */}
@@ -80,7 +87,8 @@ export function Topbar({
             className="focus-glow group hidden h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-background/50 px-4 text-sm text-muted shadow-card transition duration-200 hover:border-border-strong hover:bg-background/80 hover:text-foreground focus-visible:border-accent sm:max-w-lg lg:flex"
           >
             <Search className="h-4 w-4 shrink-0 transition-colors group-hover:text-accent-2" />
-            <span className="truncate">Search your library…</span>
+            {/* The search covers the signed-in account's own files, in either area. */}
+            <span className="truncate">{isAdminArea ? 'Search my library…' : 'Search your library…'}</span>
             <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong bg-surface-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
               {isMac ? '⌘' : 'Ctrl '}K
             </kbd>
@@ -93,7 +101,7 @@ export function Topbar({
               type="button"
               onClick={() => setIsSearchOpen(true)}
               className="flex h-10 w-10 items-center justify-center rounded-xl text-muted transition active:bg-surface-hover active:text-foreground lg:hidden"
-              aria-label="Search your library"
+              aria-label={isAdminArea ? 'Search my library' : 'Search your library'}
             >
               <Search className="h-5 w-5" />
             </button>
@@ -138,7 +146,7 @@ export function Topbar({
                 <div className="border-b border-border px-3 py-2.5">
                   <p className="truncate text-sm font-medium text-foreground">{user?.name ?? 'Account'}</p>
                   {/* The signed-in address only — never a role, an id, or anything else about the account. */}
-                  <p className="truncate text-xs text-muted">{user?.email}</p>
+                  <p className="truncate text-xs text-muted">{user ? accountLabel(user) : null}</p>
                 </div>
               }
               items={[

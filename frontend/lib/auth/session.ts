@@ -1,3 +1,5 @@
+import { LOGIN_PATH } from './routes';
+
 /**
  * How a client-side auth gate tells proxy.ts "I already asked the server about this
  * session, and it said no".
@@ -19,6 +21,6 @@ export const SESSION_ENDED_PARAM = 'session';
 export const SESSION_ENDED_VALUE = 'expired';
 
 /** Sign-in URL to send someone to once the server has rejected their session. */
-export function sessionEndedUrl(path: '/' | '/admin/login' = '/'): string {
-  return `${path}?${SESSION_ENDED_PARAM}=${SESSION_ENDED_VALUE}`;
+export function sessionEndedUrl(): string {
+  return `${LOGIN_PATH}?${SESSION_ENDED_PARAM}=${SESSION_ENDED_VALUE}`;
 }

@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import { env } from './config/env';
 import { mongoSanitize } from './middleware/sanitize';
 import { apiRateLimiter } from './middleware/rateLimit';
+import { originGuard } from './middleware/originGuard';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import routes from './routes';
 
@@ -54,12 +55,13 @@ export function createApp(): Express {
 
   app.use(morgan(env.isDevelopment ? 'dev' : 'combined'));
 
+  // JSON only: nothing in the API takes HTML-form bodies, and accepting them would only widen
+  // what a cross-site form could send.
   app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
   app.use(cookieParser());
   app.use(mongoSanitize);
 
-  app.use('/api', apiRateLimiter, routes);
+  app.use('/api', originGuard, apiRateLimiter, routes);
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -70,3 +72,6 @@ export function createApp(): Express {
 
   return app;
 }
+
+// Lets a host (the Next.js bridge) decide how post-response work is kept alive.
+export { setBackgroundRunner, runTracked } from './services/backgroundTasks';

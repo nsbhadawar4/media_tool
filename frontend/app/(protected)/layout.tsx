@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
+import { LOGIN_PATH, ONBOARDING_PATH } from '@/lib/auth/routes';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { GameLoading, isGameLoaderVariant } from '@/components/games/shared/GameLoading';
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
@@ -17,6 +18,9 @@ import { kidGameRouteSubject } from '@/lib/kid-games/routes';
  * obvious logged-out visitors before this ever renders, but this is what actually
  * confirms the session is valid (via GET /api/auth/me) and reacts if it expires while
  * the app is open. The backend re-checks on every request regardless.
+ *
+ * This is the user application. Administrators may use it too — an admin account owns a
+ * library like any other — and reach the admin panel from the sidebar's cross-link.
  */
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, sessionError, refresh } = useAuth();
@@ -33,9 +37,15 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   // instead: signing someone out over a backend that is merely down would be a lie.
   const shouldRedirect = !isLoading && !user && sessionError !== 'unreachable';
 
+  // A new account with onboarding still to do finishes it before using the app.
+  const needsOnboarding = Boolean(user?.onboardingRequired);
+  useEffect(() => {
+    if (needsOnboarding) router.replace(ONBOARDING_PATH);
+  }, [needsOnboarding, router]);
+
   useEffect(() => {
     if (shouldRedirect) {
-      router.replace(sessionError === 'rejected' ? sessionEndedUrl('/') : '/');
+      router.replace(sessionError === 'rejected' ? sessionEndedUrl() : LOGIN_PATH);
     }
   }, [shouldRedirect, sessionError, router]);
 
@@ -43,7 +53,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     return <SessionCheckFailed onRetry={() => void refresh()} />;
   }
 
-  if (isLoading || !user) {
+  if (isLoading || !user || needsOnboarding) {
     if (kidSubject) return <KidGameLoader variant={kidSubject} layout="boot" />;
     return gameSlug && isGameLoaderVariant(gameSlug) ? <GameLoading variant={gameSlug} layout="boot" /> : <FullPageSpinner />;
   }

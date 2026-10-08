@@ -6,6 +6,7 @@ import { ToastProvider } from '@/lib/toast/ToastContext';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
+import { configuredSiteUrl } from '@/lib/site';
 
 const montserrat = Montserrat({
   variable: '--font-montserrat',
@@ -18,7 +19,15 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+/**
+ * Absolute base for URL metadata, only when the deployment states it (NEXT_PUBLIC_SITE_URL, or
+ * Vercel's production domain) — never an invented one. The public pages fill it in from the
+ * request's own origin otherwise; see lib/site.ts.
+ */
+const SITE_URL = configuredSiteUrl();
+
 export const metadata: Metadata = {
+  ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
   title: 'media_tool — Private Media Library',
   description: 'A private, self-hosted photo, video and document manager.',
   robots: { index: false, follow: false },

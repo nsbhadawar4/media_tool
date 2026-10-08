@@ -113,8 +113,9 @@ export function AdminReviewsView() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        eyebrow="Manage"
         icon={Star}
-        title="Review Management"
+        title="Reviews"
         description="Review, moderate and publish customer feedback."
         actions={
           <Button variant="secondary" onClick={refresh} disabled={list.isFetching || stats.isFetching}>

@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_ENDED_PARAM, SESSION_ENDED_VALUE } from '@/lib/auth/session';
+import { LOGIN_PATH, homePathForRole, roleHintFromToken } from '@/lib/auth/routes';
 
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
 
-/** Signed-in areas of the app. Everything under these is gated. */
+/**
+ * Signed-in areas of the app. Everything under these is gated: the user application, and
+ * the admin panel under /admin. The public website (`/`, /privacy, /terms, /contact) is
+ * deliberately absent — a signed-out visitor must be able to read it.
+ */
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/folders',
@@ -15,40 +20,46 @@ const PROTECTED_PREFIXES = [
   '/activity',
   '/profile',
   '/settings',
+  '/onboarding',
   '/admin',
 ];
 
 /**
- * Reached only while signed out; a live session is sent on to the app instead.
+ * Reached only while signed out; a live session is sent on to its own area instead.
  *
- * `/` is in here because the sign-in form is the root of this app (see app/page.tsx).
- * Without it, someone already signed in would land back on a login form instead of their
- * dashboard. `/login` stays listed: it redirects to `/`, and catching it here means a
- * signed-in visitor skips that hop entirely.
+ * `/` is the public website, and is here so that someone already signed in — opening the
+ * bare domain, a bookmark, or the "media_tool home" link — lands in their app rather than on
+ * the marketing page. A cookie the backend no longer accepts does not trap them: the app's
+ * auth gate turns the 401 into /login?session=expired, which clears it (below), after which
+ * `/` shows the public site as normal.
+ *
+ * `/admin/login` is a legacy address that forwards to /login, listed so a signed-in visitor
+ * skips that hop.
  */
-const AUTH_PAGES = ['/', '/login', '/signup', '/admin/login'];
+const AUTH_PAGES = ['/', LOGIN_PATH, '/signup', '/admin/login'];
 
 /**
- * Fast, optimistic redirect based on cookie *presence* only — it never verifies the
- * JWT signature (the frontend doesn't hold the backend's secret by design, keeping the
- * two services fully decoupled), and it cannot read the role out of the token either.
+ * Fast, optimistic redirect based on cookie *presence* — it never verifies the JWT signature
+ * (the frontend doesn't hold the backend's secret by design, keeping the two services fully
+ * decoupled).
  *
- * So this is a convenience layer, not a security boundary: it avoids a flash of
- * protected UI. The real decisions are made by the backend's requireAuth/requireAdmin
- * on every request, and by the client-side guards in the (protected) and admin layouts.
+ * So this is a convenience layer, not a security boundary: it avoids a flash of protected UI.
+ * The real decisions are made by the backend's requireAuth/requireAdmin on every request,
+ * and by the client-side guards in the (protected) and admin layouts, which check the role
+ * the server reports — never the one in the cookie.
  */
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSessionCookie = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const hasSessionCookie = Boolean(sessionToken);
 
   const isAuthPage = AUTH_PAGES.includes(pathname);
   const isProtected =
-    !isAuthPage &&
-    pathname !== '/admin' && // decides its own destination server-side
-    PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    !isAuthPage && PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   if (isProtected && !hasSessionCookie) {
-    const loginUrl = new URL(pathname.startsWith('/admin') ? '/admin/login' : '/', request.url);
+    // One sign-in page for both areas; the role decides where it lands afterwards.
+    const loginUrl = new URL(LOGIN_PATH, request.url);
     loginUrl.searchParams.set('from', pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -64,16 +75,16 @@ export function proxy(request: NextRequest) {
      */
     if (request.nextUrl.searchParams.get(SESSION_ENDED_PARAM) === SESSION_ENDED_VALUE) {
       // And the cookie goes with it. Leaving it in place would send the very next visit
-      // to `/` back into the same loop, and the backend's own clearing of it can't be
-      // relied on here: it only happens on a request that actually reaches the backend.
+      // back into the same loop, and the backend's own clearing of it can't be relied on
+      // here: it only happens on a request that actually reaches the backend.
       const response = NextResponse.next();
       response.cookies.delete(SESSION_COOKIE_NAME);
       return response;
     }
 
-    // Role is unknown here, so everyone goes to the user dashboard; an admin arriving
-    // there can reach /admin from the sidebar.
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    // The token's role claim only picks the door; if it is stale (role changed since
+    // sign-in) the layout on the other side corrects it from the live account.
+    return NextResponse.redirect(new URL(homePathForRole(roleHintFromToken(sessionToken)), request.url));
   }
 
   return NextResponse.next();
@@ -94,6 +105,7 @@ export const config = {
     '/activity/:path*',
     '/profile/:path*',
     '/settings/:path*',
+    '/onboarding/:path*',
     '/admin/:path*',
   ],
 };

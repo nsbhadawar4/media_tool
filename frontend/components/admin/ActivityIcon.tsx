@@ -11,6 +11,10 @@ import {
   RotateCcw,
   FolderInput,
   ShieldAlert,
+  Star,
+  UserPlus,
+  UserRound,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -31,6 +35,14 @@ const ICONS: Record<string, LucideIcon> = {
   media_restored: RotateCcw,
   media_permanently_deleted: Trash2,
   media_moved: FolderInput,
+  signup: UserPlus,
+  profile_updated: UserRound,
+  avatar_updated: UserRound,
+  password_changed: KeyRound,
+  password_reset_requested: KeyRound,
+  password_reset: KeyRound,
+  review_submitted: Star,
+  review_updated: Star,
 };
 
 export function ActivityIcon({ action, className }: { action: string; className?: string }) {

@@ -1,21 +1,25 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Loader2, Lock } from 'lucide-react';
-import { Logo } from '@/components/brand/Logo';
-import { Card } from '@/components/ui/Card';
+import { Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
+import { passwordProblem } from '@/lib/auth/passwordRules';
+import type { UserProfile } from '@/types/api';
 import { AuthField } from './AuthField';
-
-const MIN_PASSWORD_LENGTH = 8;
+import { AuthCard } from './AuthCard';
+import { FormAlert, SubmitButton } from './FormFeedback';
+import { PasswordChecklist } from './PasswordChecklist';
 
 /**
  * Step 3 of ForgotPasswordFlow, reachable only after VerifyOtpForm hands back a
  * `resetToken` — there is no URL or other route to this step, so there is nothing to
  * validate about how it was reached beyond the token the backend itself checks.
+ *
+ * Asks for the same strength as a new account (the live checklist); the backend's own minimum
+ * is the final word.
  */
-export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string; onSuccess: () => void }) {
+export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string; onSuccess: (user: UserProfile) => void }) {
   const { resetPassword } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,6 +27,7 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
   const [confirmError, setConfirmError] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -30,22 +35,17 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
     setPasswordError(undefined);
     setConfirmError(undefined);
 
-    // Client-side purely for instant feedback; the backend runs the same rules
-    // (validators/authValidators.ts's resetPasswordSchema) and is the one that decides.
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setPasswordError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
-      return;
-    }
-    if (confirmPassword !== newPassword) {
-      setConfirmError('Passwords do not match');
-      return;
-    }
+    const problem = passwordProblem(newPassword);
+    if (problem) return setPasswordError(problem);
+    if (!confirmPassword) return setConfirmError('Please confirm your new password');
+    if (confirmPassword !== newPassword) return setConfirmError('Passwords do not match');
 
     setIsSubmitting(true);
     try {
-      await resetPassword({ resetToken, newPassword, confirmPassword });
+      const user = await resetPassword({ resetToken, newPassword, confirmPassword });
       // The backend has replaced every older session with a fresh cookie for this browser.
-      onSuccess();
+      setDone(true);
+      window.setTimeout(() => onSuccess(user), 900);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -54,25 +54,27 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
   };
 
   return (
-    <Card className="gradient-border surface-glass anim-rise-scale w-full max-w-sm !bg-surface-elevated/70 p-6 shadow-pop sm:p-8">
-      <div className="flex flex-col items-center text-center">
-        <Logo className="anim-logo logo-glow h-14 w-14" />
-        <h1 className="mt-4 text-xl font-semibold text-foreground">Reset your password</h1>
-        <p className="mt-1.5 text-sm text-muted">Choose a new password for your account.</p>
-      </div>
-
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
-        <AuthField
-          id="newPassword"
-          label="New password"
-          icon={<Lock className="h-4 w-4" />}
-          type="password"
-          autoComplete="new-password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          error={passwordError}
-          placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-        />
+    <AuthCard step={{ current: 3, total: 3, label: 'New password' }} title="Choose a new password" subtitle="You’ll be signed in on this device, and signed out everywhere else.">
+      <form onSubmit={handleSubmit} noValidate className="mt-7 flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <AuthField
+            id="newPassword"
+            label="New password"
+            icon={<Lock className="h-4 w-4" />}
+            type="password"
+            autoComplete="new-password"
+            autoFocus
+            value={newPassword}
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              setPasswordError(undefined);
+            }}
+            error={passwordError}
+            placeholder="Create a strong password"
+            disabled={done}
+          />
+          <PasswordChecklist password={newPassword} />
+        </div>
 
         <AuthField
           id="confirmPassword"
@@ -81,29 +83,20 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
           type="password"
           autoComplete="new-password"
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            setConfirmError(undefined);
+          }}
           error={confirmError}
           placeholder="Repeat your new password"
+          disabled={done}
         />
 
-        {formError && (
-          <div
-            role="alert"
-            className="animate-fade-in rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"
-          >
-            {formError}
-          </div>
-        )}
+        <FormAlert>{formError}</FormAlert>
+        <FormAlert tone="success">{done ? 'Password updated. Taking you to your account…' : null}</FormAlert>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 inline-flex items-center justify-center gap-2 btn-primary rounded-xl px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Resetting…' : 'Reset password'}
-        </button>
+        <SubmitButton busy={isSubmitting} done={done} idle="Update password" busyLabel="Updating…" doneLabel="Password updated" className="mt-1" />
       </form>
-    </Card>
+    </AuthCard>
   );
 }

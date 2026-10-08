@@ -32,8 +32,8 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
           type={inputType}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`w-full rounded-xl border bg-surface-elevated py-2.5 pl-9 text-sm text-foreground outline-none placeholder:text-muted/60 hover:border-border-strong focus-glow ${
-            isPassword ? 'pr-9' : 'pr-3'
+          className={`min-h-11 w-full rounded-xl border bg-surface-elevated py-2.5 pl-9 text-sm text-foreground outline-none placeholder:text-muted/60 hover:border-border-strong focus-glow disabled:cursor-not-allowed disabled:opacity-60 ${
+            isPassword ? 'pr-11' : 'pr-3'
           } ${
             error
               ? 'anim-shake border-danger/70'
@@ -45,8 +45,9 @@ export function AuthField({ id, label, icon, error, type = 'text', ...rest }: Au
           <button
             type="button"
             onClick={() => setRevealed((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition hover:text-foreground"
+            className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-pressed={revealed}
           >
             {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>

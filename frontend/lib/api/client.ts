@@ -30,12 +30,15 @@ export const API_BASE_URL = configuredBaseUrl
 export class ApiError extends Error {
   readonly status: number;
   readonly details?: unknown;
+  /** Machine-readable reason, when the server gives one (e.g. OTP_EXPIRED). */
+  readonly code?: string;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, details?: unknown, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -102,7 +105,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!response.ok || !payload || payload.success === false) {
     const message = payload && payload.success === false ? payload.error.message : `Request failed (${response.status})`;
     const details = payload && payload.success === false ? payload.error.details : undefined;
-    throw new ApiError(message, response.status, details);
+    const code = payload && payload.success === false ? payload.error.code : undefined;
+    throw new ApiError(message, response.status, details, code);
   }
 
   return { data: payload.data, meta: payload.meta };

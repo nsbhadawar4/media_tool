@@ -3,49 +3,58 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, Lock, Mail } from 'lucide-react';
-import { Logo } from '@/components/brand/Logo';
+import { Lock, Mail, Smartphone } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
-import { Card } from '@/components/ui/Card';
+import { postLoginPath } from '@/lib/auth/routes';
+import { DEFAULT_COUNTRY } from '@/lib/phone/countries';
 import { AuthField } from './AuthField';
+import { AuthTabs } from './AuthTabs';
+import { PhoneField } from './PhoneField';
+import { AuthDivider, GoogleSignInButton } from './GoogleSignInButton';
+import { AuthCard, authLinkClass } from './AuthCard';
+import { FormAlert, SubmitButton } from './FormFeedback';
 
-interface LoginFormProps {
-  /**
-   * 'admin' only changes the wording and where a successful sign-in lands. It grants
-   * nothing: an account without the admin role is bounced by the admin layout, and the
-   * backend refuses its requests regardless of which form was used.
-   */
-  variant?: 'user' | 'admin';
-}
+const TABS = [
+  { value: 'email' as const, label: 'Email', icon: <Mail className="h-4 w-4" /> },
+  { value: 'mobile' as const, label: 'Mobile', icon: <Smartphone className="h-4 w-4" /> },
+];
 
-export function LoginForm({ variant = 'user' }: LoginFormProps) {
+/**
+ * The single sign-in form. Where a successful sign-in lands is decided by the account's role
+ * (admin → /admin/dashboard, user → /dashboard) — that choice grants nothing on its own: the
+ * admin layout re-checks the role, and the backend's requireAdmin refuses non-admins anyway.
+ *
+ * Two ways to identify the account: email (unchanged), or the verified mobile number of an
+ * account created by mobile signup. Either way it is the same password check and session.
+ */
+export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, loginWithMobile } = useAuth();
 
+  const [method, setMethod] = useState<'email' | 'mobile'>('email');
   const [email, setEmail] = useState('');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isAdminVariant = variant === 'admin';
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
     try {
-      const user = await login(email, password, rememberMe);
-
-      if (isAdminVariant && user.role !== 'admin') {
-        setError('This account does not have administrator access.');
-        return;
-      }
-
-      const fallback = isAdminVariant ? '/admin' : '/dashboard';
-      router.replace(searchParams.get('from') ?? fallback);
+      const user =
+        method === 'email'
+          ? await login(email, password, rememberMe)
+          : await loginWithMobile({ country, mobile: mobile.trim(), password, rememberMe });
+      // Stays in its "signed in" state while the next page loads, rather than flashing back.
+      setSignedIn(true);
+      router.replace(postLoginPath(user.role, searchParams.get('from'), user.onboardingRequired));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
     } finally {
@@ -54,29 +63,61 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
   };
 
   return (
-    <Card className="gradient-border surface-glass anim-rise-scale w-full max-w-sm !bg-surface-elevated/70 p-6 shadow-pop sm:p-8">
-      <div className="flex flex-col items-center text-center">
-        <Logo className="anim-logo logo-glow h-14 w-14" />
-        <h1 className="mt-4 text-xl font-semibold text-foreground">
-          {isAdminVariant ? 'Admin sign in' : 'Welcome back'}
-        </h1>
-        <p className="mt-1.5 text-sm text-muted">
-          {isAdminVariant ? 'Private area. Authorized access only.' : 'Sign in to your media library.'}
-        </p>
+    <AuthCard
+      title="Welcome back"
+      subtitle="Sign in to your media library."
+      footer={
+        <>
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className={authLinkClass}>
+            Create one
+          </Link>
+        </>
+      }
+    >
+      <div className="mt-6 flex flex-col gap-4">
+        <GoogleSignInButton from={searchParams.get('from')} />
+        <AuthDivider label="or sign in with" />
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-        <AuthField
-          id="email"
-          label="Email"
-          icon={<Mail className="h-4 w-4" />}
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+      <div className="mt-4">
+        <AuthTabs
+          tabs={TABS}
+          value={method}
+          onChange={(m) => {
+            setMethod(m);
+            setError(null);
+          }}
+          idPrefix="login"
+          label="Sign in with"
         />
+      </div>
+
+      <form
+        onSubmit={handleSubmit}
+        role="tabpanel"
+        id={`login-panel-${method}`}
+        aria-labelledby={`login-tab-${method}`}
+        className="mt-6 flex flex-col gap-4"
+      >
+        {/* Keyed by method, so the identifier field fades in when the tab changes. */}
+        <div key={method} className="animate-fade-in">
+          {method === 'mobile' ? (
+            <PhoneField id="login-mobile" country={country} onCountryChange={setCountry} number={mobile} onNumberChange={setMobile} />
+          ) : (
+            <AuthField
+              id="email"
+              label="Email"
+              icon={<Mail className="h-4 w-4" />}
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+            />
+          )}
+        </div>
 
         <AuthField
           id="password"
@@ -90,48 +131,28 @@ export function LoginForm({ variant = 'user' }: LoginFormProps) {
           placeholder="••••••••"
         />
 
-        <div className="flex items-center justify-between gap-2 text-xs text-muted">
-          <label className="flex select-none items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs text-muted">
+          <label className="flex cursor-pointer select-none items-center gap-2 transition hover:text-foreground-soft">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-border accent-accent"
+              className="h-4 w-4 cursor-pointer rounded border-border accent-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             />
-            Remember me on this device
+            Remember me
           </label>
-          <Link href="/forgot-password" className="font-medium text-accent transition hover:text-accent-hover">
-            Forgot password?
-          </Link>
+          {/* Password reset works by email; mobile-only accounts can't use it yet. */}
+          {method === 'email' && (
+            <Link href="/forgot-password" className={authLinkClass}>
+              Forgot password?
+            </Link>
+          )}
         </div>
 
-        {error && (
-          <div
-            role="alert"
-            className="animate-fade-in rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger"
-          >
-            {error}
-          </div>
-        )}
+        <FormAlert>{error}</FormAlert>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 inline-flex items-center justify-center gap-2 btn-primary rounded-xl px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Signing in…' : 'Sign in'}
-        </button>
+        <SubmitButton busy={isSubmitting} done={signedIn} idle="Sign in" busyLabel="Signing in…" doneLabel="Signed in" className="mt-1" />
       </form>
-
-      {!isAdminVariant && (
-        <p className="mt-6 text-center text-xs text-muted">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-medium text-accent transition hover:text-accent-hover">
-            Create one
-          </Link>
-        </p>
-      )}
-    </Card>
+    </AuthCard>
   );
 }

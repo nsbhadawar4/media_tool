@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { migrateUserEmailIndex } from './userIndexes';
 import { env } from './env';
 import { logger } from '../utils/logger';
 
@@ -82,6 +83,14 @@ export async function connectDatabase(): Promise<void> {
 
   logger.info('MongoDB connected successfully');
   logger.info(`Database: ${target}`);
+
+  // Non-fatal: the app works without it except that a second email-less (mobile) account
+  // would be refused, so a failure is logged loudly rather than taking the API down.
+  try {
+    await migrateUserEmailIndex(mongoose.connection.collection('users'));
+  } catch (err) {
+    logger.error('users: could not migrate the email index; mobile signup may fail', err);
+  }
 }
 
 export async function disconnectDatabase(): Promise<void> {

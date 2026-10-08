@@ -634,6 +634,57 @@ a,
   background-repeat: no-repeat;
 }
 
+/* OTP boxes: a digit landing in a box gives it one small pop (runs when data-filled flips). */
+@keyframes otp-fill {
+  0% { transform: scale(0.92); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.otp-box[data-filled='true'] {
+  animation: otp-fill 0.2s var(--ease-out);
+}
+.otp-box:focus {
+  transform: translateY(-2px);
+}
+/* Doubled class: beats .focus-glow's own transition list, which is declared later. */
+.otp-box.otp-box {
+  transition:
+    transform 0.18s var(--ease-out),
+    border-color 0.18s ease-out,
+    box-shadow 0.22s ease-out,
+    background-color 0.18s ease-out;
+}
+
+/* Plan cards. The featured/selected card gets a tinted face and an accent glow; others lift on hover. */
+.plan-card {
+  transition:
+    transform 0.25s var(--ease-out),
+    border-color 0.2s ease-out,
+    box-shadow 0.25s ease-out,
+    background-color 0.2s ease-out;
+}
+.plan-card-featured {
+  background:
+    radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    var(--surface);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 6px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 28px 60px -30px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+@media (hover: hover) {
+  .plan-card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otp-box[data-filled='true'] { animation: none; }
+  .otp-box:focus,
+  .plan-card:hover { transform: none; }
+  .anim-logo.anim-logo { animation: none; }
+}
+
 
 /* ===========================================================================
    Motion system
@@ -1612,3 +1663,104 @@ a,
 .rv-badge { animation: rv-badge-in 0.28s var(--ease-out) both; }
 @keyframes rv-badge-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .rv-badge { animation: none; } }
+
+/* ===========================================================================
+   Public website (components/marketing). Everything is prefixed mk- and only
+   used by the marketing pages, so none of it touches the app.
+=========================================================================== */
+html:has(.mk-root) {
+  scroll-behavior: smooth;
+  /* In-page links land below the sticky header rather than under it. */
+  scroll-padding-top: 5rem;
+}
+
+.mk-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.mk-hero-glow {
+  background:
+    radial-gradient(55% 60% at 75% 10%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(40% 50% at 10% 30%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
+}
+
+/* A faint grid that fades out towards the edges. */
+.mk-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 75%);
+}
+
+.mk-kid-glow {
+  background:
+    radial-gradient(40% 40% at 15% 20%, color-mix(in srgb, var(--kid-class-1) 14%, transparent), transparent 70%),
+    radial-gradient(40% 40% at 85% 60%, color-mix(in srgb, var(--kid-class-4, #8b5cf6) 14%, transparent), transparent 70%);
+}
+
+.mk-cta-glow {
+  background:
+    radial-gradient(60% 90% at 50% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(40% 60% at 100% 100%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
+}
+
+@keyframes mk-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.mk-float { animation: mk-float 7s ease-in-out infinite; }
+.mk-float-slow { animation: mk-float 9s ease-in-out infinite; animation-delay: -3s; }
+
+@keyframes mk-progress {
+  0% { width: 8%; }
+  70%, 100% { width: 100%; }
+}
+.mk-progress { animation: mk-progress 3.2s var(--ease-out) infinite; }
+
+/*
+ * Scroll reveal: sections fade up as they enter the viewport. Pure CSS (scroll-driven
+ * animations), so browsers without support simply show everything, and it is skipped for
+ * anyone who asked for less motion — in the OS or in the app's own setting.
+ */
+@keyframes mk-reveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    :root:not([data-motion='reduce']) .mk-reveal {
+      animation: mk-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+:root[data-motion='reduce'] .mk-float,
+:root[data-motion='reduce'] .mk-float-slow,
+:root[data-motion='reduce'] .mk-progress {
+  animation: none;
+}
+
+/* Prose for Privacy / Terms / Contact. */
+.mk-prose {
+  color: var(--foreground-soft);
+  font-size: 15px;
+  line-height: 1.75;
+}
+.mk-prose > * + * { margin-top: 1rem; }
+.mk-prose h2 {
+  margin-top: 2.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+.mk-prose ul { list-style: disc; padding-left: 1.25rem; }
+.mk-prose li + li { margin-top: 0.5rem; }
+.mk-prose li::marker { color: var(--accent); }
+.mk-prose strong { color: var(--foreground); font-weight: 600; }
+.mk-prose a { color: var(--accent); font-weight: 500; }
+.mk-prose a:hover { text-decoration: underline; }
+.mk-prose .not-prose h2 { margin-top: 0; font-size: 1rem; }
+.mk-prose .not-prose > * + * { margin-top: 0; }

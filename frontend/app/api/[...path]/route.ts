@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { after } from 'next/server';
 import { handleWithExpress } from '@/lib/server/expressBridge';
 
 /**
@@ -77,10 +78,24 @@ function getApp(): Promise<Express> {
  * module and the app it returns are both cached above.
  */
 async function startApp(): Promise<Express> {
-  const [{ createApp }, database] = await Promise.all([
+  const [{ createApp, setBackgroundRunner, runTracked }, database] = await Promise.all([
     import('media-tool-backend'),
     import('media-tool-backend/database'),
   ]);
+
+  /**
+   * Work the backend defers until after its response (today: password-reset emails) must not
+   * be cut off when the function is frozen after responding. `after()` keeps the invocation
+   * alive until the task settles. It is only valid inside a request; anywhere else the task
+   * just runs on, as it would in the standalone server.
+   */
+  setBackgroundRunner((task) => {
+    try {
+      after(task);
+    } catch {
+      runTracked(task);
+    }
+  });
 
   ensureDatabase = database.connectDatabaseOnce;
   await ensureDatabase();

@@ -10,6 +10,13 @@ declare global {
         name: string;
         role: UserRole;
       };
+      /** The session token behind req.user, as verified by requireAuth. Never sent to clients. */
+      authSession?: {
+        /** Absent for tokens issued before session ids existed. */
+        id?: string;
+        expiresAt: Date;
+        persistent: boolean;
+      };
     }
   }
 }

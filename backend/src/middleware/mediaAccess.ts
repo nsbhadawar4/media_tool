@@ -3,7 +3,8 @@ import { env } from '../config/env';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { verifyMediaToken, verifySessionToken } from '../services/tokenService';
-import { User } from '../models/User';
+import { User, accountLabel } from '../models/User';
+import { isSessionRevoked } from '../services/sessionService';
 
 /**
  * Guards the streaming/download endpoints. These are hit directly by <img>/<video>
@@ -30,6 +31,11 @@ export const requireMediaAccess = asyncHandler(async (req: Request, _res: Respon
     if (payload.mediaId !== mediaId) {
       throw AppError.forbidden('Token does not match this file');
     }
+    // A signed link outlives the request that minted it (MEDIA_TOKEN_EXPIRES_IN), so it must
+    // stop working the moment its account is suspended, not when it happens to expire.
+    if (!(await User.exists({ _id: payload.sub, isActive: true }))) {
+      throw AppError.unauthorized('Link expired or invalid');
+    }
     // `sub` is whoever the token was minted for; tokens are only ever minted while
     // serializing media that account already owns.
     req.user = { id: payload.sub, email: '', name: '', role: 'user' };
@@ -49,7 +55,15 @@ export const requireMediaAccess = asyncHandler(async (req: Request, _res: Respon
 
   const user = await User.findById(session.sub);
   if (!user || !user.isActive) throw AppError.unauthorized('Session no longer valid');
+  // Same revocation rule as requireAuth: a session signed out by a password reset must not
+  // keep streaming files through this side door.
+  if ((session.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+    throw AppError.unauthorized('Session expired or invalid, please log in again');
+  }
+  if (session.sid && (await isSessionRevoked(session.sid))) {
+    throw AppError.unauthorized('Session expired or invalid, please log in again');
+  }
 
-  req.user = { id: user._id.toString(), email: user.email, name: user.name, role: user.role };
+  req.user = { id: user._id.toString(), email: accountLabel(user), name: user.name, role: user.role };
   next();
 });
