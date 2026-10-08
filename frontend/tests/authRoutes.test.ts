@@ -71,3 +71,20 @@ test('unfinished onboarding comes before any destination — but never for admin
   assert.equal(postLoginPath('user', null, false), '/dashboard');
   assert.equal(isPublicPath('/onboarding'), false, 'onboarding needs a session check');
 });
+
+test('Manage Storage: signed out goes to sign-in and comes back; signed in passes through', async () => {
+  const { NextRequest } = await import('next/server');
+  const { proxy, config } = await import('../proxy');
+  assert.ok(config.matcher.includes('/manage-storage/:path*'), 'the proxy runs on /manage-storage');
+
+  const signedOut = proxy(new NextRequest('https://app.example.com/manage-storage'));
+  assert.equal(signedOut.status, 307);
+  const location = new URL(signedOut.headers.get('location')!);
+  assert.equal(location.pathname, '/login');
+  assert.equal(location.searchParams.get('from'), '/manage-storage');
+  assert.equal(postLoginPath('user', location.searchParams.get('from')), '/manage-storage', 'and back again after signing in');
+
+  const signedIn = proxy(new NextRequest('https://app.example.com/manage-storage', { headers: { cookie: 'mt_session=token' } }));
+  assert.equal(signedIn.headers.get('location'), null);
+  assert.equal(isPublicPath('/manage-storage'), false, 'never treated as public');
+});

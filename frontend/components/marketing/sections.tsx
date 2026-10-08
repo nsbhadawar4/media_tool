@@ -127,7 +127,8 @@ const MOCK_TILES = [
   ['#6366f1', '#a5b4fc'],
 ] as const;
 
-export function Hero() {
+/** `featuresLink`: false while the Features section is switched off (nothing to scroll to). */
+export function Hero({ featuresLink = true }: { featuresLink?: boolean }) {
   return (
     <section id="top" className="relative overflow-hidden px-4 pb-20 pt-14 sm:px-6 sm:pb-28 sm:pt-20 lg:px-8">
       {/* Ambient washes and a faint grid, all decoration. */}
@@ -162,12 +163,14 @@ export function Hero() {
             className="anim-rise mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start"
           >
             <PrimaryCta />
-            <Link
-              href="/#features"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-border-strong hover:bg-surface-hover"
-            >
-              Explore Features
-            </Link>
+            {featuresLink && (
+              <Link
+                href="/#features"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/70 px-6 py-3 text-sm font-semibold text-foreground backdrop-blur transition hover:border-border-strong hover:bg-surface-hover"
+              >
+                Explore Features
+              </Link>
+            )}
           </div>
           <ul
             style={{ '--i': 4 } as CSSProperties}

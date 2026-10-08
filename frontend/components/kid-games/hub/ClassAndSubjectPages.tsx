@@ -6,7 +6,11 @@ import { BookOpen, Flame, Gamepad2, Search, SearchX, Sparkles, Target, Trophy } 
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Tabs } from '@/components/ui/Tabs';
-import { CLASS_INFO, SUBJECTS, SUBJECT_INFO, classFromSlug, gameHref, gamesFor, isSubject } from '@/lib/kid-games/catalog';
+import { CLASS_INFO, SUBJECT_INFO, classFromSlug, gameHref, isSubject } from '@/lib/kid-games/catalog';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
+import { FullPageSpinner } from '@/components/ui/Spinner';
+import { GenericSubjectCard } from '../cards/GenericCards';
+import { CoursesSection, GenericClassPage, GenericSubjectPage } from './GenericPages';
 import { currentStreak, nextInSubject, summarise, useKidProgress } from '@/lib/kid-games/progress';
 import type { ClassLevel, Difficulty, Subject } from '@/lib/kid-games/types';
 import { KidGameCard, SubjectCard } from '../cards/KidCards';
@@ -15,12 +19,12 @@ import { KidBackLink, KidEmptyState, KidFloatingShapes, KidProgressBar, KidProgr
 import { ProgressLoadError } from './ProgressLoadError';
 import { dayCount } from '../theme';
 
-function NotFound() {
+function NotFound({ unavailable = false }: { unavailable?: boolean }) {
   return (
     <EmptyState
       icon={SearchX}
-      title="Page not found"
-      description="There is no such class or subject. Pick one from Kid Games."
+      title={unavailable ? 'Not available right now' : 'Page not found'}
+      description={unavailable ? 'This class or subject has been switched off for now. Pick another from Kid Games.' : 'There is no such class or subject. Pick one from Kid Games.'}
       action={
         <Link href="/kid-games" className="btn-primary inline-flex h-10 items-center rounded-xl px-4 text-sm font-medium text-accent-foreground">
           Back to Kid Games
@@ -32,9 +36,17 @@ function NotFound() {
 
 /** /kid-games/class-N: the class's numbers, then its three subjects. */
 export function KidClassPage({ classSlug }: { classSlug: string }) {
-  const level = classFromSlug(classSlug);
   const progress = useKidProgress();
-  if (!level) return <NotFound />;
+  const catalog = useContentCatalog();
+  // Any class the catalog has (Classes 1–5, or one an administrator added), if it's enabled.
+  const view = catalog.classBySlug(classSlug);
+  if (!view) {
+    if (!catalog.settled) return <FullPageSpinner />;
+    return <NotFound unavailable={classFromSlug(classSlug) !== null} />;
+  }
+  if (!view.isCode) return <GenericClassPage view={view} />;
+  const level = view.level as ClassLevel;
+  const subjects = catalog.subjectsFor(level);
   const info = CLASS_INFO[level];
   const summary = summarise(progress, level);
 
@@ -90,12 +102,23 @@ export function KidClassPage({ classSlug }: { classSlug: string }) {
           Choose a subject
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
-          {SUBJECTS.map((subject, i) => (
-            <SubjectCard key={subject} classLevel={level} subject={subject} summary={summarise(progress, level, subject)} index={i} />
-          ))}
+          {subjects.map((s, i) =>
+            s.isCode ? (
+              <SubjectCard key={s.key} classLevel={level} subject={s.key as Subject} summary={summarise(progress, level, s.key as Subject)} index={i} title={s.title} />
+            ) : (
+              <GenericSubjectCard
+                key={s.key}
+                classKey={view.key}
+                view={s}
+                courseCount={catalog.coursesFor(level, s.key).length}
+                gameCount={catalog.listedGames(level, s.key).length}
+                index={i}
+              />
+            ),
+          )}
         </div>
         <ul className="mt-5 grid gap-2 text-sm md:grid-cols-3">
-          {SUBJECTS.map((subject) => (
+          {subjects.filter((s) => s.isCode).map(({ key }) => key as Subject).map((subject) => (
             <li key={subject} style={subjectStyle(subject)} className="kg-tint rounded-2xl px-4 py-3">
               <span className="kg-text font-bold">You will learn:</span>{' '}
               <span className="text-foreground-soft" lang={subject === 'hindi' ? 'hi' : 'en'}>
@@ -124,7 +147,10 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<Tab>('all');
   const subject: Subject | null = isSubject(subjectSlug) ? subjectSlug : null;
-  const games = useMemo(() => (level && subject ? gamesFor(level as ClassLevel, subject) : []), [level, subject]);
+  const catalog = useContentCatalog();
+  const classView = catalog.classBySlug(classSlug);
+  const subjectView = catalog.subjectView(subjectSlug);
+  const games = useMemo(() => (level && subject ? catalog.listedGames(level as ClassLevel, subject) : []), [level, subject, catalog]);
 
   const matchesTab = (value: Tab, gameId: string, difficulty: Difficulty) =>
     value === 'all' ? true : value === 'completed' ? Boolean(progress.games[gameId]?.completed) : difficulty === value;
@@ -138,7 +164,13 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
   const q = query.trim().toLowerCase();
   const visible = games.filter((g) => matchesTab(tab, g.id, g.difficulty) && (q === '' || `${g.title} ${g.gloss ?? ''} ${g.description}`.toLowerCase().includes(q)));
 
-  if (!level || !subject) return <NotFound />;
+  if (!classView || !subjectView) {
+    if (!catalog.settled) return <FullPageSpinner />;
+    return <NotFound unavailable={Boolean(level && subject)} />;
+  }
+  // The class has to offer the subject, and both (and that link) be switched on.
+  if (!catalog.isPairAvailable(classView.level, subjectView.key)) return <NotFound unavailable />;
+  if (!level || !subject || !classView.isCode || !subjectView.isCode) return <GenericSubjectPage classView={classView} subject={subjectView} />;
   const info = SUBJECT_INFO[subject];
   const summary = summarise(progress, level, subject);
   const next = nextInSubject(progress, level, subject);
@@ -189,6 +221,8 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
       </div>
 
       {progress.isError && <ProgressLoadError onRetry={progress.refetch} />}
+
+      <CoursesSection level={level} subject={subject} />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <SearchInput value={query} onChange={setQuery} placeholder={`Search ${info.name} games…`} className="lg:max-w-xs" />

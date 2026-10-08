@@ -8,12 +8,15 @@ import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { GameCard } from '@/components/games/GameCard';
-import { GAMES, GAME_CATEGORIES } from '@/components/games/games';
+import { GAME_CATEGORIES } from '@/components/games/games';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 
 type Category = (typeof GAME_CATEGORIES)[number];
 
 /** The mini-game hub. Everything on it runs in the browser; nothing is saved. */
 export default function GamesPage() {
+  // The games an administrator has listed, in their order and under their names.
+  const GAMES = useContentCatalog().arcadeGames;
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<Category>('All');
 
@@ -24,7 +27,7 @@ export default function GamesPage() {
         label: value,
         count: value === 'All' ? GAMES.length : GAMES.filter((game) => game.category === value).length,
       })),
-    [],
+    [GAMES],
   );
 
   const visible = useMemo(() => {
@@ -36,7 +39,7 @@ export default function GamesPage() {
           game.name.toLowerCase().includes(query) ||
           game.description.toLowerCase().includes(query)),
     );
-  }, [search, category]);
+  }, [search, category, GAMES]);
 
   return (
     <div>

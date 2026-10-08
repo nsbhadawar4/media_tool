@@ -177,7 +177,7 @@ export interface AdminStats {
   };
 }
 
-export type ActivityCategory = 'auth' | 'signup' | 'security' | 'account' | 'onboarding' | 'content' | 'reviews';
+export type ActivityCategory = 'auth' | 'signup' | 'security' | 'account' | 'onboarding' | 'content' | 'reviews' | 'cms';
 
 /** One entry of GET /api/admin/activity — installation-wide, unlike ActivityLog below. */
 export interface AdminActivityEntry {
@@ -278,6 +278,26 @@ export interface DashboardStats {
   trashItems: number;
 }
 
+/** GET /api/dashboard/storage — the signed-in user's own storage. */
+export interface StorageUsage {
+  count: number;
+  bytes: number;
+}
+export interface StorageSummary {
+  /** Null: no per-account storage limit exists. */
+  limitBytes: number | null;
+  /** Library plus Trash — everything still occupying space. */
+  usedBytes: number;
+  libraryBytes: number;
+  totalFiles: number;
+  totalFolders: number;
+  byType: { image: StorageUsage; video: StorageUsage; document: StorageUsage; other: StorageUsage };
+  /** Deleted files keep their space until Trash is emptied. */
+  trash: StorageUsage;
+  /** The largest single upload allowed. */
+  maxUploadBytes: number;
+}
+
 export interface DashboardRecent {
   recentUploads: Media[];
   recentActivity: ActivityLog[];
@@ -294,6 +314,8 @@ export interface ApiSuccess<T> {
   success: true;
   data: T;
   meta?: PaginationMeta;
+  /** A short human message some endpoints add ("Saved", "Already first"). */
+  message?: string;
 }
 
 export interface ApiFailure {

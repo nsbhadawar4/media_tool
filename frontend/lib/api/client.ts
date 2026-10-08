@@ -45,6 +45,7 @@ export class ApiError extends Error {
 export interface ApiResult<T> {
   data: T;
   meta?: PaginationMeta;
+  message?: string;
 }
 
 interface RequestOptions {
@@ -109,7 +110,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError(message, response.status, details, code);
   }
 
-  return { data: payload.data, meta: payload.meta };
+  return { data: payload.data, meta: payload.meta, message: payload.message };
 }
 
 export const api = {

@@ -260,6 +260,11 @@ export default function SettingsPage() {
               <SettingRow title="Documents">
                 <span className="text-sm tabular-nums text-foreground-soft">{stats?.totalDocuments ?? '…'}</span>
               </SettingRow>
+              <SettingRow title="Breakdown and largest files" description="See what's using your space and tidy up.">
+                <Link href="/manage-storage" className="text-sm font-medium text-accent hover:underline">
+                  Manage storage
+                </Link>
+              </SettingRow>
               <SettingRow title="In trash" description="Recoverable until you delete it permanently.">
                 <Link href="/trash" className="text-sm font-medium text-accent hover:underline">
                   {stats?.trashItems ?? '…'} {stats?.trashItems === 1 ? 'item' : 'items'}

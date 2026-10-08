@@ -11,6 +11,9 @@ import {
   Users,
   BarChart3,
   Star,
+  HardDrive,
+  BookOpenCheck,
+  LayoutTemplate,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -24,6 +27,8 @@ export interface NavItem {
    * of deleting this flag.
    */
   planned?: boolean;
+  /** The website section that opens or closes this area (/admin/content/sections). */
+  section?: string;
 }
 
 export interface NavGroup {
@@ -49,14 +54,16 @@ export const USER_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/folders', label: 'Folders', icon: FolderClosed },
       { href: '/media', label: 'Media', icon: ImageIcon },
       { href: '/documents', label: 'Documents', icon: FileText },
-      { href: '/games', label: 'Games', icon: Gamepad2 },
-      { href: '/kid-games', label: 'Kid Games', icon: GraduationCap },
+      { href: '/games', label: 'Games', icon: Gamepad2, section: 'games' },
+      { href: '/kid-games', label: 'Kid Games', icon: GraduationCap, section: 'kid-games' },
+      { href: '/courses', label: 'Courses', icon: BookOpenCheck, section: 'kid-games' },
     ],
   },
   {
     label: 'Account',
     items: [
       { href: '/profile', label: 'Profile', icon: UserRound },
+      { href: '/manage-storage', label: 'Storage', icon: HardDrive },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -75,6 +82,7 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: '/admin/users', label: 'Users', icon: Users },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
+      { href: '/admin/content', label: 'Content', icon: LayoutTemplate },
       { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },
       { href: '/admin/documents', label: 'Documents', icon: FileText, planned: true },
     ],
@@ -87,6 +95,11 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
 ];
+
+/** The groups without areas whose website section is switched off. */
+export function openNavGroups(groups: readonly NavGroup[], isSectionOn: (key: string) => boolean): NavGroup[] {
+  return groups.map((group) => ({ ...group, items: group.items.filter((item) => !item.section || isSectionOn(item.section)) }));
+}
 
 /** Flat list of real pages in display order — what the mobile tab bar slices into tabs and "More". */
 export function liveNavItems(groups: readonly NavGroup[]): NavItem[] {

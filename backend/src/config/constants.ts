@@ -134,6 +134,28 @@ export const ACTIVITY_ACTIONS = [
   'onboarding_started',
   'plan_selected',
   'onboarding_completed',
+  // Admin content management (catalog entries and courses).
+  'content_created',
+  'content_updated',
+  'content_enabled',
+  'content_disabled',
+  'content_shown',
+  'content_hidden',
+  'content_reordered',
+  'content_archived',
+  'content_restored',
+  'section_enabled',
+  'section_disabled',
+  'section_reordered',
+  'course_created',
+  'course_updated',
+  'course_enabled',
+  'course_disabled',
+  'course_shown',
+  'course_hidden',
+  'course_reordered',
+  'course_archived',
+  'course_restored',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
@@ -156,11 +178,16 @@ export const ACTIVITY_CATEGORIES = {
     'media_uploaded', 'media_renamed', 'media_updated', 'media_deleted', 'media_restored', 'media_permanently_deleted', 'media_moved',
   ],
   reviews: ['review_submitted', 'review_updated', 'review_approved', 'review_rejected', 'review_published', 'review_unpublished', 'review_deleted'],
+  cms: [
+    'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored',
+    'section_enabled', 'section_disabled', 'section_reordered',
+    'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored',
+  ],
 } as const satisfies Record<string, readonly ActivityAction[]>;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;
 export const ACTIVITY_CATEGORY_NAMES = Object.keys(ACTIVITY_CATEGORIES) as ActivityCategory[];
 
-export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review'] as const;
+export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review', 'content', 'course'] as const;
 export type ActivityTargetType = (typeof ACTIVITY_TARGET_TYPES)[number];
 
 /** Reviews: moderation states and what a review can be about. */
@@ -172,3 +199,26 @@ export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 
 export const REVIEW_TEXT_MIN = 10;
 export const REVIEW_TEXT_MAX = 500;
+
+/** Admin-managed catalog: what kinds of entry exist. */
+export const CONTENT_TYPES = ['section', 'class', 'subject', 'class_subject', 'kid_game', 'game'] as const;
+export type ContentType = (typeof CONTENT_TYPES)[number];
+
+/** Learning content difficulty (Kid Games and courses). */
+export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
+export type Difficulty = (typeof DIFFICULTIES)[number];
+
+/** The game mechanics the Kid Games player implements (frontend lib/kid-games/types EngineType). */
+export const GAME_TYPES = [
+  'multiple-choice',
+  'image-choice',
+  'fill-blank',
+  'matching',
+  'ordering',
+  'memory',
+  'word-builder',
+  'drag-drop',
+  'number-pad',
+  'timed-quiz',
+] as const;
+export type GameType = (typeof GAME_TYPES)[number];

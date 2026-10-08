@@ -4,15 +4,10 @@ import type { ReactNode } from 'react';
 import { Logo } from '@/components/brand/Logo';
 import { LOGIN_PATH } from '@/lib/auth/routes';
 import { MarketingHeader } from './MarketingHeader';
-import { MARKETING_NAV } from './nav';
+import { getServerCatalog } from '@/lib/server/contentCatalog';
+import { LEGAL_LINKS, MARKETING_NAV, linksFor, type MarketingLink } from './nav';
 
-const LEGAL_LINKS = [
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/terms', label: 'Terms' },
-  { href: '/contact', label: 'Contact' },
-] as const;
-
-function MarketingFooter() {
+function MarketingFooter({ nav, legal }: { nav: readonly MarketingLink[]; legal: typeof LEGAL_LINKS }) {
   return (
     <footer className="border-t border-border px-4 pb-10 pt-14 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -30,7 +25,7 @@ function MarketingFooter() {
           <nav aria-label="Footer: product">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">Product</p>
             <ul className="mt-4 space-y-2.5">
-              {MARKETING_NAV.filter((item) => item.label !== 'Home').map((item) => (
+              {nav.filter((item) => item.label !== 'Home').map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="text-sm text-foreground-soft transition hover:text-foreground">
                     {item.label}
@@ -46,13 +41,15 @@ function MarketingFooter() {
               <li><Link href={LOGIN_PATH} className="text-sm text-foreground-soft transition hover:text-foreground">Login</Link></li>
               <li><Link href="/signup" className="text-sm text-foreground-soft transition hover:text-foreground">Get Started</Link></li>
               <li><Link href="/forgot-password" className="text-sm text-foreground-soft transition hover:text-foreground">Reset password</Link></li>
+              {/* Signed out, proxy.ts sends this to /login?from=/manage-storage and back again after. */}
+              <li><Link href="/manage-storage" className="text-sm text-foreground-soft transition hover:text-foreground">Manage Storage</Link></li>
             </ul>
           </nav>
 
           <nav aria-label="Footer: legal">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">Company</p>
             <ul className="mt-4 space-y-2.5">
-              {LEGAL_LINKS.map((item) => (
+              {legal.map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="text-sm text-foreground-soft transition hover:text-foreground">
                     {item.label}
@@ -66,7 +63,7 @@ function MarketingFooter() {
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 text-xs text-subtle sm:flex-row">
           <p>© {new Date().getFullYear()} media_tool. All rights reserved.</p>
           <ul className="flex items-center gap-5">
-            {LEGAL_LINKS.map((item) => (
+            {legal.map((item) => (
               <li key={item.href}>
                 <Link href={item.href} className="transition hover:text-foreground">{item.label}</Link>
               </li>
@@ -81,13 +78,18 @@ function MarketingFooter() {
 /**
  * Frame for every public page: header, content, footer. `mk-root` turns on smooth in-page
  * scrolling (see globals.css) for these pages only, leaving the app's own scrolling alone.
+ *
+ * Links to sections an administrator switched off are left out (/admin/content/sections), so a
+ * page rendering this must be dynamic — see getServerCatalog.
  */
-export function MarketingShell({ children }: { children: ReactNode }) {
+export async function MarketingShell({ children }: { children: ReactNode }) {
+  const catalog = await getServerCatalog();
+  const nav = linksFor(MARKETING_NAV, catalog);
   return (
     <div className="mk-root relative min-h-screen overflow-x-clip bg-background">
-      <MarketingHeader />
+      <MarketingHeader nav={nav} />
       <main id="main-content">{children}</main>
-      <MarketingFooter />
+      <MarketingFooter nav={nav} legal={linksFor(LEGAL_LINKS, catalog)} />
     </div>
   );
 }

@@ -4,16 +4,17 @@ import { useMemo, useState } from 'react';
 import { Flame, Gamepad2, GraduationCap, Layers, Rocket, Search, Sparkles, Star, Trophy } from 'lucide-react';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
-import { ALL_GAMES, CLASS_LEVELS, SUBJECT_INFO } from '@/lib/kid-games/catalog';
+import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { ACHIEVEMENTS, currentStreak, recommendations, summarise, useKidProgress, useSavedSession } from '@/lib/kid-games/progress';
-import type { LearningGame } from '@/lib/kid-games/types';
+import type { ClassLevel, LearningGame } from '@/lib/kid-games/types';
 import { ClassCard, KidGameCard } from '../cards/KidCards';
+import { GenericClassCard } from '../cards/GenericCards';
 import { AchievementsGrid, ContinueSection, DailyGoalCard, LevelCard, LearningJourney, StreakCard } from '../progress/ProgressWidgets';
 import { KidEmptyState, KidFloatingShapes, KidSectionTitle, KidStat, SubjectIcon } from '../shared/KidUi';
 import { ProgressLoadError } from './ProgressLoadError';
 import { dayCount } from '../theme';
 
-const CLASS_OPTIONS = [{ label: 'All classes', value: '' }, ...CLASS_LEVELS.map((l) => ({ label: `Class ${l}`, value: String(l) }))];
 const SUBJECT_OPTIONS = [
   { label: 'All subjects', value: '' },
   { label: 'Hindi', value: 'hindi' },
@@ -42,6 +43,9 @@ function haystack(game: LearningGame): string {
 /** /kid-games: the learning hub. */
 export function KidGamesHome() {
   const progress = useKidProgress();
+  // What an administrator has listed, in their order and under their titles.
+  const catalog = useContentCatalog();
+  const classOptions = [{ label: 'All classes', value: '' }, ...catalog.classes.map((l) => ({ label: `Class ${l}`, value: String(l) }))];
   const saved = useSavedSession();
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('');
@@ -54,7 +58,7 @@ export function KidGamesHome() {
   const results = useMemo(() => {
     if (!filtering) return [];
     const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    return ALL_GAMES.filter((game) => {
+    return catalog.listedGames().filter((game) => {
       const done = Boolean(progress.games[game.id]?.completed);
       return (
         (!classFilter || game.classLevel === Number(classFilter)) &&
@@ -64,9 +68,12 @@ export function KidGamesHome() {
         terms.every((term) => haystack(game).includes(term))
       );
     });
-  }, [filtering, query, classFilter, subjectFilter, difficulty, status, progress.games]);
+  }, [filtering, query, classFilter, subjectFilter, difficulty, status, progress.games, catalog]);
 
-  const recommended = useMemo(() => recommendations(progress), [progress]);
+  const recommended = useMemo(
+    () => recommendations(progress).filter((game) => catalog.isGamePlayable(game.id)).map(catalog.applyGame),
+    [progress, catalog],
+  );
   const overall = summarise(progress);
   const earned = ACHIEVEMENTS.filter((a) => progress.achievements[a.id]).length;
 
@@ -146,9 +153,13 @@ export function KidGamesHome() {
       <section aria-labelledby="kg-classes">
         <KidSectionTitle id="kg-classes" icon={GraduationCap} title="Choose Your Class" hint="Every class has 30 games: 10 Hindi, 10 English and 10 Maths." />
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {CLASS_LEVELS.map((level, i) => (
-            <ClassCard key={level} level={level} summary={summarise(progress, level)} index={i} />
-          ))}
+          {catalog.classViews.map((view, i) =>
+            view.isCode ? (
+              <ClassCard key={view.key} level={view.level as ClassLevel} summary={summarise(progress, view.level as ClassLevel)} index={i} title={view.title} tagline={view.description} />
+            ) : (
+              <GenericClassCard key={view.key} view={view} index={i} />
+            ),
+          )}
         </div>
       </section>
 
@@ -158,7 +169,7 @@ export function KidGamesHome() {
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center">
           <SearchInput value={query} onChange={setQuery} placeholder="Search games, subjects or classes…" className="lg:max-w-sm" />
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            <Select aria-label="Class" options={CLASS_OPTIONS} value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className="h-11 lg:h-9" />
+            <Select aria-label="Class" options={classOptions} value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className="h-11 lg:h-9" />
             <Select aria-label="Subject" options={SUBJECT_OPTIONS} value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)} className="h-11 lg:h-9" />
             <Select aria-label="Difficulty" options={DIFFICULTY_OPTIONS} value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="h-11 lg:h-9" />
             <Select aria-label="Completed" options={STATUS_OPTIONS} value={status} onChange={(e) => setStatus(e.target.value)} className="h-11 lg:h-9" />

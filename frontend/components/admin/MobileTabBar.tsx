@@ -8,7 +8,8 @@ import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
-import { ADMIN_NAV_GROUPS, TAB_SLOTS, USER_NAV_GROUPS, isNavItemActive, liveNavItems, type NavItem } from './navItems';
+import { ADMIN_NAV_GROUPS, TAB_SLOTS, USER_NAV_GROUPS, isNavItemActive, liveNavItems, openNavGroups, type NavItem } from './navItems';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
@@ -26,7 +27,8 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const isAdminArea = variant === 'admin';
-  const nav = liveNavItems(isAdminArea ? ADMIN_NAV_GROUPS : USER_NAV_GROUPS);
+  const catalog = useContentCatalog();
+  const nav = liveNavItems(isAdminArea ? ADMIN_NAV_GROUPS : openNavGroups(USER_NAV_GROUPS, catalog.isSectionOn));
   const tabs = nav.slice(0, TAB_SLOTS);
   const overflow = nav.slice(TAB_SLOTS);
 

@@ -5,7 +5,8 @@ import { useState } from 'react';
 import { Select } from '@/components/ui/Select';
 import { BarChart3, Check, ChevronRight, Circle, Flame, Lock, Map as MapIcon, PartyPopper, Play, Rocket, Target, Trophy } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { CLASS_INFO, CLASS_LEVELS, SUBJECTS, SUBJECT_INFO, findLearningGame, gameHref } from '@/lib/kid-games/catalog';
+import { CLASS_INFO, SUBJECTS, SUBJECT_INFO, findLearningGame, gameHref } from '@/lib/kid-games/catalog';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import {
   ACHIEVEMENTS,
   activeClass,
@@ -46,10 +47,16 @@ export function LevelCard({ progress }: { progress: KidProgress }) {
 
 /** The unfinished game on this device first, then recently played games that are not yet perfect. */
 export function ContinueSection({ progress, saved }: { progress: KidProgress; saved: SavedSession | null }) {
-  const savedGame = saved ? findLearningGame(saved.gameId) : undefined;
-  const recent = continueList(progress, 4)
-    .filter((g) => g.id !== savedGame?.id)
+  // Only what can still be played: an administrator may have switched a game (or its class,
+  // subject or course) off since it was last opened.
+  const catalog = useContentCatalog();
+  const savedFound = saved ? findLearningGame(saved.gameId) : undefined;
+  const savedGame = savedFound && catalog.isGamePlayable(savedFound.id) ? catalog.applyGame(savedFound) : undefined;
+  const recent = continueList(progress, 8)
+    .filter((g) => g.id !== savedGame?.id && catalog.isGamePlayable(g.id))
+    .map(catalog.applyGame)
     .slice(0, savedGame ? 3 : 4);
+  const firstGame = catalog.listedGames()[0];
 
   if (!savedGame && recent.length === 0) {
     return (
@@ -59,10 +66,12 @@ export function ContinueSection({ progress, saved }: { progress: KidProgress; sa
         </span>
         <h2 className="text-lg font-bold text-foreground">Your learning journey starts here!</h2>
         <p className="mt-1 text-sm text-muted">Pick a class below, or jump straight into a first game.</p>
-        <Link href="/kid-games/class-1/hindi/chitra-shabd" className="kg-btn mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl px-5 text-sm font-bold">
-          <Play className="h-4 w-4 fill-current" />
-          Start your first game
-        </Link>
+        {firstGame && (
+          <Link href={gameHref(firstGame)} className="kg-btn mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl px-5 text-sm font-bold">
+            <Play className="h-4 w-4 fill-current" />
+            Start your first game
+          </Link>
+        )}
       </section>
     );
   }
@@ -250,7 +259,6 @@ const SUBJECT_ROW: Record<Subject, { glyph: string; blurb: string }> = {
   math: { glyph: '123', blurb: 'Numbers & puzzles' },
 };
 
-const CLASS_OPTIONS = CLASS_LEVELS.map((level) => ({ label: `Class ${level}`, value: String(level) }));
 
 /**
  * "Your Learning Journey": every class as a tappable progress row, beside the subjects of one class
@@ -258,8 +266,18 @@ const CLASS_OPTIONS = CLASS_LEVELS.map((level) => ({ label: `Class ${level}`, va
  * shows as zero, with a friendly line so an empty bar does not look dead.
  */
 export function LearningJourney({ progress }: { progress: KidProgress }) {
+  const catalog = useContentCatalog();
   const [chosen, setChosen] = useState<ClassLevel | null>(null);
-  const selected = chosen ?? activeClass(progress);
+  // Built-in classes only: progress is about their games. A switched-off class drops out.
+  const levels = catalog.classes;
+  const active = activeClass(progress);
+  const selected = chosen && levels.includes(chosen) ? chosen : levels.includes(active) ? active : (levels[0] ?? active);
+  const classOptions = levels.map((level) => ({ label: catalog.classViews.find((v) => v.level === level)?.title ?? `Class ${level}`, value: String(level) }));
+  const subjects = catalog
+    .subjectsFor(selected)
+    .filter((s) => s.isCode)
+    .map((s) => s.key as Subject);
+  if (levels.length === 0) return null;
 
   return (
     <section aria-labelledby="kg-journey">
@@ -284,7 +302,7 @@ export function LearningJourney({ progress }: { progress: KidProgress }) {
             </div>
           </div>
           <ul className="grid grid-cols-1 gap-1.5">
-            {CLASS_LEVELS.map((level) => {
+            {levels.map((level) => {
               const summary = summarise(progress, level);
               const info = CLASS_INFO[level];
               return (
@@ -327,14 +345,14 @@ export function LearningJourney({ progress }: { progress: KidProgress }) {
             </div>
             <Select
               aria-label="Choose a class"
-              options={CLASS_OPTIONS}
+              options={classOptions}
               value={String(selected)}
               onChange={(e) => setChosen(Number(e.target.value) as ClassLevel)}
               className="h-11 lg:h-9"
             />
           </div>
           <ul className="grid grid-cols-1 gap-2.5">
-            {SUBJECTS.map((subject) => {
+            {subjects.map((subject) => {
               const summary = summarise(progress, selected, subject);
               const row = SUBJECT_ROW[subject];
               return (

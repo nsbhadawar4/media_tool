@@ -31,6 +31,7 @@ import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid'
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { FadeUp } from '@/components/ui/motion';
 import { KidGamesDashboardCard } from '@/components/kid-games/KidGamesDashboardCard';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
 import { useUploads } from '@/lib/upload/UploadContext';
@@ -90,14 +91,16 @@ export default function DashboardPage() {
   const recentFolders = (recentFoldersQuery.data?.data.folders ?? []).slice(0, RECENT_FOLDER_COUNT);
   const viewer = useMediaViewer(recentFiles);
   const firstName = user?.name.trim().split(/\s+/)[0];
+  // Games and Kid Games come and go with their website sections (/admin/content/sections).
+  const catalog = useContentCatalog();
 
   const quickActions: QuickAction[] = [
     { label: 'Browse media', hint: 'Photos & videos', icon: ImageIcon, color: '#38bdf8', href: '/media' },
     { label: 'Upload files', hint: 'Add to your library', icon: Upload, color: 'var(--accent)', onClick: () => requestUpload(null) },
     { label: 'Create folder', hint: 'Organise your files', icon: FolderPlus, color: 'var(--accent-2)', onClick: () => crud.setIsCreateOpen(true) },
     { label: 'Browse documents', hint: 'PDF, Word, Excel', icon: FileText, color: '#34d399', href: '/documents' },
-    { label: 'Play games', hint: 'Ludo, Snake & more', icon: Gamepad2, color: '#f472b6', href: '/games' },
-    { label: 'Kid Games', hint: 'Learn with Classes 1–5', icon: GraduationCap, color: '#fbbf24', href: '/kid-games' },
+    ...(catalog.isSectionOn('games') ? [{ label: 'Play games', hint: 'Ludo, Snake & more', icon: Gamepad2, color: '#f472b6', href: '/games' }] : []),
+    ...(catalog.isSectionOn('kid-games') ? [{ label: 'Kid Games', hint: 'Learn with Classes 1–5', icon: GraduationCap, color: '#fbbf24', href: '/kid-games' }] : []),
   ];
 
   return (
@@ -332,7 +335,7 @@ export default function DashboardPage() {
             documents={stats.data.totalDocuments}
             trashItems={stats.data.trashItems}
           />
-          <KidGamesDashboardCard />
+          {catalog.isSectionOn('kid-games') && <KidGamesDashboardCard />}
         </FadeUp>
       )}
 
@@ -450,14 +453,22 @@ function StorageOverview({
           </span>
           <h2 className="text-base font-semibold tracking-tight text-foreground">Storage overview</h2>
         </div>
-        {/* Trash's way in now that it has left the sidebar. */}
-        <Link
-          href="/trash"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Trash{trashItems > 0 ? ` (${trashItems})` : ''}
-        </Link>
+        <div className="flex shrink-0 items-center gap-1">
+          {/* Trash's way in now that it has left the sidebar. */}
+          <Link
+            href="/trash"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Trash{trashItems > 0 ? ` (${trashItems})` : ''}
+          </Link>
+          <Link
+            href="/manage-storage"
+            className="inline-flex items-center rounded-lg px-2 py-1 text-xs font-medium text-accent transition hover:bg-accent/10"
+          >
+            Manage
+          </Link>
+        </div>
       </CardHeader>
       <CardBody>
         <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatBytes(usedBytes)}</p>

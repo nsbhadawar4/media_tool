@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
+import { FullPageSpinner } from '@/components/ui/Spinner';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Clock, Flame, Heart, Lightbulb, Puzzle, SearchX, Sparkles, X } from 'lucide-react';
@@ -47,6 +49,26 @@ interface Finished {
 export function KidGamePlayer({ classSlug, subjectSlug, slot }: { classSlug: string; subjectSlug: string; slot: string }) {
   const classLevel = classFromSlug(classSlug);
   const game = classLevel && isSubject(subjectSlug) ? findLearningGame(gameId(classLevel, subjectSlug, slot)) : undefined;
+  // An administrator can switch a game (or its class / subject) off. Wait for the catalog before
+  // starting, so a switched-off game never briefly opens; the server refuses its results anyway.
+  const catalog = useContentCatalog();
+  if (game && !catalog.settled) return <FullPageSpinner />;
+  if (game && !catalog.isGamePlayable(game.id)) {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
+        <EmptyState
+          icon={SearchX}
+          title="Not available right now"
+          description="This game has been switched off for now. Pick another one from Kid Games."
+          action={
+            <Link href="/kid-games" className="btn-primary inline-flex h-10 items-center rounded-xl px-4 text-sm font-medium text-accent-foreground">
+              Back to Kid Games
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
 
   if (!game) {
     return (
@@ -65,13 +87,19 @@ export function KidGamePlayer({ classSlug, subjectSlug, slot }: { classSlug: str
     );
   }
   // Keyed, so moving to the next game starts from a clean slate.
-  return <Player key={game.id} game={game} />;
+  return <Player key={game.id} game={catalog.applyGame(game)} />;
 }
 
-/** The game after this one: next in the subject, then the next subject, then the next class. */
-function nextGameAfter(game: LearningGame): LearningGame | null {
-  const i = ALL_GAMES.findIndex((g) => g.id === game.id);
-  return ALL_GAMES[i + 1] ?? null;
+/**
+ * The game after this one, in the listed order (next in the subject, then the next subject, then
+ * the next class) — skipping anything an administrator has hidden or switched off.
+ */
+function nextGameAfter(game: LearningGame, listed: LearningGame[]): LearningGame | null {
+  const i = listed.findIndex((g) => g.id === game.id);
+  if (i >= 0) return listed[i + 1] ?? null;
+  // An unlisted (hidden) game: carry on with the first listed game after it in the code order.
+  const position = ALL_GAMES.findIndex((g) => g.id === game.id);
+  return listed.find((g) => ALL_GAMES.findIndex((x) => x.id === g.id) > position) ?? null;
 }
 
 /** A few sparkles bursting from the feedback badge on a right answer (decorative). */
@@ -106,6 +134,7 @@ function Player({ game }: { game: LearningGame }) {
   const [soundOn, setSound] = useSoundSetting();
   const { play } = useGameSound();
   const submit = useSubmitResult();
+  const catalog = useContentCatalog();
   const sfx = useCallback((name: SoundName) => soundOn && play(name), [soundOn, play]);
   const lang = game.subject === 'hindi' ? 'hi' : 'en';
   const subjectHref = `/kid-games/class-${game.classLevel}/${game.subject}`;
@@ -417,7 +446,7 @@ function Player({ game }: { game: LearningGame }) {
           game={game}
           local={finished}
           save={save}
-          nextGame={nextGameAfter(game)}
+          nextGame={nextGameAfter(game, catalog.listedGames())}
           backHref={subjectHref}
           onPlayAgain={() => startFresh(false)}
           onRetrySave={() => lastSubmission.current && send(lastSubmission.current)}

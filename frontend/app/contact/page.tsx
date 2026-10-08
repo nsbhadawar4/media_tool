@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { siteMetadataBase, supportEmail } from '@/lib/site';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { KeyRound, Mail, MessageSquareHeart, UserRound } from 'lucide-react';
 import { LegalPage } from '@/components/marketing/MarketingShell';
 import { LOGIN_PATH } from '@/lib/auth/routes';
+import { getServerCatalog } from '@/lib/server/contentCatalog';
+import { isSectionOn } from '@/lib/content/sections';
 
 const METADATA: Metadata = {
   title: 'Contact — media_tool',
@@ -33,7 +36,9 @@ const BASE_CHANNELS = [
   },
 ] as const;
 
-export default function ContactPage() {
+/** A managed section: switched off (/admin/content/sections), the page doesn't exist. */
+export default async function ContactPage() {
+  if (!isSectionOn(await getServerCatalog(), 'contact')) notFound();
   // Read on the server from the deployment's own email settings; only the address is used.
   const email = supportEmail();
   const channels = [

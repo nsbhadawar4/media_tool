@@ -3,6 +3,7 @@ import { KidGameProfile, KidGameRecord, type IKidGameProfile, type IKidGameRecor
 import { applyResult, emptyProfile, parseGameId, resolveDay, type GameRecordState, type ProfileState } from '../kidGames/rules';
 import type { KidGameResultInput } from '../validators/kidGameValidators';
 import { AppError } from '../utils/AppError';
+import { isKidGamePlayable } from '../services/contentService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
 
@@ -98,6 +99,10 @@ export const postResult = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as KidGameResultInput;
   const game = parseGameId(input.gameId);
   if (!game) throw AppError.badRequest('Unknown game');
+  // An administrator can switch a game (or its whole class or subject) off; results stop counting.
+  if (!(await isKidGamePlayable(game.gameId, game.classLevel, game.subject))) {
+    throw new AppError('This game isn’t available right now', 403, undefined, 'GAME_UNAVAILABLE');
+  }
 
   const { profile, records } = await loadAll(userId);
   const outcome = applyResult(game, records, profile, input, resolveDay(input.day));

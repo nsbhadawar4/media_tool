@@ -13,7 +13,8 @@ import { dashboardApi } from '@/lib/api/dashboard';
 import { adminApi } from '@/lib/api/admin';
 import { formatBytes } from '@/utils/format';
 import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
-import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive } from './navItems';
+import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, openNavGroups } from './navItems';
+import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
@@ -69,7 +70,8 @@ export function SidebarContent({
       : null;
 
   // Planned entries are rendered too, as disabled "Soon" rows (the user nav has none).
-  const groups = isAdminArea ? ADMIN_NAV_GROUPS : USER_NAV_GROUPS;
+  const catalog = useContentCatalog();
+  const groups = isAdminArea ? ADMIN_NAV_GROUPS : openNavGroups(USER_NAV_GROUPS, catalog.isSectionOn);
 
   const labelClass = cn(
     'truncate transition-[opacity,max-width] duration-200',

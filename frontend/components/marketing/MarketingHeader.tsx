@@ -6,13 +6,13 @@ import { Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { LOGIN_PATH } from '@/lib/auth/routes';
 import { cn } from '@/utils/cn';
-import { MARKETING_NAV } from './nav';
+import type { MarketingLink } from './nav';
 
 /**
  * The public site's header: sticky, glassy once the page has scrolled, with a full-width
- * menu below `lg`.
+ * menu below `lg`. `nav` holds only the sections that are switched on (MarketingShell).
  */
-export function MarketingHeader() {
+export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -54,7 +54,7 @@ export function MarketingHeader() {
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
-          {MARKETING_NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -94,7 +94,7 @@ export function MarketingHeader() {
       {isOpen && (
         <div id="mk-mobile-menu" className="animate-fade-in border-t border-border lg:hidden">
           <nav aria-label="Mobile" className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
-            {MARKETING_NAV.map((item) => (
+            {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

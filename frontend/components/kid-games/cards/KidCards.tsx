@@ -50,15 +50,17 @@ const CLASS_SUBLINE: Record<ClassLevel, string> = {
  * bar and the button. Every section has a fixed height, so cards in a row line up exactly and
  * their buttons sit on the same line.
  */
-export function ClassCard({ level, summary, index }: { level: ClassLevel; summary: ProgressSummary; index: number }) {
-  const info = CLASS_INFO[level];
+export function ClassCard({ level, summary, index, title, tagline }: { level: ClassLevel; summary: ProgressSummary; index: number; title?: string; tagline?: string }) {
+  // The administrator's title / description, when set; the built-in ones otherwise.
+  const info = { ...CLASS_INFO[level], tagline: tagline || CLASS_INFO[level].tagline };
+  const label = title || `Class ${level}`;
   const started = summary.completed > 0;
   return (
     <article
       style={{ ...classStyle(level), ...stagger(index) }}
       className="kg-class-card kg-enter group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-card"
     >
-      <CardLink href={`/kid-games/${info.slug}`} label={`Class ${level}: ${info.tagline}. ${summary.completed} of ${summary.total} games completed, ${summary.xp} XP.`} />
+      <CardLink href={`/kid-games/${info.slug}`} label={`${label}: ${info.tagline}. ${summary.completed} of ${summary.total} games completed, ${summary.xp} XP.`} />
 
       {/* Artwork */}
       <div className="relative h-28 shrink-0 overflow-hidden">
@@ -66,7 +68,7 @@ export function ClassCard({ level, summary, index }: { level: ClassLevel; summar
           <ArtDots />
         </div>
         <span className="absolute left-4 top-3.5 rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
-          Class {level}
+          {label}
         </span>
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/30 bg-white/15 shadow-lg backdrop-blur-sm">
@@ -134,8 +136,8 @@ const SUBJECT_TAGLINE: Record<Subject, string> = {
 };
 
 /** A subject inside a class: what it covers, how far along, what it has earned. */
-export function SubjectCard({ classLevel, subject, summary, index }: { classLevel: ClassLevel; subject: Subject; summary: ProgressSummary; index: number }) {
-  const info = SUBJECT_INFO[subject];
+export function SubjectCard({ classLevel, subject, summary, index, title }: { classLevel: ClassLevel; subject: Subject; summary: ProgressSummary; index: number; title?: string }) {
+  const info = { ...SUBJECT_INFO[subject], name: title || SUBJECT_INFO[subject].name };
   return (
     <article style={{ ...subjectStyle(subject), ...stagger(index) }} className="kg-card kg-enter group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
       <CardLink href={`/kid-games/class-${classLevel}/${subject}`} label={`${info.name}: ${summary.completed} of ${summary.total} games completed, ${summary.xp} XP`} />

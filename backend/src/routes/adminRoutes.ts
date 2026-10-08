@@ -31,6 +31,32 @@ import {
   publishReview,
   deleteReview,
 } from '../controllers/adminReviewController';
+import {
+  archiveContent,
+  archiveCourse,
+  createContent,
+  createCourse,
+  getContentStats,
+  getCourse,
+  listContent,
+  listCourses,
+  moveContent,
+  moveCourse,
+  restoreContent,
+  restoreCourse,
+  updateContent,
+  updateCourse,
+} from '../controllers/adminContentController';
+import {
+  contentIdParamSchema,
+  createContentSchema,
+  createCourseSchema,
+  listContentQuerySchema,
+  listCoursesQuerySchema,
+  moveSchema,
+  updateContentSchema,
+  updateCourseSchema,
+} from '../validators/contentValidators';
 import { adminReviewsQuerySchema, rejectReviewSchema, reviewIdParamSchema } from '../validators/reviewValidators';
 
 const router = Router();
@@ -66,5 +92,22 @@ router.patch('/reviews/:id/reject', validate({ params: reviewIdParamSchema, body
 router.patch('/reviews/:id/unpublish', validate({ params: reviewIdParamSchema }), unpublishReview);
 router.patch('/reviews/:id/publish', validate({ params: reviewIdParamSchema }), publishReview);
 router.delete('/reviews/:id', validate({ params: reviewIdParamSchema }), deleteReview);
+
+// Content management: the catalog (sections, classes, subjects, Kid Games, games) and courses.
+const contentId = { params: contentIdParamSchema };
+router.get('/content/stats', getContentStats);
+router.get('/content/items', validate({ query: listContentQuerySchema }), listContent);
+router.post('/content/items', validate({ body: createContentSchema }), createContent);
+router.patch('/content/items/:id', validate({ ...contentId, body: updateContentSchema }), updateContent);
+router.post('/content/items/:id/move', validate({ ...contentId, body: moveSchema }), moveContent);
+router.delete('/content/items/:id', validate(contentId), archiveContent);
+router.post('/content/items/:id/restore', validate(contentId), restoreContent);
+router.get('/content/courses', validate({ query: listCoursesQuerySchema }), listCourses);
+router.post('/content/courses', validate({ body: createCourseSchema }), createCourse);
+router.get('/content/courses/:id', validate(contentId), getCourse);
+router.patch('/content/courses/:id', validate({ ...contentId, body: updateCourseSchema }), updateCourse);
+router.post('/content/courses/:id/move', validate({ ...contentId, body: moveSchema }), moveCourse);
+router.delete('/content/courses/:id', validate(contentId), archiveCourse);
+router.post('/content/courses/:id/restore', validate(contentId), restoreCourse);
 
 export default router;
