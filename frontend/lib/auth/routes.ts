@@ -11,6 +11,11 @@ import type { UserRole } from '@/types/api';
 export const LOGIN_PATH = '/login';
 export const USER_HOME_PATH = '/dashboard';
 export const ADMIN_HOME_PATH = '/admin/dashboard';
+/**
+ * An administrator's own files, from the admin panel's "My library" link. Not USER_HOME_PATH:
+ * an admin's dashboard is the admin one, and /dashboard sends them there.
+ */
+export const ADMIN_LIBRARY_PATH = '/folders';
 /** First-time setup (welcome → plan) for new accounts that need it. Never for admins. */
 export const ONBOARDING_PATH = '/onboarding';
 
@@ -39,16 +44,28 @@ export function isAdminPath(pathname: string): boolean {
  * visitor to sign in, if it is safe to honour, otherwise the role's home.
  *
  * `from` is visitor-controlled, so it must be a same-site path — `//evil.example` and
- * `/\evil.example` are both read by browsers as another host. A non-admin is also never sent
- * into /admin: the admin layout would only bounce them back out again.
+ * `/\evil.example` are both read by browsers as another host. The two areas stay apart: a
+ * non-admin is never sent into /admin (the admin layout would only bounce them back out), and
+ * an administrator always lands in the admin panel — a `from` outside it (most often
+ * /dashboard, recorded when a signed-out visit was sent to sign in) would otherwise open the
+ * personal library dashboard as though it were theirs.
  */
 export function postLoginPath(role: UserRole, from: string | null | undefined, onboardingRequired = false): string {
   // Unfinished onboarding comes first, wherever they were heading.
   if (onboardingRequired && role !== 'admin') return ONBOARDING_PATH;
   const home = homePathForRole(role);
   if (!from || !from.startsWith('/') || from.startsWith('//') || from.startsWith('/\\')) return home;
-  if (isAdminPath(from) && role !== 'admin') return home;
+  if (isAdminPath(from) !== (role === 'admin')) return home;
   return from;
+}
+
+/**
+ * Whether a signed-in visitor opening the sign-in page should see the form rather than be sent
+ * to their own area: only to switch to the administrator account (`?from=` into /admin) from a
+ * session that isn't one. Showing a public form grants nothing — the server decides the role.
+ */
+export function showsSignInToSwitchAccount(pathname: string, from: string | null | undefined, roleHint: UserRole | null): boolean {
+  return pathname === LOGIN_PATH && isAdminPath(from ?? '') && roleHint !== 'admin';
 }
 
 /**

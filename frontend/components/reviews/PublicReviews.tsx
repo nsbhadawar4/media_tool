@@ -73,12 +73,15 @@ export function PublicReviews({ hideWhenEmpty = false, className }: { hideWhenEm
 function PublicShell({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <section aria-labelledby="public-reviews-title" className={cn('w-full', className)}>
-      <div className="mb-6 text-center">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-accent-2">Reviews</p>
-        <h2 id="public-reviews-title" className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+      <div className="mb-10 text-center">
+        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-2">
+          <span aria-hidden className="h-px w-6 bg-linear-to-r from-transparent to-accent-2" />
+          Reviews
+        </p>
+        <h2 id="public-reviews-title" className="mt-4 text-balance text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[44px]">
           What Our Users Say
         </h2>
-        <p className="mt-1.5 text-sm text-muted sm:text-base">Real feedback from people using Media Tool.</p>
+        <p className="mt-4 text-[15px] text-muted sm:text-[17px]">Real feedback from people using Media Tool — approved reviews only.</p>
       </div>
       {children}
     </section>

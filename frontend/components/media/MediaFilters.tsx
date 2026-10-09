@@ -66,7 +66,7 @@ export function MediaFilters({
                 onClick={() => onFileTypeChange(filter.value)}
                 aria-pressed={fileType === filter.value}
                 className={cn(
-                  'shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-medium transition duration-150',
+                  'inline-flex min-h-10 shrink-0 items-center rounded-lg px-3 py-1.5 text-[13px] font-medium transition duration-150 lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
                   fileType === filter.value
                     ? 'bg-surface-hover text-foreground shadow-card'
                     : 'text-muted hover:text-foreground',

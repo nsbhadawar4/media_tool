@@ -33,7 +33,7 @@ Copy `.env.example` to `.env` and fill it in. `.env` is git-ignored and must sta
 | `FRONTEND_URL` | no | Comma-separated origins allowed to call the API with credentials |
 | `MONGODB_URI` | **yes** | MongoDB Atlas connection string. No fallback — see below |
 | `JWT_SECRET` | **yes** | Signing key, at least 16 characters |
-| `ADMIN_EMAIL` / `ADMIN_NAME` / `ADMIN_PASSWORD` | no | Defaults for `npm run create-admin` |
+| `ADMIN_EMAIL` / `ADMIN_NAME` / `ADMIN_PASSWORD_HASH` | no | Defaults for `npm run create-admin` only (a bcrypt hash — `ADMIN_PASSWORD` is not read) |
 | `STORAGE_PROVIDER` | no (local) | `local` \| `r2` \| `s3` |
 | `UPLOAD_DIR` | no (uploads) | Where the local provider writes files |
 | `MAX_FILE_SIZE_MB` | no (500) | Per-file upload limit |
@@ -89,10 +89,10 @@ media_tool API listening on port 5000 [development]
 
 | Command | What it does |
 |---|---|
-| `npm run create-admin -- <email> <password>` | Creates an administrator, or promotes and re-passwords an existing account. The **only** way to get `role: 'admin'` |
+| `npm run create-admin -- <email> --prompt` | Creates an administrator, or promotes and re-passwords an existing account (password asked for, hidden; replacing an existing admin's password needs the email typed to confirm, or `--yes`). The **only** way to get `role: 'admin'` |
 | `npm run migrate-to-users` | One-off upgrade from the single-admin model: moves `admins` into `users`, backfills `ownerId` on every folder and file, rebuilds indexes |
 | `npm run migrate-to-atlas` | Copies a leftover local development database up to Atlas |
-| `npm run hash-password -- "<password>"` | Prints a bcrypt hash for `ADMIN_PASSWORD_HASH` |
+| `npm run hash-password -- "<password>"` | Prints a bcrypt hash for `ADMIN_PASSWORD_HASH` (the password lands in shell history — prefer `create-admin --prompt`) |
 | `npm run generate-thumbnails` | Backfills thumbnails for images uploaded before thumbnailing existed |
 
 ---

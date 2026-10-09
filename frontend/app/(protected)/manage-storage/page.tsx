@@ -376,7 +376,10 @@ function FilesPanel() {
         <ul className={cn('divide-y divide-border transition-opacity', files.isFetching && 'opacity-70')}>
           {items.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
-              <MediaThumbnail media={m} className="h-11 w-11 shrink-0 rounded-lg" />
+              {/* Sized by its box: the thumbnail fills its parent (its className styles the image). */}
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg">
+                <MediaThumbnail media={m} />
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground" title={m.originalName}>{m.originalName}</p>
                 <div className="mt-1 flex items-center gap-2">

@@ -8,6 +8,7 @@ import { LOGIN_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { ADMIN_ONLY_NOTICE } from '@/components/auth/AdminOnlyNotice';
 
 /**
  * Gate for the administration area. Two separate outcomes on purpose: a signed-out
@@ -30,7 +31,9 @@ export default function AdminAreaLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isLoading || isUnreachable) return;
     if (!user) router.replace(sessionError === 'rejected' ? sessionEndedUrl() : LOGIN_PATH);
-    else if (!isAdmin) router.replace(USER_HOME_PATH);
+    // With a marker, so the dashboard can say which account is signed in and offer to switch —
+    // a silent bounce reads as "the admin dashboard shows the user one".
+    else if (!isAdmin) router.replace(`${USER_HOME_PATH}?notice=${ADMIN_ONLY_NOTICE}`);
   }, [isLoading, isUnreachable, user, isAdmin, sessionError, router]);
 
   if (isUnreachable) {

@@ -17,6 +17,8 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { createApp } from '../src/app';
 import { User } from '../src/models/User';
 import { ActivityLog } from '../src/models/ActivityLog';
+import { Media } from '../src/models/Media';
+import { Folder } from '../src/models/Folder';
 import { PendingPhoneSignup } from '../src/models/PendingPhoneSignup';
 import { getSmsProvider, type SmsMessage } from '../src/services/sms';
 import { getEmailProvider } from '../src/services/email';
@@ -313,10 +315,21 @@ test('activity: filters by category, status, provider, account, search and date;
 test('dashboard: user-activity figures come from the database', async () => {
   const midnight = new Date();
   midnight.setHours(0, 0, 0, 0);
+  // One document and one photo (raw rows: only the counted fields matter here).
+  const owner = new mongoose.Types.ObjectId(emailUserId);
+  await Media.collection.insertMany([
+    { ownerId: owner, fileType: 'document', size: 10, isDeleted: false, originalName: 'a.pdf' },
+    { ownerId: owner, fileType: 'image', size: 20, isDeleted: false, originalName: 'b.png' },
+    { ownerId: owner, fileType: 'document', size: 30, isDeleted: true, originalName: 'c.pdf' },
+  ]);
   const { data } = await call('GET', `/api/admin/stats?todayStart=${midnight.toISOString()}`, undefined, admin);
   assert.equal(data.totalUsers, 3);
+  assert.equal(data.totalDocuments, 1, 'live documents only, not photos or Trash');
   assert.equal(data.users.newThisWeek, 3);
   assert.deepEqual(data.users.newThisWeekByProvider, { email: 2, mobile: 1, google: 0 });
+  assert.deepEqual(data.users.byProvider, { email: 2, mobile: 1, google: 0 });
+  assert.equal(data.totalDocuments, await Media.countDocuments({ isDeleted: false, fileType: 'document' }));
+  assert.equal(data.totalFolders, await Folder.countDocuments({ isDeleted: false }));
   assert.equal(data.users.loginsToday, await ActivityLog.countDocuments({ action: 'login', createdAt: { $gte: midnight } }));
   assert.equal(data.users.failedLoginsToday, await ActivityLog.countDocuments({ action: 'login_failed', createdAt: { $gte: midnight } }));
   assert.ok(data.users.activeToday >= 2);

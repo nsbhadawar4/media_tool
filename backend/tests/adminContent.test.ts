@@ -97,7 +97,7 @@ test('the catalog is seeded from the code, once, with the right counts', async (
   assert.equal(status, 200);
   assert.deepEqual(
     [data.section.total, data.class.total, data.subject.total, data.kid_game.total, data.game.total],
-    [11, 5, 3, 150, 7],
+    [14, 5, 3, 150, 7],
   );
   assert.equal(await ContentItem.countDocuments({}), CATALOG_SEED.length);
   assert.equal(data.section.hidden, 1, 'Pricing starts hidden, as on the live home page');

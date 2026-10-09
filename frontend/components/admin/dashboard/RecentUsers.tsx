@@ -45,7 +45,7 @@ export function RecentUsers({ className }: { className?: string }) {
 
   return (
     <DashboardPanel
-      title="Recent users"
+      title="Recent signups"
       description="Newest accounts first"
       icon={Users}
       link={{ href: '/admin/users', label: 'All users' }}

@@ -27,6 +27,13 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
   },
   {
     "type": "section",
+    "key": "highlights",
+    "title": "Product highlights",
+    "description": "Photos, videos, documents, folders and games at a glance.",
+    "order": 1.5
+  },
+  {
+    "type": "section",
     "key": "features",
     "title": "Features",
     "description": "What media_tool does, at a glance.",
@@ -59,6 +66,20 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
     "title": "Kid Games",
     "description": "Learning games for Classes 1–5.",
     "order": 6
+  },
+  {
+    "type": "section",
+    "key": "how-it-works",
+    "title": "How it works",
+    "description": "Three steps from sign-up to your library.",
+    "order": 6.4
+  },
+  {
+    "type": "section",
+    "key": "security",
+    "title": "Security & privacy",
+    "description": "How accounts and files are kept private.",
+    "order": 6.7
   },
   {
     "type": "section",

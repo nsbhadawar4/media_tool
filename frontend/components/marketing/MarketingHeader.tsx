@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
@@ -36,6 +36,55 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
     };
   }, [isOpen]);
 
+  // The section in view lights up its link. Only on the home page, where the sections are.
+  const [active, setActive] = useState<string | null>(null);
+  useEffect(() => {
+    if (window.location.pathname !== '/') return;
+    const ids = nav.map((item) => item.href.split('#')[1]).filter(Boolean);
+    const targets = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
+    if (targets.length === 0) return;
+    const visible = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) visible.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        // The first section (in page order) that is meaningfully on screen.
+        const current = targets.find((t) => (visible.get(t.id) ?? 0) > 0);
+        setActive(current ? current.id : null);
+      },
+      // A band across the upper middle of the screen, under the header.
+      { rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.01] },
+    );
+    targets.forEach((t) => observer.observe(t));
+    return () => observer.disconnect();
+  }, [nav]);
+  const isActive = (href: string) => active !== null && href.endsWith(`#${active}`);
+
+  /**
+   * The sliding indicator behind the current link. Moved by writing its style directly (no
+   * state, so no extra render), from the link's own box — it follows resizes and font loading.
+   */
+  const navRef = useRef<HTMLElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const navEl = navRef.current;
+    const indicator = indicatorRef.current;
+    if (!navEl || !indicator) return;
+    const place = () => {
+      const link = active ? navEl.querySelector<HTMLElement>(`a[href$="#${active}"]`) : null;
+      if (!link) {
+        indicator.style.opacity = '0';
+        return;
+      }
+      indicator.style.opacity = '1';
+      indicator.style.width = `${link.offsetWidth}px`;
+      indicator.style.transform = `translateX(${link.offsetLeft}px)`;
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(navEl);
+    return () => observer.disconnect();
+  }, [active]);
+
   const close = () => setIsOpen(false);
 
   return (
@@ -53,12 +102,17 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
           <span className="text-[15px] font-semibold tracking-tight text-foreground">media_tool</span>
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+        <nav ref={navRef} aria-label="Main" className="mk-nav relative hidden items-center gap-0.5 rounded-full p-1 lg:flex">
+          <span ref={indicatorRef} aria-hidden className="mk-nav-indicator pointer-events-none absolute left-0 top-1 h-[calc(100%-0.5rem)] rounded-full opacity-0" />
           {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-lg px-3 py-2 text-[13px] font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
+              aria-current={isActive(item.href) ? 'location' : undefined}
+              className={cn(
+                'relative rounded-full px-3.5 py-1.5 text-[13px] font-medium text-foreground-soft transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+                isActive(item.href) && 'text-foreground',
+              )}
             >
               {item.label}
             </Link>
@@ -74,7 +128,7 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
           </Link>
           <Link
             href="/signup"
-            className="btn-primary hidden items-center rounded-xl px-4 py-2 text-[13px] font-semibold text-accent-foreground sm:inline-flex"
+            className="btn-primary mk-sheen hidden items-center rounded-xl px-4 py-2 text-[13px] font-semibold text-accent-foreground sm:inline-flex"
           >
             Get Started
           </Link>

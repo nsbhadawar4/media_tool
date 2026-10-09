@@ -10,7 +10,9 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { Avatar } from '@/components/ui/Avatar';
+import { cn } from '@/utils/cn';
 import { GlobalSearchModal } from './GlobalSearchModal';
+import { AdminBreadcrumbs } from './AdminBreadcrumbs';
 
 export function Topbar({
   variant = 'user',
@@ -70,29 +72,39 @@ export function Topbar({
             <Logo className="h-8 w-8 shrink-0" />
             {/* In the admin area a narrow phone shows the badge alone: name + badge + the icons on
                 the right would otherwise truncate the name to "media_to…". */}
-            <span className={isAdminArea ? 'hidden truncate text-sm font-semibold text-foreground min-[420px]:inline' : 'truncate text-sm font-semibold text-foreground'}>
+            <span
+              className={
+                isAdminArea ? 'hidden truncate text-sm font-semibold text-foreground min-[420px]:inline' : 'truncate text-sm font-semibold text-foreground'
+              }
+            >
               media_tool
             </span>
             {isAdminArea && (
-              <span className="shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
-                Admin
-              </span>
+              <span className="shrink-0 rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">Admin</span>
             )}
           </div>
 
-          {/* The full search field from `lg` up, exactly as before. */}
-          <button
-            type="button"
-            onClick={() => setIsSearchOpen(true)}
-            className="focus-glow group hidden h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-background/50 px-4 text-sm text-muted shadow-card transition duration-200 hover:border-border-strong hover:bg-background/80 hover:text-foreground focus-visible:border-accent sm:max-w-lg lg:flex"
-          >
-            <Search className="h-4 w-4 shrink-0 transition-colors group-hover:text-accent-2" />
-            {/* The search covers the signed-in account's own files, in either area. */}
-            <span className="truncate">{isAdminArea ? 'Search my library…' : 'Search your library…'}</span>
-            <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong bg-surface-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
-              {isMac ? '⌘' : 'Ctrl '}K
-            </kbd>
-          </button>
+          {/* In the admin area the bar says where you are; the library search (the admin's own
+              files) stays one keystroke away as an icon. */}
+          <AdminBreadcrumbs area={isAdminArea ? 'admin' : 'user'} />
+
+          {/* The full search field from `lg` up — the user application's. */}
+          {!isAdminArea && (
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className={cn(
+                'focus-glow group hidden h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-border bg-background/50 px-4 text-sm text-muted shadow-card transition duration-200 hover:border-border-strong hover:bg-background/80 hover:text-foreground focus-visible:border-accent sm:max-w-lg lg:ml-auto lg:flex lg:max-w-sm xl:max-w-md',
+              )}
+            >
+              <Search className="h-4 w-4 shrink-0 transition-colors group-hover:text-accent-2" />
+              {/* The search covers the signed-in account's own files, in either area. */}
+              <span className="truncate">{isAdminArea ? 'Search my library…' : 'Search your library…'}</span>
+              <kbd className="ml-auto hidden shrink-0 rounded-md border border-border-strong bg-surface-elevated px-1.5 py-0.5 font-sans text-[10px] font-medium text-muted sm:inline">
+                {isMac ? '⌘' : 'Ctrl '}K
+              </kbd>
+            </button>
+          )}
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
             {/* On a phone the field is replaced by its icon: the width belongs to the brand,
@@ -100,8 +112,12 @@ export function Topbar({
             <button
               type="button"
               onClick={() => setIsSearchOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted transition active:bg-surface-hover active:text-foreground lg:hidden"
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-surface-hover hover:text-foreground active:bg-surface-hover active:text-foreground lg:h-9 lg:w-9',
+                !isAdminArea && 'lg:hidden',
+              )}
               aria-label={isAdminArea ? 'Search my library' : 'Search your library'}
+              data-tooltip={isAdminArea ? `Search my library (${isMac ? '⌘' : 'Ctrl+'}K)` : undefined}
             >
               <Search className="h-5 w-5" />
             </button>
@@ -136,9 +152,7 @@ export function Topbar({
               trigger={
                 <>
                   <Avatar name={user?.name ?? user?.email ?? 'Account'} src={user?.avatarUrl} size="sm" />
-                  <span className="hidden max-w-36 truncate text-xs font-medium text-foreground sm:inline">
-                    {user?.name ?? user?.email ?? 'Account'}
-                  </span>
+                  <span className="hidden max-w-36 truncate text-xs font-medium text-foreground sm:inline">{user?.name ?? user?.email ?? 'Account'}</span>
                   <ChevronDown className="hidden h-3.5 w-3.5 shrink-0 text-muted sm:inline" aria-hidden />
                 </>
               }
@@ -158,7 +172,8 @@ export function Topbar({
                 {
                   label: 'Settings',
                   icon: <Settings className="h-4 w-4" />,
-                  onClick: () => router.push('/settings'),
+                  // Each area's own settings: the admin panel keeps the administrator inside it.
+                  onClick: () => router.push(isAdminArea ? '/admin/settings' : '/settings'),
                 },
                 { label: 'Sign out', icon: <LogOut className="h-4 w-4" />, onClick: requestLogout, danger: true },
               ]}
@@ -167,11 +182,7 @@ export function Topbar({
         </div>
       </header>
 
-      <GlobalSearchModal
-        key={isSearchOpen ? 'search-open' : 'search-closed'}
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-      />
+      <GlobalSearchModal key={isSearchOpen ? 'search-open' : 'search-closed'} isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </>
   );
 }

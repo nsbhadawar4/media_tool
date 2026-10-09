@@ -12,7 +12,7 @@ import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { adminApi } from '@/lib/api/admin';
 import { formatBytes } from '@/utils/format';
-import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
+import { ADMIN_HOME_PATH, ADMIN_LIBRARY_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
 import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, openNavGroups } from './navItems';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { badgeText, useNavBadges } from './navBadges';
@@ -64,7 +64,7 @@ export function SidebarContent({
   const badges = useNavBadges();
   // Only an administrator is offered the cross-link, and only from the other side.
   const crossLink = isAdminArea
-    ? { href: USER_HOME_PATH, label: 'My library', icon: FolderClosed }
+    ? { href: ADMIN_LIBRARY_PATH, label: 'My library', icon: FolderClosed }
     : isAdmin
       ? { href: ADMIN_HOME_PATH, label: 'Administration', icon: Users }
       : null;
@@ -174,7 +174,7 @@ export function SidebarContent({
                     </div>
                   );
                 }
-                const isActive = isNavItemActive(pathname, item.href);
+                const isActive = isNavItemActive(pathname, item.href, item.exact);
                 return (
                   <Link
                     key={item.href}

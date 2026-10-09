@@ -28,33 +28,49 @@ export interface ManifestEntry {
 /** The key of a class ↔ subject link: "class-2-math". */
 export const classSubjectKey = (classLevel: number, subject: string) => `class-${classLevel}-${subject}`;
 
+interface SectionSeed {
+  key: string;
+  title: string;
+  description: string;
+  /**
+   * Position among the sections. Only used when the section is first added to a database, so a
+   * section added in a later release lands where it belongs among ones that already exist (whose
+   * order an administrator may since have changed) — hence the fractions.
+   */
+  order: number;
+  isVisible?: boolean;
+}
+
 /** The public home page's sections, in page order. */
-export const HOME_SECTIONS: ReadonlyArray<{ key: string; title: string; description: string; isVisible?: boolean }> = [
-  { key: 'hero', title: 'Hero', description: 'Headline, introduction and the main call to action.' },
-  { key: 'features', title: 'Features', description: 'What media_tool does, at a glance.' },
-  { key: 'media', title: 'Media library', description: 'Photos and videos section.' },
-  { key: 'documents', title: 'Documents', description: 'Documents and in-app previews.' },
-  { key: 'games', title: 'Games', description: 'The games collection.' },
-  { key: 'kid-games', title: 'Kid Games', description: 'Learning games for Classes 1–5.' },
-  { key: 'reviews', title: 'Reviews', description: 'Approved public reviews.' },
+export const HOME_SECTIONS: ReadonlyArray<SectionSeed> = [
+  { key: 'hero', title: 'Hero', description: 'Headline, introduction and the main call to action.', order: 1 },
+  { key: 'highlights', title: 'Product highlights', description: 'Photos, videos, documents, folders and games at a glance.', order: 1.5 },
+  { key: 'features', title: 'Features', description: 'What media_tool does, at a glance.', order: 2 },
+  { key: 'media', title: 'Media library', description: 'Photos and videos section.', order: 3 },
+  { key: 'documents', title: 'Documents', description: 'Documents and in-app previews.', order: 4 },
+  { key: 'games', title: 'Games', description: 'The games collection.', order: 5 },
+  { key: 'kid-games', title: 'Kid Games', description: 'Learning games for Classes 1–5.', order: 6 },
+  { key: 'how-it-works', title: 'How it works', description: 'Three steps from sign-up to your library.', order: 6.4 },
+  { key: 'security', title: 'Security & privacy', description: 'How accounts and files are kept private.', order: 6.7 },
+  { key: 'reviews', title: 'Reviews', description: 'Approved public reviews.', order: 7 },
   // Hidden from the home page on request; plans are chosen during onboarding.
-  { key: 'pricing', title: 'Pricing', description: 'Free, Pro and Premium plans.', isVisible: false },
-  { key: 'faq', title: 'FAQ', description: 'Frequently asked questions.' },
-  { key: 'cta', title: 'Final call to action', description: 'Closing sign-up prompt.' },
+  { key: 'pricing', title: 'Pricing', description: 'Free, Pro and Premium plans.', order: 8, isVisible: false },
+  { key: 'faq', title: 'FAQ', description: 'Frequently asked questions.', order: 9 },
+  { key: 'cta', title: 'Final call to action', description: 'Closing sign-up prompt.', order: 10 },
 ];
 
 /** Public sections that aren't a home page block: pages of their own, linked from the site. */
-export const SITE_SECTIONS: ReadonlyArray<{ key: string; title: string; description: string; isVisible?: boolean }> = [
-  { key: 'contact', title: 'Contact', description: 'The Contact page: support email and help links.' },
+export const SITE_SECTIONS: ReadonlyArray<SectionSeed> = [
+  { key: 'contact', title: 'Contact', description: 'The Contact page: support email and help links.', order: 11 },
 ];
 
 export function buildCatalogSeed(): ManifestEntry[] {
-  const sections = [...HOME_SECTIONS, ...SITE_SECTIONS].map((s, i): ManifestEntry => ({
+  const sections = [...HOME_SECTIONS, ...SITE_SECTIONS].map((s): ManifestEntry => ({
     type: 'section',
     key: s.key,
     title: s.title,
     description: s.description,
-    order: i + 1,
+    order: s.order,
     ...(s.isVisible === false ? { isVisible: false } : {}),
   }));
   const classes = CLASS_LEVELS.map((level): ManifestEntry => ({

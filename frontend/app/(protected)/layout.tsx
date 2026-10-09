@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
-import { LOGIN_PATH, ONBOARDING_PATH } from '@/lib/auth/routes';
+import { ADMIN_HOME_PATH, LOGIN_PATH, ONBOARDING_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { GameLoading, isGameLoaderVariant } from '@/components/games/shared/GameLoading';
 import { SessionCheckFailed } from '@/components/auth/SessionCheckFailed';
@@ -19,8 +19,11 @@ import { kidGameRouteSubject } from '@/lib/kid-games/routes';
  * confirms the session is valid (via GET /api/auth/me) and reacts if it expires while
  * the app is open. The backend re-checks on every request regardless.
  *
- * This is the user application. Administrators may use it too — an admin account owns a
- * library like any other — and reach the admin panel from the sidebar's cross-link.
+ * This is the user application. Administrators may use its library pages too — an admin
+ * account owns files like any other — but their dashboard is the admin one: /dashboard sends
+ * an administrator to /admin/dashboard, so the personal dashboard never stands in for it
+ * (a bookmark, a stale session's redirect, the logo). The role is the one /api/auth/me
+ * reported, never the browser's own.
  */
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, sessionError, refresh } = useAuth();
@@ -43,6 +46,11 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     if (needsOnboarding) router.replace(ONBOARDING_PATH);
   }, [needsOnboarding, router]);
 
+  const adminOnUserDashboard = user?.role === 'admin' && pathname === USER_HOME_PATH;
+  useEffect(() => {
+    if (adminOnUserDashboard) router.replace(ADMIN_HOME_PATH);
+  }, [adminOnUserDashboard, router]);
+
   useEffect(() => {
     if (shouldRedirect) {
       router.replace(sessionError === 'rejected' ? sessionEndedUrl() : LOGIN_PATH);
@@ -53,7 +61,7 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
     return <SessionCheckFailed onRetry={() => void refresh()} />;
   }
 
-  if (isLoading || !user || needsOnboarding) {
+  if (isLoading || !user || needsOnboarding || adminOnUserDashboard) {
     if (kidSubject) return <KidGameLoader variant={kidSubject} layout="boot" />;
     return gameSlug && isGameLoaderVariant(gameSlug) ? <GameLoading variant={gameSlug} layout="boot" /> : <FullPageSpinner />;
   }

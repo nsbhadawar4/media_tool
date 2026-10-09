@@ -1678,31 +1678,403 @@ html:has(.mk-root) {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/*
+ * The public website is always dark — it is the brand's first impression, designed for one
+ * palette. These re-declare the dark tokens for .mk-root and everything in it (the app keeps
+ * following the visitor's own light / dark choice).
+ */
+.mk-root {
+  --background: #07070a;
+  --surface: #101015;
+  --surface-elevated: #16161d;
+  --surface-hover: #1c1c24;
+  --border: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --foreground: #f6f6f8;
+  --foreground-soft: #d4d4d8;
+  --muted: #a1a1aa;
+  --subtle: #7a7a85;
+  --accent: #7c5cff;
+  --accent-hover: #8d70ff;
+  --accent-2: #a594ff;
+  --accent-foreground: #ffffff;
+  --danger: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 18px 40px -16px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --glass: rgba(14, 14, 19, 0.72);
+  color-scheme: dark;
+  color: var(--foreground);
+  /* The grain layer below sits under the content but above this background. */
+  isolation: isolate;
+}
+html:has(.mk-root) {
+  background-color: #07070a;
+  color-scheme: dark;
+}
+
+/* A fine film grain over the whole page, so large dark areas don't band. */
+.mk-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 .mk-hero-glow {
   background:
-    radial-gradient(55% 60% at 75% 10%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
-    radial-gradient(40% 50% at 10% 30%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
+    radial-gradient(48% 55% at 78% 18%, rgba(124, 92, 255, 0.32), transparent 70%),
+    radial-gradient(32% 40% at 92% 70%, rgba(56, 189, 248, 0.12), transparent 70%),
+    radial-gradient(38% 46% at 8% 22%, rgba(99, 102, 241, 0.16), transparent 70%),
+    radial-gradient(70% 50% at 50% 100%, rgba(124, 92, 255, 0.08), transparent 70%);
 }
 
 /* A faint grid that fades out towards the edges. */
 .mk-grid {
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--foreground) 5%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
   mask-image: radial-gradient(70% 60% at 50% 30%, black, transparent 75%);
 }
 
-.mk-kid-glow {
-  background:
-    radial-gradient(40% 40% at 15% 20%, color-mix(in srgb, var(--kid-class-1) 14%, transparent), transparent 70%),
-    radial-gradient(40% 40% at 85% 60%, color-mix(in srgb, var(--kid-class-4, #8b5cf6) 14%, transparent), transparent 70%);
+/* The thin lit line under the hero. */
+.mk-horizon {
+  background: linear-gradient(90deg, transparent, rgba(165, 148, 255, 0.55), rgba(56, 189, 248, 0.35), transparent);
 }
 
+.mk-text-gradient {
+  background-image: linear-gradient(100deg, #c4b5fd 0%, #a78bfa 30%, #8b6dff 62%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.mk-badge {
+  border: 1px solid rgba(165, 148, 255, 0.28);
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.14), rgba(124, 92, 255, 0.04));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.mk-btn-ghost {
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
+}
+.mk-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Product windows (hero, media, documents): dark glass with a lit top edge. */
+.mk-window {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, rgba(24, 24, 32, 0.92), rgba(12, 12, 17, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 50px 120px -40px rgba(124, 92, 255, 0.45),
+    0 30px 60px -30px rgba(0, 0, 0, 0.8);
+}
+.mk-preview-light {
+  background:
+    radial-gradient(50% 50% at 60% 40%, rgba(124, 92, 255, 0.28), transparent 70%),
+    radial-gradient(35% 35% at 20% 80%, rgba(56, 189, 248, 0.14), transparent 70%);
+  filter: blur(10px);
+}
+.mk-tile {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.mk-chip {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 20, 27, 0.86);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 40px -18px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Cards: a hairline border on a faint vertical gradient. */
+.mk-card {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.25s ease-out, transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s ease-out;
+}
+.mk-card:hover {
+  border-color: rgba(165, 148, 255, 0.25);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Features: one bordered matrix with shared hairlines instead of separate boxes. */
+.mk-matrix {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent), var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.mk-matrix-cell {
+  border: 0 solid rgba(255, 255, 255, 0.07);
+  border-bottom-width: 1px;
+}
+.mk-matrix-cell:last-child {
+  border-bottom-width: 0;
+}
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .mk-matrix-cell:nth-child(odd) {
+    border-right-width: 1px;
+  }
+  /* The last row: the final cell, and the one before it when it starts the row. */
+  .mk-matrix-cell:nth-last-child(2):nth-child(odd) {
+    border-bottom-width: 0;
+  }
+}
+@media (min-width: 1024px) {
+  .mk-matrix-cell:not(:nth-child(3n)) {
+    border-right-width: 1px;
+  }
+  .mk-matrix-cell:last-child {
+    border-right-width: 0;
+  }
+  /* Everything in the last row (it starts at the last 3n+1 cell). */
+  .mk-matrix-cell:nth-child(3n + 1):nth-last-child(-n + 3),
+  .mk-matrix-cell:nth-child(3n + 1):nth-last-child(-n + 3) ~ .mk-matrix-cell {
+    border-bottom-width: 0;
+  }
+}
+
+/* A band: a section set slightly apart from its neighbours. */
+.mk-band {
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent) bottom / 100% 1px no-repeat,
+    linear-gradient(180deg, transparent, rgba(124, 92, 255, 0.04) 50%, transparent);
+}
+
+.mk-games-glow {
+  background:
+    radial-gradient(40% 50% at 85% 40%, rgba(236, 72, 153, 0.12), transparent 70%),
+    radial-gradient(35% 45% at 60% 90%, rgba(124, 92, 255, 0.12), transparent 70%);
+}
+.mk-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+.mk-kid-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, #15111f 0%, #0d0c14 55%, #0c0f18 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 40px 100px -50px rgba(245, 158, 11, 0.35);
+}
+.mk-kid-glow {
+  background:
+    radial-gradient(40% 45% at 10% 10%, rgba(245, 158, 11, 0.16), transparent 70%),
+    radial-gradient(40% 50% at 95% 30%, rgba(236, 72, 153, 0.12), transparent 70%),
+    radial-gradient(45% 50% at 70% 100%, rgba(124, 92, 255, 0.16), transparent 70%);
+}
+
+/* How it works */
+.mk-step-line {
+  background: linear-gradient(90deg, rgba(124, 92, 255, 0), rgba(124, 92, 255, 0.6) 20%, rgba(56, 189, 248, 0.5) 80%, rgba(56, 189, 248, 0));
+}
+.mk-step {
+  border: 1px solid rgba(165, 148, 255, 0.3);
+  background: linear-gradient(180deg, #1b1830, #0f0e16);
+  box-shadow: 0 0 0 6px var(--background), 0 14px 30px -12px rgba(124, 92, 255, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Security */
+.mk-shield {
+  border: 1px solid rgba(165, 148, 255, 0.25);
+  background:
+    radial-gradient(60% 60% at 50% 30%, rgba(124, 92, 255, 0.28), transparent 70%),
+    linear-gradient(180deg, #17142a, #0e0d15);
+  box-shadow: 0 30px 70px -30px rgba(124, 92, 255, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* FAQ: one panel, rows divided by hairlines. */
+.mk-faq {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent), var(--surface);
+}
+.mk-faq-item + .mk-faq-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.mk-faq-item[open] {
+  background: rgba(124, 92, 255, 0.05);
+}
+
+/* Final call to action */
+.mk-cta {
+  border: 1px solid rgba(165, 148, 255, 0.22);
+  background: linear-gradient(160deg, #1d1638 0%, #120f22 45%, #0b0d1a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 50px 120px -50px rgba(124, 92, 255, 0.6);
+}
 .mk-cta-glow {
   background:
-    radial-gradient(60% 90% at 50% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
-    radial-gradient(40% 60% at 100% 100%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
+    radial-gradient(55% 80% at 50% 0%, rgba(124, 92, 255, 0.4), transparent 70%),
+    radial-gradient(40% 60% at 100% 100%, rgba(56, 189, 248, 0.16), transparent 70%),
+    radial-gradient(35% 55% at 0% 100%, rgba(236, 72, 153, 0.12), transparent 70%);
+}
+
+/* ---- Header: a glass pill holding the links, with a sliding indicator for the section in view */
+.mk-nav {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.mk-nav-indicator {
+  background: linear-gradient(180deg, rgba(124, 92, 255, 0.28), rgba(124, 92, 255, 0.14));
+  box-shadow: inset 0 0 0 1px rgba(165, 148, 255, 0.35), 0 6px 18px -8px rgba(124, 92, 255, 0.7);
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.25s ease-out;
+}
+
+/* ---- Primary calls to action: a light sweeps across on hover */
+.mk-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.mk-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.32) 50%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+/* ---- Hero light: two soft blobs drifting slowly behind everything */
+.mk-aurora {
+  overflow: hidden;
+}
+.mk-aurora > span {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+}
+.mk-aurora > span:first-child {
+  width: 44vw;
+  max-width: 640px;
+  aspect-ratio: 1;
+  right: -8%;
+  top: -18%;
+  background: radial-gradient(circle at 40% 40%, rgba(124, 92, 255, 0.55), rgba(99, 102, 241, 0.15) 60%, transparent 70%);
+}
+.mk-aurora > span:last-child {
+  width: 34vw;
+  max-width: 520px;
+  aspect-ratio: 1;
+  left: -10%;
+  bottom: -20%;
+  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.35), rgba(59, 130, 246, 0.1) 60%, transparent 70%);
+}
+
+/* ---- Hover details that apply whatever the motion setting (no movement involved) */
+.mk-row {
+  transition: background-color 0.2s ease-out, border-color 0.2s ease-out;
+}
+.mk-row:hover {
+  background: rgba(124, 92, 255, 0.07);
+  border-color: rgba(165, 148, 255, 0.22);
+}
+.mk-tile > * {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Motion, only for visitors who haven't asked for less of it */
+@keyframes mk-sheen {
+  to { transform: translateX(120%); }
+}
+@keyframes mk-shimmer {
+  0%, 62% { transform: translateX(-120%); }
+  100% { transform: translateX(160%); }
+}
+@keyframes mk-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(34, 211, 238, 0); }
+}
+@keyframes mk-aurora-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-6%, 8%, 0) scale(1.08); }
+}
+@keyframes mk-aurora-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(8%, -6%, 0) scale(1.1); }
+}
+@keyframes mk-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(2%, -2%, 0); }
+}
+@keyframes mk-view-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mk-faq-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .mk-sheen:hover::after {
+    animation: mk-sheen 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  :root:not([data-motion='reduce']) .mk-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.14) 50%, transparent 65%);
+    animation: mk-shimmer 5.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  :root:not([data-motion='reduce']) .mk-pulse-dot {
+    animation: mk-pulse 2.2s ease-out infinite;
+  }
+  :root:not([data-motion='reduce']) .mk-aurora > span:first-child {
+    animation: mk-aurora-a 22s ease-in-out infinite;
+  }
+  :root:not([data-motion='reduce']) .mk-aurora > span:last-child {
+    animation: mk-aurora-b 26s ease-in-out infinite;
+  }
+  :root:not([data-motion='reduce']) .mk-drift {
+    animation: mk-drift 16s ease-in-out infinite;
+  }
+  :root:not([data-motion='reduce']) .mk-view-enter {
+    animation: mk-view-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  :root:not([data-motion='reduce']) .mk-faq-item[open] .mk-faq-answer {
+    animation: mk-faq-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  /* Images zoom gently inside their frame. */
+  :root:not([data-motion='reduce']) .mk-tile:hover > * {
+    transform: scale(1.06);
+  }
+}
+/* The app-level "reduce motion" setting also stops the nav indicator gliding. */
+:root[data-motion='reduce'] .mk-nav-indicator {
+  transition: opacity 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-nav-indicator {
+    transition: opacity 0.2s;
+  }
 }
 
 @keyframes mk-float {
@@ -1741,6 +2113,13 @@ html:has(.mk-root) {
 :root[data-motion='reduce'] .mk-progress {
   animation: none;
 }
+@media (prefers-reduced-motion: reduce) {
+  .mk-float,
+  .mk-float-slow,
+  .mk-progress {
+    animation: none;
+  }
+}
 
 /* Prose for Privacy / Terms / Contact. */
 .mk-prose {
@@ -1764,3 +2143,17 @@ html:has(.mk-root) {
 .mk-prose a:hover { text-decoration: underline; }
 .mk-prose .not-prose h2 { margin-top: 0; font-size: 1rem; }
 .mk-prose .not-prose > * + * { margin-top: 0; }
+
+/* Admin dashboard distribution bars: grow in from the left once, unless motion is reduced. */
+@keyframes dist-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.dist-bar {
+  transform-origin: left center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .dist-bar {
+    animation: dist-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}

@@ -10,12 +10,18 @@ import {
   FinalCta,
   GamesSection,
   Hero,
+  Highlights,
+  HowItWorks,
   KidGamesSection,
+  kidSubjectSummary,
   MediaSection,
   Pricing,
+  SecuritySection,
 } from '@/components/marketing/sections';
+import { resolveCatalog, type ResolvedCatalog } from '@/lib/content/catalog';
+import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
 import { getServerCatalog } from '@/lib/server/contentCatalog';
-import { homeBlocks, type HomeBlock } from '@/lib/content/sections';
+import { homeBlocks, isSectionOn, type HomeBlock } from '@/lib/content/sections';
 import { PublicReviews } from '@/components/reviews/PublicReviews';
 
 const TITLE = 'media_tool — Your Digital World, Organized';
@@ -71,21 +77,44 @@ const FAQ_JSON_LD = {
  */
 export const dynamic = 'force-dynamic';
 
-const SECTION: Record<string, (blocks: HomeBlock[]) => React.ReactNode> = {
-  hero: (blocks) => <Hero featuresLink={blocks.some((b) => b.key === 'features')} />,
-  features: () => <Features />,
+/** What a block needs: which sections are on, and the catalog as administrators set it. */
+interface Ctx {
+  on: (key: string) => boolean;
+  catalog: ResolvedCatalog;
+}
+
+/** The Kid Games section's content: listed classes, their subjects and how many games each has. */
+function kidGamesProps(catalog: ResolvedCatalog) {
+  const classes = catalog.classViews;
+  const keys = [...new Set(classes.flatMap((c) => catalog.subjectsFor(c.level).map((s) => s.key)))];
+  const subjects = keys.map((key) => {
+    const view = catalog.subjectView(key);
+    const title = view?.title ?? (key in SUBJECT_INFO ? SUBJECT_INFO[key as keyof typeof SUBJECT_INFO].name : key);
+    return kidSubjectSummary(key, title, catalog.listedGames(undefined, key).length);
+  });
+  return { classes, subjects, totalGames: catalog.listedGames().length };
+}
+
+const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
+  hero: ({ on }) => <Hero featuresLink={on('features')} />,
+  highlights: ({ on, catalog }) => (
+    <Highlights games={on('games') && catalog.arcadeGames.length ? catalog.arcadeGames : null} kidGames={on('kid-games') && catalog.classViews.length ? catalog.classViews : null} />
+  ),
+  features: ({ on }) => <Features games={on('games')} kidGames={on('kid-games')} />,
   media: () => <MediaSection />,
   documents: () => <DocumentsSection />,
-  games: () => <GamesSection />,
-  'kid-games': () => <KidGamesSection />,
+  games: ({ catalog }) => <GamesSection games={catalog.arcadeGames} />,
+  'kid-games': ({ catalog }) => <KidGamesSection {...kidGamesProps(catalog)} />,
+  'how-it-works': () => <HowItWorks />,
+  security: () => <SecuritySection />,
   // Approved, published reviews only (the server decides); a polished empty state otherwise.
   reviews: () => (
-    <section id="reviews" className="border-y border-border bg-surface/30 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+    <section id="reviews" className="mk-band relative px-4 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
       <PublicReviews className="mx-auto max-w-6xl" />
     </section>
   ),
   pricing: () => <Pricing />,
-  faq: () => <Faq />,
+  faq: ({ on }) => <Faq contactLink={on('contact')} />,
   cta: () => <FinalCta />,
 };
 
@@ -102,7 +131,10 @@ function CustomSection({ block }: { block: HomeBlock }) {
 }
 
 export default async function HomePage() {
-  const blocks = homeBlocks(await getServerCatalog());
+  const raw = await getServerCatalog();
+  const blocks = homeBlocks(raw);
+  const shown = new Set(blocks.map((b) => b.key));
+  const ctx: Ctx = { catalog: resolveCatalog(raw), on: (key) => shown.has(key) || (key === 'contact' && isSectionOn(raw, key)) };
   return (
     <MarketingShell>
       {/* Only while the FAQ itself is shown. */}
@@ -114,7 +146,7 @@ export default async function HomePage() {
         />
       )}
       {blocks.map((block) => (
-        <Fragment key={block.key}>{block.custom ? <CustomSection block={block} /> : SECTION[block.key]?.(blocks)}</Fragment>
+        <Fragment key={block.key}>{block.custom ? <CustomSection block={block} /> : SECTION[block.key]?.(ctx)}</Fragment>
       ))}
     </MarketingShell>
   );

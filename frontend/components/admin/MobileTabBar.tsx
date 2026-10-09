@@ -7,7 +7,7 @@ import { Ellipsis, LogOut, Users, FolderClosed } from 'lucide-react';
 import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
-import { ADMIN_HOME_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
+import { ADMIN_HOME_PATH, ADMIN_LIBRARY_PATH } from '@/lib/auth/routes';
 import { ADMIN_NAV_GROUPS, TAB_SLOTS, USER_NAV_GROUPS, isNavItemActive, liveNavItems, openNavGroups, type NavItem } from './navItems';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { badgeText, useNavBadges } from './navBadges';
@@ -34,14 +34,14 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
 
   // Only an administrator is offered the cross-link, and only from the other side.
   const crossLink: NavItem | null = isAdminArea
-    ? { href: USER_HOME_PATH, label: 'My library', icon: FolderClosed }
+    ? { href: ADMIN_LIBRARY_PATH, label: 'My library', icon: FolderClosed }
     : isAdmin
       ? { href: ADMIN_HOME_PATH, label: 'Administration', icon: Users }
       : null;
 
   // "More" reads as selected whenever the open page lives behind it, so the bar never shows
   // nothing selected.
-  const isMoreActive = overflow.some((item) => isNavItemActive(pathname, item.href));
+  const isMoreActive = overflow.some((item) => isNavItemActive(pathname, item.href, item.exact));
 
   const { requestLogout } = useLogoutPrompt();
   const handleSignOut = () => {
@@ -62,7 +62,7 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
       >
         <div className="flex h-16 items-stretch">
           {tabs.map((item) => (
-            <TabLink key={item.href} item={item} isActive={isNavItemActive(pathname, item.href)} />
+            <TabLink key={item.href} item={item} isActive={isNavItemActive(pathname, item.href, item.exact)} />
           ))}
 
           <button
@@ -91,7 +91,7 @@ export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' 
               key={item.href}
               icon={<item.icon className="h-5 w-5" />}
               label={item.label}
-              isActive={isNavItemActive(pathname, item.href)}
+              isActive={isNavItemActive(pathname, item.href, item.exact)}
               onClick={() => go(item.href)}
             />
           ))}

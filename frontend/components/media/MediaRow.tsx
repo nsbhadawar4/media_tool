@@ -71,7 +71,7 @@ export function MediaRow({
           aria-label={`Select ${media.originalName}`}
           onClick={(event) => onToggleSelect!(media.id, event.shiftKey)}
           className={cn(
-            'relative z-20 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition duration-150',
+            'relative z-20 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition duration-150 before:absolute before:-inset-2.5',
             isSelected
               ? 'border-accent bg-accent text-accent-foreground'
               : 'border-border-strong text-transparent hover:border-accent',

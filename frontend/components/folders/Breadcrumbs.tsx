@@ -10,7 +10,7 @@ export function Breadcrumbs({ items, currentName }: { items: Breadcrumb[]; curre
     >
       <Link
         href="/folders"
-        className="flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground"
+        className="flex min-h-10 shrink-0 items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-surface-hover hover:text-foreground lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       >
         <Home className="h-3.5 w-3.5" />
         Home
@@ -18,7 +18,7 @@ export function Breadcrumbs({ items, currentName }: { items: Breadcrumb[]; curre
       {items.map((item) => (
         <span key={item.id} className="flex shrink-0 items-center gap-1.5">
           <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-          <Link href={`/folders/${item.id}`} className="rounded-lg px-1.5 py-1 transition hover:bg-surface-hover hover:text-foreground">
+          <Link href={`/folders/${item.id}`} className="inline-flex min-h-10 items-center rounded-lg px-2 py-1 transition hover:bg-surface-hover hover:text-foreground lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
             {item.name}
           </Link>
         </span>

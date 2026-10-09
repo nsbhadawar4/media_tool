@@ -107,9 +107,9 @@ function ActivityView() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <PageHeader
-        eyebrow="System"
+        eyebrow="Manage"
         icon={Activity}
-        title="Activity"
+        title="User activity"
         description="Sign-ups, sign-ins, security events, account changes and plans across every account."
       />
 
@@ -186,16 +186,18 @@ function ActivityView() {
       ) : (
         <div className={cn('overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-opacity', query.isFetching && 'opacity-70')}>
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[1080px] text-sm">
+            {/* Fits at every width: Method joins at xl, device / browser / IP at 2xl (shown under the
+                description until then), so nothing scrolls sideways. */}
+            <table className="w-full text-sm">
               <thead>
                 <tr className="whitespace-nowrap border-b border-border text-left text-[11px] font-medium uppercase tracking-wider text-subtle">
                   <th scope="col" className="px-5 py-3 font-medium">User</th>
                   <th scope="col" className="px-3 py-3 font-medium">Event</th>
                   <th scope="col" className="px-3 py-3 font-medium">Description</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Method</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Device</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Browser</th>
-                  <th scope="col" className="px-3 py-3 font-medium" title="Masked IP address">IP</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium xl:table-cell">Method</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium 2xl:table-cell">Device</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium 2xl:table-cell">Browser</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium 2xl:table-cell" title="Masked IP address">IP</th>
                   <th scope="col" className="px-3 py-3 font-medium">Date / time</th>
                   <th scope="col" className="px-5 py-3 text-right font-medium">Status</th>
                 </tr>
@@ -275,16 +277,21 @@ function ActivityRow({ entry }: { entry: AdminActivityEntry }) {
           <span className="whitespace-nowrap text-[13px] font-medium text-foreground">{label}</span>
         </div>
       </td>
-      <td className="min-w-[240px] max-w-[340px] px-3 py-3 text-[13px] text-foreground-soft [overflow-wrap:anywhere]">
+      <td className="min-w-[200px] max-w-[340px] px-3 py-3 text-[13px] text-foreground-soft [overflow-wrap:anywhere]">
         {entry.message}
+        {[entry.authProvider ? PROVIDER_LABEL[entry.authProvider] : null, [entry.device, entry.os].filter(Boolean).join(' · '), entry.browser, entry.ipMasked].some(Boolean) && (
+          <span className="mt-0.5 block text-[11px] text-subtle 2xl:hidden">
+            {[entry.authProvider ? PROVIDER_LABEL[entry.authProvider] : null, [entry.device, entry.os].filter(Boolean).join(' · '), entry.browser, entry.ipMasked].filter(Boolean).join(' · ')}
+          </span>
+        )}
         {entry.status === 'failure' && entry.reason && (
           <span className="mt-0.5 block text-[11px] text-danger/90">{REASON_LABEL[entry.reason] ?? entry.reason.replace(/[_-]/g, ' ')}</span>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-[13px] text-muted">{entry.authProvider ? PROVIDER_LABEL[entry.authProvider] : '—'}</td>
-      <td className="whitespace-nowrap px-3 py-3 text-[13px] text-muted">{[entry.device, entry.os].filter(Boolean).join(' · ') || '—'}</td>
-      <td className="whitespace-nowrap px-3 py-3 text-[13px] text-muted">{entry.browser ?? '—'}</td>
-      <td className="whitespace-nowrap px-3 py-3 text-[13px] tabular-nums text-muted">{entry.ipMasked ?? '—'}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-[13px] text-muted xl:table-cell">{entry.authProvider ? PROVIDER_LABEL[entry.authProvider] : '—'}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-[13px] text-muted 2xl:table-cell">{[entry.device, entry.os].filter(Boolean).join(' · ') || '—'}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-[13px] text-muted 2xl:table-cell">{entry.browser ?? '—'}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-[13px] tabular-nums text-muted 2xl:table-cell">{entry.ipMasked ?? '—'}</td>
       <td className="whitespace-nowrap px-3 py-3 text-[13px] text-muted">
         <time dateTime={entry.createdAt} title={formatDate(entry.createdAt)}>
           {new Date(entry.createdAt).toLocaleString('en', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}

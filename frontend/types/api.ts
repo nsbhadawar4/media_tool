@@ -162,6 +162,8 @@ export interface AdminStats {
   inactiveUsers: number;
   totalFolders: number;
   totalMedia: number;
+  /** Of totalMedia, the documents (PDF, Word, Excel, text). */
+  totalDocuments: number;
   storageUsedBytes: number;
   /** User-activity figures; "today" starts at the `todayStart` the request sent. */
   users: {
@@ -173,6 +175,8 @@ export interface AdminStats {
     loginsToday: number;
     failedLoginsToday: number;
     newThisWeekByProvider: { email: number; mobile: number; google: number };
+    /** Every account, by how it signs in. */
+    byProvider: { email: number; mobile: number; google: number };
     byPlan: { free: number; pro: number; premium: number };
   };
 }

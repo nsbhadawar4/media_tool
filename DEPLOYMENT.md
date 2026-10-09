@@ -378,15 +378,25 @@ the request arrived on, so there is no per-deployment link to get wrong.
 
 Create the administrator account. `npm run create-admin` runs against whatever
 `MONGODB_URI` points at, so run it locally with production credentials in your shell
-rather than in `backend/.env`:
+rather than in `backend/.env`. `--prompt` asks for the password without echoing it, so it
+never lands in shell history:
+
+```bash
+MONGODB_URI="<production uri>" npm run create-admin -- you@example.com --prompt
+```
+
+Or, without a terminal, from a bcrypt hash (never a plaintext password — `ADMIN_PASSWORD`
+is not read):
 
 ```bash
 MONGODB_URI="<production uri>" \
-ADMIN_EMAIL="you@example.com" \
 ADMIN_NAME="Your Name" \
-ADMIN_PASSWORD="<a long password>" \
-npm run create-admin
+ADMIN_PASSWORD_HASH="<bcrypt hash>" \
+npm run create-admin -- you@example.com --yes
 ```
+
+None of the `ADMIN_*` variables belong in the Vercel project: the app signs administrators in
+from the database, and only this script reads them.
 
 Then check `https://<your-app>.vercel.app/api/health`:
 

@@ -122,7 +122,7 @@ export default function FolderDetailPage() {
       */}
       <Link
         href={folder.parentFolder ? `/folders/${folder.parentFolder}` : '/folders'}
-        className="mb-2 -ml-1.5 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm text-muted transition hover:bg-surface-hover hover:text-foreground"
+        className="mb-2 -ml-1.5 inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted transition hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:min-h-8"
       >
         <ArrowLeft className="h-4 w-4" />
         Back

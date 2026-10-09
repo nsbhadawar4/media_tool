@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { AdminOnlyNotice } from '@/components/auth/AdminOnlyNotice';
 import { useQuery } from '@tanstack/react-query';
-import type { CSSProperties } from 'react';
+import { Suspense, type CSSProperties } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -105,6 +106,10 @@ export default function DashboardPage() {
 
   return (
     <div className="min-w-0">
+      {/* Shown only after a visit to /admin by a signed-in non-admin (see the admin layout). */}
+      <Suspense fallback={null}>
+        <AdminOnlyNotice />
+      </Suspense>
       {/* Welcome */}
       <section className="gradient-border relative mb-6 overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-card sm:mb-8 sm:p-8">
         {/* Aurora wash: two soft accent blobs, static, clipped to the card. */}
@@ -203,7 +208,7 @@ export default function DashboardPage() {
         <Card className="min-w-0 xl:col-span-2">
           <CardHeader className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold tracking-tight text-foreground">Recent files</h2>
-            <Link href="/media" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
+            <Link href="/media" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
               View all
             </Link>
           </CardHeader>
@@ -283,7 +288,7 @@ export default function DashboardPage() {
         <Card className="flex min-w-0 flex-col">
           <CardHeader className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold tracking-tight text-foreground">Recent activity</h2>
-            <Link href="/activity" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
+            <Link href="/activity" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
               View all
             </Link>
           </CardHeader>
@@ -343,7 +348,7 @@ export default function DashboardPage() {
       <FadeUp as="section" index={9} className="mt-6 sm:mt-8">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Recent folders</h2>
-          <Link href="/folders" className="shrink-0 rounded-lg px-1 text-xs font-medium text-accent transition hover:underline">
+          <Link href="/folders" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
             View all
           </Link>
         </div>
@@ -457,14 +462,14 @@ function StorageOverview({
           {/* Trash's way in now that it has left the sidebar. */}
           <Link
             href="/trash"
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-muted transition hover:bg-surface-hover hover:text-foreground"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-muted transition hover:bg-surface-hover hover:text-foreground lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Trash{trashItems > 0 ? ` (${trashItems})` : ''}
           </Link>
           <Link
             href="/manage-storage"
-            className="inline-flex items-center rounded-lg px-2 py-1 text-xs font-medium text-accent transition hover:bg-accent/10"
+            className="inline-flex min-h-10 items-center rounded-lg px-2 py-1 text-xs font-medium text-accent transition hover:bg-accent/10 lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             Manage
           </Link>

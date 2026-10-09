@@ -58,11 +58,14 @@ export function homeBlocks(catalog: PublicCatalog | null | undefined): HomeBlock
  */
 export const SECTION_EFFECTS: Readonly<Record<string, string>> = {
   hero: 'Home page block and the “Home” link',
+  highlights: 'Home page block',
   features: 'Home page block and its header/footer links',
   media: 'Home page block',
   documents: 'Home page block',
   games: 'Home page block, its links, and the Games pages in the app',
   'kid-games': 'Home page block, its links, and Kid Games + Courses in the app',
+  'how-it-works': 'Home page block',
+  security: 'Home page block',
   reviews: 'Home page block',
   pricing: 'Home page block only — plan choice during sign-up is unaffected',
   faq: 'Home page block and its header/footer links',

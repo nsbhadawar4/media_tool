@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { MobileTabBar } from './MobileTabBar';
 import { MobileDrawer } from './MobileDrawer';
+import { AppFooter } from './AppFooter';
 import { LogoutPromptProvider } from '@/components/auth/LogoutPrompt';
 import { isKidGameRoute } from '@/lib/kid-games/routes';
 
@@ -85,6 +86,9 @@ export function AdminShell({
               className={`app-page-enter mx-auto w-full max-w-[1400px] ${isImmersiveGame ? 'app-immersive-route' : ''}`}
             >
               {children}
+              {/* The user application only; administrators keep their own navigation. Not under a
+                  game, which has the screen to itself. */}
+              {variant === 'user' && !isImmersiveGame && <AppFooter />}
             </div>
           </main>
         </div>

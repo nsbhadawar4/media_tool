@@ -250,21 +250,23 @@ function AdminUsersView() {
         <div className={cn('overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-opacity', query.isFetching && 'opacity-70')}>
           {/* md and up: the full table, scrolling sideways inside its card when the screen is narrower than it. */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[1180px] text-sm">
+            {/* Fits its column at every width: lower-priority columns appear as the screen widens
+                (lg → xl → 2xl), and the user cell carries the address while Email is hidden. */}
+            <table className="w-full text-sm">
               <thead>
                 <tr className="whitespace-nowrap border-b border-border text-left text-[11px] font-medium uppercase tracking-wider text-subtle">
                   <th scope="col" className="sticky left-0 z-10 bg-surface px-5 py-3 font-medium">User</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Email</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Mobile</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Signup</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Role</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium xl:table-cell">Email</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium 2xl:table-cell">Mobile</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium xl:table-cell">Signup</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium lg:table-cell">Role</th>
                   <th scope="col" className="px-3 py-3 font-medium">Plan</th>
                   <th scope="col" className="px-3 py-3 font-medium">Status</th>
-                  <th scope="col" className="px-2 py-3 text-center font-medium" title="Email verified">Email ✓</th>
-                  <th scope="col" className="px-2 py-3 text-center font-medium" title="Mobile verified">Mobile ✓</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Joined</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Last login</th>
-                  <th scope="col" className="px-3 py-3 font-medium">Last active</th>
+                  <th scope="col" className="hidden px-2 py-3 text-center font-medium 2xl:table-cell" title="Email verified">Email ✓</th>
+                  <th scope="col" className="hidden px-2 py-3 text-center font-medium 2xl:table-cell" title="Mobile verified">Mobile ✓</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium xl:table-cell">Joined</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium lg:table-cell">Last login</th>
+                  <th scope="col" className="hidden px-3 py-3 font-medium 2xl:table-cell">Last active</th>
                   <th scope="col" className="px-5 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -337,21 +339,22 @@ function UserRow({
             <span className="block truncate font-medium text-foreground group-hover:text-accent" title={user.name}>
               {user.name}
             </span>
+            <span className="block truncate text-[11px] text-muted xl:hidden">{user.email ?? user.phone ?? user.mobile ?? ''}</span>
             {isSelf && <span className="text-[11px] text-subtle">You</span>}
           </span>
         </Link>
       </td>
-      <td className="max-w-[220px] truncate px-3 py-3 text-muted" title={user.email ?? undefined}>{user.email ?? '—'}</td>
-      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-muted">{user.phone ?? user.mobile ?? '—'}</td>
-      <td className="px-3 py-3"><ProviderBadge provider={user.authProvider} /></td>
-      <td className="px-3 py-3"><RoleBadge role={user.role} /></td>
+      <td className="hidden max-w-[220px] truncate px-3 py-3 text-muted xl:table-cell" title={user.email ?? undefined}>{user.email ?? '—'}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 tabular-nums text-muted 2xl:table-cell">{user.phone ?? user.mobile ?? '—'}</td>
+      <td className="hidden px-3 py-3 xl:table-cell"><ProviderBadge provider={user.authProvider} /></td>
+      <td className="hidden px-3 py-3 lg:table-cell"><RoleBadge role={user.role} /></td>
       <td className="whitespace-nowrap px-3 py-3"><PlanBadge user={user} /></td>
       <td className="px-3 py-3"><UserStatusBadge isActive={user.isActive} /></td>
-      <td className="px-2 py-3 text-center"><VerifiedMark label="Email" verified={user.isEmailVerified} applicable={Boolean(user.email)} /></td>
-      <td className="px-2 py-3 text-center"><VerifiedMark label="Mobile" verified={user.mobileVerified} applicable={Boolean(user.phone || user.mobile)} /></td>
-      <td className="whitespace-nowrap px-3 py-3 tabular-nums text-muted" title={formatDate(user.createdAt)}>{shortDate(user.createdAt)}</td>
-      <td className="whitespace-nowrap px-3 py-3 text-muted" title={user.lastLoginAt ? formatDate(user.lastLoginAt) : undefined}>{relative(user.lastLoginAt)}</td>
-      <td className="whitespace-nowrap px-3 py-3 text-muted" title={user.lastActiveAt ? formatDate(user.lastActiveAt) : undefined}>{relative(user.lastActiveAt)}</td>
+      <td className="hidden px-2 py-3 text-center 2xl:table-cell"><VerifiedMark label="Email" verified={user.isEmailVerified} applicable={Boolean(user.email)} /></td>
+      <td className="hidden px-2 py-3 text-center 2xl:table-cell"><VerifiedMark label="Mobile" verified={user.mobileVerified} applicable={Boolean(user.phone || user.mobile)} /></td>
+      <td className="hidden whitespace-nowrap px-3 py-3 tabular-nums text-muted xl:table-cell" title={formatDate(user.createdAt)}>{shortDate(user.createdAt)}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-muted lg:table-cell" title={user.lastLoginAt ? formatDate(user.lastLoginAt) : undefined}>{relative(user.lastLoginAt)}</td>
+      <td className="hidden whitespace-nowrap px-3 py-3 text-muted 2xl:table-cell" title={user.lastActiveAt ? formatDate(user.lastActiveAt) : undefined}>{relative(user.lastActiveAt)}</td>
       <td className="whitespace-nowrap px-5 py-3 text-right">
         <div className="inline-flex items-center gap-1.5">
           <Link

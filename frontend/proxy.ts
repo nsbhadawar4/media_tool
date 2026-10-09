@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_ENDED_PARAM, SESSION_ENDED_VALUE } from '@/lib/auth/session';
-import { LOGIN_PATH, homePathForRole, roleHintFromToken } from '@/lib/auth/routes';
+import { LOGIN_PATH, homePathForRole, roleHintFromToken, showsSignInToSwitchAccount } from '@/lib/auth/routes';
 
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
 
@@ -84,9 +84,22 @@ export function proxy(request: NextRequest) {
       return response;
     }
 
+    const roleHint = roleHintFromToken(sessionToken);
+
+    /**
+     * Switching to the administrator account. Someone signed in with a normal account who
+     * asks to sign in for the admin panel (/login?from=/admin/…) gets the sign-in form rather
+     * than a bounce back to their own dashboard — otherwise there is no way to reach the
+     * admin sign-in without finding "sign out" first. Showing a public form grants nothing:
+     * signing in replaces the session, and the server decides the role.
+     */
+    if (showsSignInToSwitchAccount(pathname, request.nextUrl.searchParams.get('from'), roleHint)) {
+      return NextResponse.next();
+    }
+
     // The token's role claim only picks the door; if it is stale (role changed since
     // sign-in) the layout on the other side corrects it from the live account.
-    return NextResponse.redirect(new URL(homePathForRole(roleHintFromToken(sessionToken)), request.url));
+    return NextResponse.redirect(new URL(homePathForRole(roleHint), request.url));
   }
 
   return NextResponse.next();

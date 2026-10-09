@@ -14,6 +14,9 @@ import {
   HardDrive,
   BookOpenCheck,
   LayoutTemplate,
+  Shapes,
+  Library,
+  Puzzle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -29,6 +32,8 @@ export interface NavItem {
   planned?: boolean;
   /** The website section that opens or closes this area (/admin/content/sections). */
   section?: string;
+  /** Lit only on this exact path, not below it (an overview whose sub-pages have their own entries). */
+  exact?: boolean;
 }
 
 export interface NavGroup {
@@ -81,18 +86,28 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
     label: 'Manage',
     items: [
       { href: '/admin/users', label: 'Users', icon: Users },
+      { href: '/admin/activity', label: 'User activity', icon: Activity },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
-      { href: '/admin/content', label: 'Content', icon: LayoutTemplate },
       { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },
       { href: '/admin/documents', label: 'Documents', icon: FileText, planned: true },
     ],
   },
   {
-    label: 'System',
+    // The content-management pages (one per kind of entry), plus their overview.
+    label: 'Website & content',
     items: [
-      { href: '/admin/activity', label: 'Activity', icon: Activity },
-      { href: '/admin/settings', label: 'Settings', icon: Settings, planned: true },
+      { href: '/admin/content', label: 'Content overview', icon: Shapes, exact: true },
+      { href: '/admin/content/sections', label: 'Website sections', icon: LayoutTemplate },
+      { href: '/admin/content/classes', label: 'Classes', icon: GraduationCap },
+      { href: '/admin/content/subjects', label: 'Subjects', icon: Library },
+      { href: '/admin/content/courses', label: 'Courses', icon: BookOpenCheck },
+      { href: '/admin/content/games', label: 'Educational games', icon: Puzzle },
+      { href: '/admin/content/arcade', label: 'Arcade games', icon: Gamepad2 },
     ],
+  },
+  {
+    label: 'System',
+    items: [{ href: '/admin/settings', label: 'Settings', icon: Settings }],
   },
 ];
 
@@ -113,6 +128,6 @@ export function liveNavItems(groups: readonly NavGroup[]): NavItem[] {
 export const TAB_SLOTS = 4;
 
 /** `/folders` must not light up for `/foldersomething`, hence the trailing slash. */
-export function isNavItemActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+export function isNavItemActive(pathname: string, href: string, exact = false): boolean {
+  return pathname === href || (!exact && pathname.startsWith(`${href}/`));
 }

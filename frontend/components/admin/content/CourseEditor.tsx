@@ -121,7 +121,7 @@ export function CourseEditor({ course }: { course?: Course }) {
 
   return (
     <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-6">
-      <Link href="/admin/content/courses" className="inline-flex w-fit items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-muted transition hover:text-foreground">
+      <Link href="/admin/content/courses" className="inline-flex w-fit items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-muted transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
         <ArrowLeft className="h-4 w-4" />
         All courses
       </Link>
@@ -138,6 +138,17 @@ export function CourseEditor({ course }: { course?: Course }) {
               View
             </a>
           )}
+          {/* Leaves without saving, like Cancel on every other content form. */}
+          <Link
+            href="/admin/content/courses"
+            aria-disabled={save.isPending}
+            className={cn(
+              'inline-flex h-10 items-center rounded-xl border border-border px-4 text-sm font-medium text-foreground-soft transition hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+              save.isPending && 'pointer-events-none opacity-50',
+            )}
+          >
+            Cancel
+          </Link>
           <Button type="submit" isLoading={save.isPending} disabled={Boolean(course?.archivedAt)}>
             {course ? 'Save changes' : 'Create course'}
           </Button>

@@ -64,7 +64,9 @@ export function Tabs<T extends string>({ tabs, value, onChange, className, ...re
             aria-selected={isActive}
             onClick={() => onChange(tab.value)}
             className={cn(
-              'relative z-10 flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200',
+              // 40px tall on touch screens, the compact 32px from `lg` up.
+              'relative z-10 flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200 lg:min-h-8',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
               isActive ? 'text-foreground' : 'text-muted hover:text-foreground',
             )}
           >

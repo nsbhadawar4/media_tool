@@ -26,7 +26,7 @@ npm install                      # installs frontend + backend (npm workspaces)
 cp backend/.env.example backend/.env             # then fill it in, see section 7
 cp frontend/.env.local.example frontend/.env.local
 
-npm run create-admin -- you@example.com "your-password"   # optional: first admin
+npm run create-admin -- you@example.com --prompt   # optional: first admin (asks for the password, hidden)
 npm run dev                      
 ```
 
@@ -266,7 +266,7 @@ Everything is documented inline in `backend/.env.example`. The ones that matter:
 | `EMAIL_PROVIDER` | `console` (prints the OTP to the log), `smtp`, or `resend`, plus `EMAIL_FROM` and the provider's credentials |
 | `JWT_EXPIRES_IN`, `COOKIE_*` | Session lifetime and cookie settings |
 | `TRUST_PROXY` | Number of proxies in front of the app; decides which IP the rate limiters count |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Used by `npm run create-admin` when no arguments are given |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | Optional defaults for `npm run create-admin` (a bcrypt hash; plaintext `ADMIN_PASSWORD` is not read) |
 
 Frontend (`frontend/.env.local`): `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:5000/api`) and
 `NEXT_PUBLIC_SESSION_COOKIE_NAME` (must match the backend's `COOKIE_NAME`).
@@ -274,7 +274,9 @@ Frontend (`frontend/.env.local`): `NEXT_PUBLIC_API_URL` (e.g. `http://localhost:
 Never commit `.env`.
 
 Administrators are created only from the command line, never through signup:
-`npm run create-admin -- you@example.com "your-password"`.
+`npm run create-admin -- you@example.com --prompt` (asks for the password without echoing it).
+The same command recovers access to an existing administrator: it sets a new password, re-activates
+the account and signs out its other sessions, after you type the email to confirm.
 
 ---
 

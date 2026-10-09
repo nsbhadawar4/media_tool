@@ -357,15 +357,17 @@ export const getAdminStats = asyncHandler(async (req: Request, res: Response) =>
   const newSince = (since: Date, extra: FilterQuery<IUser> = {}): FilterQuery<IUser> => ({ $and: [{ createdAt: { $gte: since } }, extra] });
 
   const [
-    [totalUsers, activeUsers, totalFolders, totalMedia, sizeAgg],
+    [totalUsers, activeUsers, totalFolders, totalMedia, totalDocuments, sizeAgg],
     [newToday, newThisWeek, activeToday, activeThisMonth, loginsToday, failedLoginsToday],
     [newEmail, newMobile, newGoogle, free, pro, premium],
+    [allEmail, allMobile, allGoogle],
   ] = await Promise.all([
     Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isActive: true }),
       Folder.countDocuments({ isDeleted: false }),
       Media.countDocuments({ isDeleted: false }),
+      Media.countDocuments({ isDeleted: false, fileType: 'document' }),
       Media.aggregate<{ _id: null; total: number }>([
         { $match: { isDeleted: false } },
         { $group: { _id: null, total: { $sum: '$size' } } },
@@ -387,6 +389,8 @@ export const getAdminStats = asyncHandler(async (req: Request, res: Response) =>
       User.countDocuments(planFilter('pro')),
       User.countDocuments(planFilter('premium')),
     ]),
+    // Every account, by how it signs in (same rule as the Users page).
+    Promise.all([User.countDocuments(providerFilter('email')), User.countDocuments(providerFilter('mobile')), User.countDocuments(providerFilter('google'))]),
   ]);
 
   sendSuccess(res, {
@@ -395,6 +399,7 @@ export const getAdminStats = asyncHandler(async (req: Request, res: Response) =>
     inactiveUsers: totalUsers - activeUsers,
     totalFolders,
     totalMedia,
+    totalDocuments,
     storageUsedBytes: sizeAgg[0]?.total ?? 0,
     users: {
       todayStart,
@@ -405,6 +410,7 @@ export const getAdminStats = asyncHandler(async (req: Request, res: Response) =>
       loginsToday,
       failedLoginsToday,
       newThisWeekByProvider: { email: newEmail, mobile: newMobile, google: newGoogle },
+      byProvider: { email: allEmail, mobile: allMobile, google: allGoogle },
       byPlan: { free, pro, premium },
     },
   });

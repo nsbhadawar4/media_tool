@@ -28,7 +28,7 @@ const labels = (links: readonly { label: string }[]) => links.map((l) => l.label
 const keys = (c: PublicCatalog | null) => homeBlocks(c).map((b) => b.key);
 
 test('defaults: every section on except Pricing; Contact is a page, not a home block', () => {
-  assert.deepEqual(keys(null), ['hero', 'features', 'media', 'documents', 'games', 'kid-games', 'reviews', 'faq', 'cta']);
+  assert.deepEqual(keys(null), ['hero', 'highlights', 'features', 'media', 'documents', 'games', 'kid-games', 'how-it-works', 'security', 'reviews', 'faq', 'cta']);
   assert.deepEqual(keys(seeded()), keys(null), 'a freshly seeded catalog matches the code defaults');
   assert.equal(isSectionOn(null, 'pricing'), false);
   assert.equal(isSectionOn(null, 'contact'), true);
@@ -48,7 +48,7 @@ test('home page: hidden sections drop out, in the administrator’s order', () =
   let c = off(seeded(), 'faq');
   c = set(c, 'pricing', { isVisible: true, order: 0 });
   c = off(c, 'kid-games');
-  assert.deepEqual(keys(c), ['pricing', 'hero', 'features', 'media', 'documents', 'games', 'reviews', 'cta']);
+  assert.deepEqual(keys(c), ['pricing', 'hero', 'highlights', 'features', 'media', 'documents', 'games', 'how-it-works', 'security', 'reviews', 'cta']);
 });
 
 test('home page: a section added in the admin panel renders as a custom block; Contact never does', () => {

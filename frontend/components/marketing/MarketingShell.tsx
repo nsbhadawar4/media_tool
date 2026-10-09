@@ -1,16 +1,50 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { Info } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Logo } from '@/components/brand/Logo';
-import { LOGIN_PATH } from '@/lib/auth/routes';
+import { ADMIN_HOME_PATH, LOGIN_PATH, USER_HOME_PATH, roleHintFromToken } from '@/lib/auth/routes';
 import { MarketingHeader } from './MarketingHeader';
 import { getServerCatalog } from '@/lib/server/contentCatalog';
 import { LEGAL_LINKS, MARKETING_NAV, linksFor, type MarketingLink } from './nav';
 
-function MarketingFooter({ nav, legal }: { nav: readonly MarketingLink[]; legal: typeof LEGAL_LINKS }) {
+const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
+
+type Viewer = 'visitor' | 'user' | 'admin';
+
+/**
+ * The footer's Account links for who is looking. Only a display choice, read from the session
+ * cookie without verifying it (as proxy.ts does): every one of these pages checks the session
+ * itself, so a stale cookie at most shows a link that leads to the sign-in page.
+ *  - signed out: sign in or sign up (password recovery is reached from the sign-in page);
+ *  - a user: their app, their storage and password reset;
+ *  - an administrator: the admin panel only — no user-only links.
+ */
+const ACCOUNT_LINKS: Record<Viewer, ReadonlyArray<{ href: string; label: string }>> = {
+  visitor: [
+    { href: LOGIN_PATH, label: 'Login' },
+    { href: '/signup', label: 'Get Started' },
+  ],
+  user: [
+    { href: USER_HOME_PATH, label: 'Dashboard' },
+    { href: '/manage-storage', label: 'Manage Storage' },
+    { href: '/forgot-password', label: 'Reset Password' },
+  ],
+  admin: [{ href: ADMIN_HOME_PATH, label: 'Admin dashboard' }],
+};
+
+async function currentViewer(): Promise<Viewer> {
+  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return 'visitor';
+  return roleHintFromToken(token) === 'admin' ? 'admin' : 'user';
+}
+
+function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]; legal: typeof LEGAL_LINKS; viewer: Viewer }) {
   return (
-    <footer className="border-t border-border px-4 pb-10 pt-14 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <footer className="relative overflow-hidden px-4 pb-10 pt-16 sm:px-6 lg:px-8">
+      <div aria-hidden className="mk-horizon pointer-events-none absolute inset-x-0 top-0 h-px opacity-60" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(50%_100%_at_50%_0%,rgba(124,92,255,0.10),transparent)]" />
+      <div className="relative mx-auto max-w-7xl">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div>
             <Link href="/#top" className="flex w-fit items-center gap-2.5" aria-label="media_tool home">
@@ -38,11 +72,13 @@ function MarketingFooter({ nav, legal }: { nav: readonly MarketingLink[]; legal:
           <nav aria-label="Footer: account">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">Account</p>
             <ul className="mt-4 space-y-2.5">
-              <li><Link href={LOGIN_PATH} className="text-sm text-foreground-soft transition hover:text-foreground">Login</Link></li>
-              <li><Link href="/signup" className="text-sm text-foreground-soft transition hover:text-foreground">Get Started</Link></li>
-              <li><Link href="/forgot-password" className="text-sm text-foreground-soft transition hover:text-foreground">Reset password</Link></li>
-              {/* Signed out, proxy.ts sends this to /login?from=/manage-storage and back again after. */}
-              <li><Link href="/manage-storage" className="text-sm text-foreground-soft transition hover:text-foreground">Manage Storage</Link></li>
+              {ACCOUNT_LINKS[viewer].map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="text-sm text-foreground-soft transition hover:text-foreground">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </nav>
 
@@ -85,11 +121,12 @@ function MarketingFooter({ nav, legal }: { nav: readonly MarketingLink[]; legal:
 export async function MarketingShell({ children }: { children: ReactNode }) {
   const catalog = await getServerCatalog();
   const nav = linksFor(MARKETING_NAV, catalog);
+  const viewer = await currentViewer();
   return (
     <div className="mk-root relative min-h-screen overflow-x-clip bg-background">
       <MarketingHeader nav={nav} />
       <main id="main-content">{children}</main>
-      <MarketingFooter nav={nav} legal={linksFor(LEGAL_LINKS, catalog)} />
+      <MarketingFooter nav={nav} legal={linksFor(LEGAL_LINKS, catalog)} viewer={viewer} />
     </div>
   );
 }

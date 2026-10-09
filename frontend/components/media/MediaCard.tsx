@@ -110,7 +110,7 @@ export function MediaCard({
             aria-label={`Select ${media.originalName}`}
             onClick={(event) => onToggleSelect!(media.id, event.shiftKey)}
             className={cn(
-              'absolute left-2 top-2 z-30 flex h-6 w-6 items-center justify-center rounded-md border-2 transition duration-150',
+              'absolute left-2 top-2 z-30 flex h-6 w-6 items-center justify-center rounded-md border-2 transition duration-150 before:absolute before:-inset-2.5',
               isSelected
                 ? 'border-accent bg-accent text-accent-foreground'
                 // Sits over anything from a dark photo to a near-white document placeholder,

@@ -79,9 +79,13 @@ const envSchema = z.object({
   COOKIE_SECURE: boolish(secureByDefault),
   COOKIE_DOMAIN: optionalString,
 
+  /**
+   * Defaults for `npm run create-admin` only — sign-in always checks the database. There is
+   * deliberately no ADMIN_PASSWORD: a plaintext password never belongs in a config file. Use
+   * `create-admin -- <email> --prompt`, or a bcrypt ADMIN_PASSWORD_HASH for unattended setups.
+   */
   ADMIN_EMAIL: optionalString,
   ADMIN_NAME: optionalString,
-  ADMIN_PASSWORD: optionalString,
   ADMIN_PASSWORD_HASH: optionalString,
 
   FRONTEND_URL: z.string().default('http://localhost:3000'),
@@ -214,6 +218,15 @@ if (!parsed.success) {
 }
 
 const raw = parsed.data;
+
+/**
+ * ADMIN_PASSWORD is no longer read by anything (it isn't in the schema, so it never reaches
+ * `env`). Say so — by name only — so a leftover plaintext password gets removed.
+ */
+if (process.env.ADMIN_PASSWORD) {
+  // eslint-disable-next-line no-console
+  console.warn('ADMIN_PASSWORD is set but no longer used. Remove it from backend/.env (and any hosting settings); see `npm run create-admin -- <email> --prompt`.');
+}
 
 /** UPLOAD_DIR is the documented name; LOCAL_STORAGE_DIR stays supported for older .env files. */
 const uploadDir = raw.UPLOAD_DIR ?? raw.LOCAL_STORAGE_DIR ?? 'uploads';

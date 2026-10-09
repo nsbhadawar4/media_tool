@@ -39,7 +39,8 @@ export function DocumentViewerModal({ media, onClose }: { media: Media; onClose:
   const mode = renderableAs(media);
 
   return createPortal(
-    <div className="app-safe-bottom animate-fade-in fixed inset-0 z-60 flex flex-col bg-black/85">
+    // A modal for assistive technology too, named after the file it shows.
+    <div role="dialog" aria-modal="true" aria-label={`Preview of ${media.originalName}`} className="app-safe-bottom animate-fade-in fixed inset-0 z-60 flex flex-col bg-black/85">
       <header className="flex items-center justify-between gap-4 px-4 py-3 text-white sm:px-6">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{media.originalName}</p>
