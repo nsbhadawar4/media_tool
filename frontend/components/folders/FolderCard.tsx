@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { FolderInput, FolderOpen, PencilLine, Trash2, Upload } from 'lucide-react';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { FolderIcon } from './FolderIcon';
@@ -25,7 +25,7 @@ interface FolderCardProps {
 }
 
 export function FolderCard({ folder, onRename, onMove, onDelete, onUpload, index = 0 }: FolderCardProps) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const cover = typeof folder.coverImage === 'object' ? folder.coverImage : null;
   const href = `/folders/${folder._id}`;
   const itemLabel = `${folder.itemCount} ${folder.itemCount === 1 ? 'item' : 'items'}`;

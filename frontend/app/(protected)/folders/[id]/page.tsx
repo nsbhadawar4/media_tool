@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FolderPlus, MoreHorizontal, PencilLine, FolderInput, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -34,7 +35,7 @@ const FOLDER_COMPARATORS: Record<FolderSortOption, (a: { name: string; createdAt
 
 export default function FolderDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const queryClient = useQueryClient();
   const toast = useToast();
 

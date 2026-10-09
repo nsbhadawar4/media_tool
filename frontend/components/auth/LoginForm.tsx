@@ -2,7 +2,8 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Lock, Mail, Smartphone } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
@@ -29,7 +30,7 @@ const TABS = [
  * account created by mobile signup. Either way it is the same password check and session.
  */
 export function LoginForm() {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const searchParams = useSearchParams();
   const { login, loginWithMobile } = useAuth();
 

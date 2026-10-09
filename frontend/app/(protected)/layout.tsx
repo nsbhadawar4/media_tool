@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
 import { ADMIN_HOME_PATH, LOGIN_PATH, ONBOARDING_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
@@ -27,7 +28,7 @@ import { kidGameRouteSubject } from '@/lib/kid-games/routes';
  */
 export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, sessionError, refresh } = useAuth();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const pathname = usePathname();
   // /games/<slug>: the first thing on screen while the session is checked is that game's own loader.
   const gameSlug = /^\/games\/([^/]+)\/?$/.exec(pathname)?.[1];

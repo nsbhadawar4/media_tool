@@ -2157,3 +2157,31 @@ html:has(.mk-root) {
     animation: dist-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
+
+/* ---- Top-of-page navigation progress (components/navigation/NavigationProgress.tsx) ---- */
+.nav-progress-bar {
+  position: relative;
+  background: linear-gradient(90deg, #7c5cff 0%, #6366f1 45%, #38bdf8 100%);
+  box-shadow: 0 0 8px rgba(124, 92, 255, 0.55);
+  will-change: transform;
+}
+/* A soft glow at the leading edge. */
+.nav-progress-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -2px;
+  height: 7px;
+  width: 90px;
+  border-radius: 9999px;
+  background: radial-gradient(closest-side, rgba(56, 189, 248, 0.75), transparent);
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress {
+    transition: none !important;
+  }
+}
+:root[data-motion='reduce'] .nav-progress {
+  transition: none !important;
+}

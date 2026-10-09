@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { FullPageSpinner } from '@/components/ui/Spinner';
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { ArrowLeft, ArrowRight, Check, Clock, Flame, Heart, Lightbulb, Puzzle, SearchX, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SoundToggle, useGameSound, type SoundName } from '@/components/games/useGameSound';
@@ -127,7 +127,7 @@ function Burst() {
 }
 
 function Player({ game }: { game: LearningGame }) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const { user } = useAuth();
   const userId = user?.id;
   const progress = useKidProgress();

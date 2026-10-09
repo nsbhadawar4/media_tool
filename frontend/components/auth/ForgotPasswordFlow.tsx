@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 import { VerifyOtpForm } from './VerifyOtpForm';
 import { NewPasswordForm } from './NewPasswordForm';
@@ -20,7 +20,7 @@ type Step =
  * never in browser history.
  */
 export function ForgotPasswordFlow() {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const [step, setStep] = useState<Step>({ name: 'email' });
 
   switch (step.name) {

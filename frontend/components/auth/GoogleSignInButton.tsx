@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Loader2 } from 'lucide-react';
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
@@ -69,7 +69,7 @@ export function GoogleSignInButton({
   /** Where to return after signing in (the login page's `?from=`), checked by postLoginPath. */
   from?: string | null;
 }) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const toast = useToast();
   const { loginWithGoogle } = useAuth();
 

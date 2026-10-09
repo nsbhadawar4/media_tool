@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowLeft, ArrowUp, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import { adminContentApi, type CourseInput, type Difficulty } from '@/lib/api/adminContent';
@@ -42,7 +42,7 @@ function fieldErrors(err: unknown): Record<string, string> {
  * change in the activity log.
  */
 export function CourseEditor({ course }: { course?: Course }) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(course?.title ?? '');

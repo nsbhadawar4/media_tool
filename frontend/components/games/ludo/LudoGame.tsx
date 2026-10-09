@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Globe2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { GameLayout } from '../GameLayout';
@@ -29,7 +29,7 @@ const RESTORE_MS = 450;
  */
 export default function LudoGame() {
   const game = findGame('ludo')!;
-  const router = useRouter();
+  const router = useNavigationRouter();
   const [view, setView] = useState<View>({ kind: 'boot' });
 
   useEffect(() => {

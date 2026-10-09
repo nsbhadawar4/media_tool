@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { ArrowRight, CreditCard, Loader2, ShieldCheck } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { FullPageSpinner } from '@/components/ui/Spinner';
@@ -20,7 +20,7 @@ import { formatPrice, planInfo, type PlanId } from '@/lib/billing/plans';
  * then continues on Free until payment is possible.
  */
 export default function OnboardingPage() {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const { user, isLoading, completeOnboarding } = useAuth();
   const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
   // Free is the honest default: nothing is pre-chosen that would cost money.

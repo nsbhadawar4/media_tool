@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Ellipsis, LogOut, Users, FolderClosed } from 'lucide-react';
 import { BottomSheet, SheetItem } from '@/components/ui/BottomSheet';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -22,7 +23,7 @@ import { cn } from '@/utils/cn';
  */
 export function MobileTabBar({ variant = 'user' }: { variant?: 'user' | 'admin' }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const { isAdmin } = useAuth();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 

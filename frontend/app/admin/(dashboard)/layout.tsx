@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { sessionEndedUrl } from '@/lib/auth/session';
 import { LOGIN_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
@@ -21,7 +21,7 @@ import { ADMIN_ONLY_NOTICE } from '@/components/auth/AdminOnlyNotice';
  */
 export default function AdminAreaLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, isLoading, sessionError, refresh } = useAuth();
-  const router = useRouter();
+  const router = useNavigationRouter();
 
   // Same rule as the user-facing gate: a server that never answered is an outage to
   // report, not a session to end, and a session the server *did* reject leaves with the

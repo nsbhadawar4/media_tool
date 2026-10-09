@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { accountLabel } from '@/lib/auth/account';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { useTheme } from '@/lib/theme/ThemeContext';
@@ -24,7 +24,7 @@ export function Topbar({
 }) {
   const { resolvedTheme, setTheme } = useTheme();
   const { user } = useAuth();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMac, setIsMac] = useState(false);
 

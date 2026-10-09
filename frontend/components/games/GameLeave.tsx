@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { LogOut } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -85,7 +85,7 @@ function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => 
  * why they keep the session.
  */
 export function GameLeaveProvider({ leave, children }: { leave?: GameLeaveConfig; children: ReactNode }) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLElement | null>(null);
   /** Where QUIT GAME goes: /games for EXIT and Back, or the link the player was heading to. */
@@ -181,7 +181,7 @@ export function GameLeaveProvider({ leave, children }: { leave?: GameLeaveConfig
 /** Returns the function to call to leave the game (asks first when the game needs it). */
 export function useGameLeave(): () => void {
   const ctx = useContext(LeaveContext);
-  const router = useRouter();
+  const router = useNavigationRouter();
   return ctx ?? (() => router.push('/games'));
 }
 

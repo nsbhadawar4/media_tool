@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Info, Lock, Mail, Smartphone, UserRound } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ApiError } from '@/lib/api/client';
@@ -236,7 +236,7 @@ function MobileSignupPanel({
  * so nothing typed is lost; the backend applies every rule shown here.
  */
 export function SignupForm() {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const [method, setMethod] = useState<Method>('email');
   const [mobileStarted, setMobileStarted] = useState<MobileSignupStarted | null>(null);
 

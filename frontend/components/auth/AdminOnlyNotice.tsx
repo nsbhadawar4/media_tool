@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { Loader2, ShieldAlert, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ADMIN_HOME_PATH, LOGIN_PATH } from '@/lib/auth/routes';
@@ -19,7 +20,7 @@ export const ADMIN_ONLY_NOTICE = 'admin-only';
  */
 export function AdminOnlyNotice() {
   const params = useSearchParams();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const { user, logout } = useAuth();
   const [dismissed, setDismissed] = useState(false);
   const [switching, setSwitching] = useState(false);

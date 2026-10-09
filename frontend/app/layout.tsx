@@ -5,6 +5,8 @@ import { ThemeProvider } from '@/lib/theme/ThemeContext';
 import { ToastProvider } from '@/lib/toast/ToastContext';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { Suspense } from 'react';
+import { NavigationProgress } from '@/components/navigation/NavigationProgress';
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
 import { configuredSiteUrl } from '@/lib/site';
 
@@ -79,6 +81,12 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         anywhere inside the app still surfaces normally.
       */}
       <body suppressHydrationWarning className="h-full min-h-full antialiased">
+        {/* The navigation bar across every area — public site, library and admin panel.
+            Suspense: it reads the query string, which a statically rendered page only knows
+            in the browser. */}
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <QueryProvider>
           <ThemeProvider>
             <ToastProvider>

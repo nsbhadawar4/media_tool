@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { LogOut } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -22,7 +22,7 @@ const LogoutPromptContext = createContext<LogoutPromptValue | null>(null);
  */
 export function LogoutPromptProvider({ children }: { children: ReactNode }) {
   const { logout } = useAuth();
-  const router = useRouter();
+  const router = useNavigationRouter();
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigationRouter } from '@/lib/navigation/progress';
 import { useQuery } from '@tanstack/react-query';
 import { FolderClosed, Search } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
@@ -30,7 +30,7 @@ const SORT_OPTIONS: Array<{ label: string; value: SortOption }> = [
 ];
 
 export function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [fileType, setFileType] = useState<FileType | undefined>(undefined);
