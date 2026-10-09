@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { isNewDestination, onNavigationStart } from '@/lib/navigation/progress';
+import { isFileOrApiPath } from '@/lib/navigation/destination';
 
 /** Longest the bar may run: past this a navigation has failed or been abandoned. */
 const MAX_MS = 12_000;
@@ -33,6 +34,9 @@ export function NavigationProgress() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const routeKey = `${pathname}?${searchParams.toString()}`;
+  // What is on screen now — read by the back/forward handler, which can run either side of
+  // the router applying the history entry.
+  const renderedRef = useRef(routeKey);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
@@ -101,6 +105,7 @@ export function NavigationProgress() {
 
   // The page that was asked for (or a redirect from it) is now the one rendered.
   useEffect(() => {
+    renderedRef.current = routeKey;
     finish();
   }, [routeKey, finish]);
 
@@ -117,11 +122,18 @@ export function NavigationProgress() {
       } catch {
         return;
       }
-      if (url.origin !== window.location.origin || url.pathname.startsWith('/api/')) return;
+      if (url.origin !== window.location.origin || isFileOrApiPath(url.pathname)) return;
       if (!isNewDestination(url.href)) return;
       start();
     };
-    const onPopState = () => start();
+    // Back / forward. The router may already have applied the entry by the time this runs
+    // (then the page is up to date and there is nothing to wait for); start only while the
+    // address and the rendered page still differ, or the bar would wait for a change that
+    // has already happened.
+    const onPopState = () => {
+      const address = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`;
+      if (address !== renderedRef.current) start();
+    };
     // Bubbling phase: a component that stops the click (a menu inside a card link) never
     // reaches here, so it can't start a bar that no navigation will finish.
     document.addEventListener('click', onClick);

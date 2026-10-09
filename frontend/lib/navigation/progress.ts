@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { isNewDestination as isDestination } from './destination';
 
 /**
  * The top-of-page navigation bar's start signal.
@@ -23,14 +24,7 @@ export function onNavigationStart(listener: Listener): () => void {
 
 /** True when `href` leads somewhere other than the current page (path or query differs). */
 export function isNewDestination(href: string, current: Location = window.location): boolean {
-  let target: URL;
-  try {
-    target = new URL(href, current.href);
-  } catch {
-    return false;
-  }
-  if (target.origin !== current.origin) return false;
-  return target.pathname !== current.pathname || target.search !== current.search;
+  return isDestination(href, current);
 }
 
 /** Starts the bar, unless `href` is the page already shown (or a hash on it). */
