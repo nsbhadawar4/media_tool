@@ -34,6 +34,7 @@ import {
 import {
   archiveContent,
   archiveCourse,
+  bulkUpdateContent,
   createContent,
   createCourse,
   getContentStats,
@@ -49,6 +50,7 @@ import {
 } from '../controllers/adminContentController';
 import {
   contentIdParamSchema,
+  bulkUpdateSchema,
   createContentSchema,
   createCourseSchema,
   listContentQuerySchema,
@@ -98,6 +100,7 @@ const contentId = { params: contentIdParamSchema };
 router.get('/content/stats', getContentStats);
 router.get('/content/items', validate({ query: listContentQuerySchema }), listContent);
 router.post('/content/items', validate({ body: createContentSchema }), createContent);
+router.post('/content/items/bulk', validate({ body: bulkUpdateSchema }), bulkUpdateContent);
 router.patch('/content/items/:id', validate({ ...contentId, body: updateContentSchema }), updateContent);
 router.post('/content/items/:id/move', validate({ ...contentId, body: moveSchema }), moveContent);
 router.delete('/content/items/:id', validate(contentId), archiveContent);

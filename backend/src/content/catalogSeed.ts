@@ -5,7 +5,7 @@
  * type + key, and never overwritten: after that the database (and the admin panel) is in charge.
  */
 export interface CatalogSeedEntry {
-  type: 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game';
+  type: 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game' | 'dashboard_widget' | 'nav_item';
   key: string;
   title: string;
   description: string;
@@ -13,6 +13,7 @@ export interface CatalogSeedEntry {
   classLevel?: number;
   subject?: string;
   isVisible?: boolean;
+  showOnLanding?: boolean;
   difficulty?: 'easy' | 'medium' | 'hard';
   gameType?: string;
 }
@@ -58,14 +59,16 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
     "key": "games",
     "title": "Games",
     "description": "The games collection.",
-    "order": 5
+    "order": 5,
+    "showOnLanding": false
   },
   {
     "type": "section",
     "key": "kid-games",
     "title": "Kid Games",
     "description": "Learning games for Classes 1–5.",
-    "order": 6
+    "order": 6,
+    "showOnLanding": false
   },
   {
     "type": "section",
@@ -2011,5 +2014,124 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
     "title": "Ludo",
     "description": "Classic Multiplayer Board Game · 2–4 Players",
     "order": 7
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "welcome",
+    "title": "Welcome",
+    "description": "Greeting with the upload and new-folder buttons.",
+    "order": 1
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "stats",
+    "title": "Statistics",
+    "description": "Totals for files, photos, videos and documents.",
+    "order": 2
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "quick-actions",
+    "title": "Quick actions",
+    "description": "Shortcuts: browse, upload, create a folder, games.",
+    "order": 3
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "recent-files",
+    "title": "Recent files",
+    "description": "The latest uploads, with previews.",
+    "order": 4
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "recent-activity",
+    "title": "Recent activity",
+    "description": "What happened in the library lately.",
+    "order": 5
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "storage",
+    "title": "Storage",
+    "description": "Space used, by kind of file.",
+    "order": 6
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "games",
+    "title": "Games",
+    "description": "Tiles for every listed game (needs the Games feature on).",
+    "order": 7
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "kid-games",
+    "title": "Kid Games",
+    "description": "Class progress and Continue Learning (needs the Kid Games feature on).",
+    "order": 8
+  },
+  {
+    "type": "dashboard_widget",
+    "key": "recent-folders",
+    "title": "Recent folders",
+    "description": "The newest top-level folders.",
+    "order": 9
+  },
+  {
+    "type": "nav_item",
+    "key": "home",
+    "title": "Home",
+    "description": "Top of the home page.",
+    "order": 1
+  },
+  {
+    "type": "nav_item",
+    "key": "features",
+    "title": "Features",
+    "description": "The Features section (needs it on).",
+    "order": 2
+  },
+  {
+    "type": "nav_item",
+    "key": "games",
+    "title": "Games",
+    "description": "The Games page — through sign-in for visitors (needs Games on).",
+    "order": 3
+  },
+  {
+    "type": "nav_item",
+    "key": "kid-games",
+    "title": "Kid Games",
+    "description": "The Kid Games page — through sign-in for visitors (needs Kid Games on).",
+    "order": 4
+  },
+  {
+    "type": "nav_item",
+    "key": "faq",
+    "title": "FAQ",
+    "description": "The FAQ section (needs it on).",
+    "order": 5
+  },
+  {
+    "type": "nav_item",
+    "key": "pricing",
+    "title": "Pricing",
+    "description": "The Pricing section (needs it on).",
+    "order": 6
+  },
+  {
+    "type": "nav_item",
+    "key": "login",
+    "title": "Login",
+    "description": "Header button: the sign-in page.",
+    "order": 7
+  },
+  {
+    "type": "nav_item",
+    "key": "get-started",
+    "title": "Get Started",
+    "description": "Header button: the sign-up page.",
+    "order": 8
   }
 ];

@@ -3,7 +3,8 @@ import { CONTENT_TYPES, DIFFICULTIES, GAME_TYPES, type ContentType, type Difficu
 
 /**
  * One entry of the admin-managed content catalog: a home-page section, a Kid Games class or
- * subject, the link saying a class offers a subject (class_subject), a Kid Game, or an arcade game.
+ * subject, the link saying a class offers a subject (class_subject), a Kid Game, an arcade game,
+ * a block of the user dashboard (dashboard_widget) or a public header link (nav_item).
  *
  * The learning hierarchy is Class → Subject (via class_subject) → Course → Game.
  *
@@ -36,6 +37,13 @@ export interface IContentItem extends Document {
   order: number;
   isEnabled: boolean;
   isVisible: boolean;
+  /**
+   * Shown on the public home page. Feature sections (Games, Kid Games): their home page block.
+   * Arcade games and Kid Games: included in that block. Other types ignore it.
+   */
+  showOnLanding: boolean;
+  /** Arcade games and Kid Games: put first, with a "Featured" mark, where they're listed. */
+  featured: boolean;
   source: 'code' | 'admin';
   /** Soft delete: archived entries are gone for users and restorable by an administrator. */
   archivedAt: Date | null;
@@ -61,6 +69,8 @@ const contentItemSchema = new Schema<IContentItem>(
     order: { type: Number, required: true },
     isEnabled: { type: Boolean, default: true },
     isVisible: { type: Boolean, default: true },
+    showOnLanding: { type: Boolean, default: true },
+    featured: { type: Boolean, default: false },
     source: { type: String, enum: ['code', 'admin'], default: 'admin' },
     archivedAt: { type: Date, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CONTENT_TYPES, DIFFICULTIES, GAME_TYPES } from '../config/constants';
+import { CONTENT_TYPES, DIFFICULTIES, FIXED_CONTENT_TYPES, GAME_TYPES } from '../config/constants';
 
 /**
  * Admin content management input. Every body schema is strict: a field the API doesn't take
@@ -33,6 +33,9 @@ export const listContentQuerySchema = z.object({
   status,
   classLevel: classLevel.optional(),
   subject: key.optional(),
+  /** Arcade games and Kid Games: in the home page block or not. */
+  landing: z.enum(['on', 'off']).optional(),
+  featured: z.enum(['yes', 'no']).optional(),
   sort: z.enum(['order', 'title', 'updated', 'created']).default('order'),
   ...pageParams,
 });
@@ -69,6 +72,8 @@ export const createContentSchema = z
   .strict()
   .superRefine((v, ctx) => {
     const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+    // Dashboard blocks and header links are defined by code: switch, order and rename them instead.
+    if (FIXED_CONTENT_TYPES.includes(v.type)) issue('type', 'Dashboard blocks and navigation links come from the app and can’t be added');
     const derivedKey = v.type === 'class' || v.type === 'class_subject';
     if (!derivedKey && !v.key) issue('key', 'Key is required');
     const needsClass = v.type === 'class' || v.type === 'class_subject' || v.type === 'kid_game';
@@ -88,6 +93,10 @@ export const updateContentSchema = z
     description: description.optional(),
     isEnabled: z.boolean().optional(),
     isVisible: z.boolean().optional(),
+    /** Feature sections, arcade games and Kid Games (checked per type by the controller). */
+    showOnLanding: z.boolean().optional(),
+    /** Arcade games and Kid Games. */
+    featured: z.boolean().optional(),
     thumbnailUrl: httpUrl.nullable().optional(),
     glyph: glyph.nullable().optional(),
     // Kid Games added in the admin panel only (a code game's are fixed by its content):
@@ -103,6 +112,38 @@ export const updateContentSchema = z
 export type UpdateContentInput = z.infer<typeof updateContentSchema>;
 
 export const moveSchema = z.object({ direction: z.enum(['up', 'down']) }).strict();
+
+/**
+ * One change applied to many arcade games or Kid Games at once: either the ones picked by id, or
+ * every live one in a class and/or subject ("Class 1 → disable all", "Hindi → enable all").
+ */
+export const bulkUpdateSchema = z
+  .object({
+    ids: z.array(objectId).min(1).max(500).optional(),
+    scope: z
+      .object({
+        type: z.enum(['game', 'kid_game']),
+        classLevel: classLevel.optional(),
+        subject: key.optional(),
+      })
+      .strict()
+      .optional(),
+    patch: z
+      .object({
+        isEnabled: z.boolean().optional(),
+        isVisible: z.boolean().optional(),
+        showOnLanding: z.boolean().optional(),
+        featured: z.boolean().optional(),
+      })
+      .strict()
+      .refine((p) => Object.values(p).some((x) => x !== undefined), { message: 'Nothing to change' }),
+  })
+  .strict()
+  .refine((v) => Boolean(v.ids) !== Boolean(v.scope), { message: 'Pick the entries, or a class / subject — one of the two' })
+  .refine((v) => !v.scope || v.scope.type === 'kid_game' || (v.scope.classLevel === undefined && v.scope.subject === undefined), {
+    message: 'Only Kid Games are grouped by class and subject',
+  });
+export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
 
 // ------------------------------------------------------------------------------------ courses
 

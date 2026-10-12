@@ -2,7 +2,7 @@ import type { AnyBulkWriteOperation, FilterQuery } from 'mongoose';
 import { ContentItem, type IContentItem } from '../models/ContentItem';
 import { Course } from '../models/Course';
 import { CATALOG_SEED, type CatalogSeedEntry } from '../content/catalogSeed';
-import type { ContentType } from '../config/constants';
+import { FEATURE_SECTIONS, type ContentType } from '../config/constants';
 import { logger } from '../utils/logger';
 
 /**
@@ -74,6 +74,8 @@ export async function seedCatalog(): Promise<{ inserted: number; updated: number
       subject: entry.subject ?? null,
       isEnabled: true,
       isVisible: entry.isVisible ?? true,
+      showOnLanding: entry.showOnLanding ?? true,
+      featured: false,
       source: 'code',
       archivedAt: null,
       createdAt: new Date(),
@@ -95,7 +97,30 @@ export async function seedCatalog(): Promise<{ inserted: number; updated: number
   const result = await ContentItem.bulkWrite(ops, { ordered: false });
   if (result.upsertedCount) logger.info(`content catalog: seeded ${result.upsertedCount} entries`);
   if (result.modifiedCount) logger.info(`content catalog: updated code-owned fields on ${result.modifiedCount} entries`);
-  return { inserted: result.upsertedCount, updated: result.modifiedCount };
+  const migrated = await migrateSurfaceFields();
+  return { inserted: result.upsertedCount, updated: result.modifiedCount + migrated };
+}
+
+/**
+ * Backfills the surface fields on entries stored before they existed, keeping what users saw:
+ * feature sections (Games, Kid Games) stay off the home page; every game keeps its place in the
+ * home page block should an administrator turn it on; nothing is featured. Only touches entries
+ * missing a field, so it is a no-op once done.
+ */
+async function migrateSurfaceFields(): Promise<number> {
+  // Feature sections first, so the catch-all below never sets them to true.
+  const features = await ContentItem.updateMany(
+    { showOnLanding: { $exists: false }, type: 'section', key: { $in: FEATURE_SECTIONS } },
+    { $set: { showOnLanding: false } },
+    { timestamps: false },
+  );
+  const [rest, featured] = await Promise.all([
+    ContentItem.updateMany({ showOnLanding: { $exists: false } }, { $set: { showOnLanding: true } }, { timestamps: false }),
+    ContentItem.updateMany({ featured: { $exists: false } }, { $set: { featured: false } }, { timestamps: false }),
+  ]);
+  const count = features.modifiedCount + rest.modifiedCount + featured.modifiedCount;
+  if (count) logger.info(`content catalog: backfilled surface settings on ${count} entries`);
+  return count;
 }
 
 /** What the site and the app need to know about one catalog entry. */
@@ -113,6 +138,9 @@ export interface PublicCatalogEntry {
   courseId: string | null;
   isEnabled: boolean;
   isVisible: boolean;
+  /** Feature sections and games: part of the public home page block. */
+  showOnLanding: boolean;
+  featured: boolean;
 }
 
 export interface PublicCourseEntry {
@@ -138,6 +166,10 @@ export interface PublicCatalog {
   classSubjects: PublicCatalogEntry[];
   kidGames: PublicCatalogEntry[];
   games: PublicCatalogEntry[];
+  /** The user dashboard's blocks; ON = enabled. */
+  dashboardWidgets: PublicCatalogEntry[];
+  /** The public header's links and buttons; ON = enabled, label = title. */
+  navItems: PublicCatalogEntry[];
   courses: PublicCourseEntry[];
 }
 
@@ -148,6 +180,8 @@ const GROUP: Record<ContentType, Exclude<keyof PublicCatalog, 'courses'>> = {
   class_subject: 'classSubjects',
   kid_game: 'kidGames',
   game: 'games',
+  dashboard_widget: 'dashboardWidgets',
+  nav_item: 'navItems',
 };
 
 /** Milliseconds a cached catalog is served before it is read again (each instance has its own). */
@@ -169,7 +203,7 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
       .sort({ order: 1, _id: 1 })
       .lean(),
   ]);
-  const value: PublicCatalog = { sections: [], classes: [], subjects: [], classSubjects: [], kidGames: [], games: [], courses: [] };
+  const value: PublicCatalog = { sections: [], classes: [], subjects: [], classSubjects: [], kidGames: [], games: [], dashboardWidgets: [], navItems: [], courses: [] };
   for (const r of rows) {
     value[GROUP[r.type]].push({
       key: r.key,
@@ -185,6 +219,9 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
       courseId: r.courseId ? r.courseId.toString() : null,
       isEnabled: r.isEnabled,
       isVisible: r.isVisible,
+      // Read lean: an entry from before these fields existed reads as its migrated default.
+      showOnLanding: r.showOnLanding ?? !(r.type === 'section' && FEATURE_SECTIONS.includes(r.key)),
+      featured: r.featured ?? false,
     });
   }
   value.courses = courses.map((c) => ({

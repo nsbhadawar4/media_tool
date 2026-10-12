@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { Types, type FilterQuery } from 'mongoose';
 import { ContentItem, type IContentItem } from '../models/ContentItem';
 import { Course, type ICourse, type ICourseLesson } from '../models/Course';
-import { CONTENT_TYPES, type ActivityAction, type ContentType } from '../config/constants';
+import { CONTENT_TYPES, FEATURE_SECTIONS, FIXED_CONTENT_TYPES, type ActivityAction, type ContentType } from '../config/constants';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
@@ -10,7 +10,7 @@ import { logActivity } from '../services/activityService';
 import { ensureCatalogSeeded, invalidateCatalog, nextOrder, siblingFilter } from '../services/contentService';
 import { classSubjectKey } from '../services/learningStructure';
 import { escapeRegex, pageMeta } from '../services/adminQueries';
-import type { CreateContentInput, CreateCourseInput, UpdateContentInput, UpdateCourseInput } from '../validators/contentValidators';
+import type { BulkUpdateInput, CreateContentInput, CreateCourseInput, UpdateContentInput, UpdateCourseInput } from '../validators/contentValidators';
 
 /**
  * Admin content management: the catalog (sections, classes, subjects, Kid Games, games) and
@@ -26,7 +26,21 @@ const TYPE_LABEL: Record<ContentType, string> = {
   class_subject: 'class subject',
   kid_game: 'Kid Game',
   game: 'game',
+  dashboard_widget: 'dashboard block',
+  nav_item: 'navigation link',
 };
+
+/** Which entries take the surface switches: the home page block, and "featured". */
+const takesLanding = (item: Pick<IContentItem, 'type' | 'key'>) =>
+  item.type === 'game' || item.type === 'kid_game' || (item.type === 'section' && FEATURE_SECTIONS.includes(item.key));
+const takesFeatured = (item: Pick<IContentItem, 'type'>) => item.type === 'game' || item.type === 'kid_game';
+/** Header labels have to fit in the header. */
+const NAV_LABEL_MAX = 24;
+
+/** 1-based position among the live siblings — what an administrator sees as "position". */
+async function positionOf(item: IContentItem): Promise<number> {
+  return (await ContentItem.countDocuments({ ...siblingFilter(item), archivedAt: null, order: { $lt: item.order } })) + 1;
+}
 
 type Status = 'live' | 'active' | 'disabled' | 'hidden' | 'archived' | 'all';
 
@@ -80,6 +94,8 @@ function serializeItem(item: IContentItem) {
     order: item.order,
     isEnabled: item.isEnabled,
     isVisible: item.isVisible,
+    showOnLanding: item.showOnLanding ?? true,
+    featured: item.featured ?? false,
     source: item.source,
     archivedAt: item.archivedAt,
     createdAt: item.createdAt,
@@ -88,14 +104,14 @@ function serializeItem(item: IContentItem) {
   };
 }
 
-/** Writes one audit entry for a catalog change. */
-function auditItem(req: Request, action: ActivityAction, item: IContentItem, verb: string, metadata: Record<string, unknown> = {}) {
+/** Writes one audit entry for a catalog change ("Hid game “Snake” from the user dashboard"). */
+function auditItem(req: Request, action: ActivityAction, item: IContentItem, verb: string, metadata: Record<string, unknown> = {}, suffix = '') {
   return logActivity(req, {
     action,
     targetType: 'content',
     targetId: item._id,
     targetName: item.title,
-    message: `${verb} ${TYPE_LABEL[item.type]} “${item.title}”`,
+    message: `${verb} ${TYPE_LABEL[item.type]} “${item.title}”${suffix}`,
     metadata: { type: item.type, key: item.key, ...metadata },
   });
 }
@@ -166,12 +182,14 @@ export const getContentStats = asyncHandler(async (_req: Request, res: Response)
 
 export const listContent = asyncHandler(async (req: Request, res: Response) => {
   await ensureCatalogSeeded();
-  const { type, search, status, classLevel, subject, sort, page, limit } = req.query as unknown as {
+  const { type, search, status, classLevel, subject, landing, featured, sort, page, limit } = req.query as unknown as {
     type: ContentType;
     search?: string;
     status: Status;
     classLevel?: number;
     subject?: string;
+    landing?: 'on' | 'off';
+    featured?: 'yes' | 'no';
     sort: keyof typeof SORTS;
     page: number;
     limit: number;
@@ -179,6 +197,9 @@ export const listContent = asyncHandler(async (req: Request, res: Response) => {
   const clauses: FilterQuery<IContentItem>[] = [{ type }, statusFilter(status)];
   if (classLevel !== undefined) clauses.push({ classLevel });
   if (subject) clauses.push({ subject });
+  // "Off" includes entries stored before the field existed only where their default is off.
+  if (landing) clauses.push(landing === 'on' ? { showOnLanding: { $ne: false } } : { showOnLanding: false });
+  if (featured) clauses.push(featured === 'yes' ? { featured: true } : { featured: { $ne: true } });
   if (search) {
     const text = { $regex: escapeRegex(search), $options: 'i' };
     clauses.push({ $or: [{ title: text }, { key: text }, { description: text }] });
@@ -267,6 +288,14 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
     throw AppError.badRequest('Only Kid Games have a class, subject, difficulty, game type or course');
   }
   if (item.type !== 'subject' && given('glyph')) throw AppError.badRequest('Only subjects have a glyph');
+  if (given('showOnLanding') && !takesLanding(item)) throw AppError.badRequest('Only games, Kid Games and the Games / Kid Games sections have a home page setting');
+  if (given('featured') && !takesFeatured(item)) throw AppError.badRequest('Only games and Kid Games can be featured');
+  if (FIXED_CONTENT_TYPES.includes(item.type) && (given('thumbnailUrl') || given('isVisible'))) {
+    throw AppError.badRequest('Dashboard blocks and navigation links are switched with “enabled” only');
+  }
+  if (item.type === 'nav_item' && given('title') && input.title!.length > NAV_LABEL_MAX) {
+    throw AppError.badRequest(`Keep the label to ${NAV_LABEL_MAX} characters so it fits in the header`, [{ path: 'title', message: 'Too long' }]);
+  }
   const fixed = CODE_FIXED.filter((f) => given(f) && input[f] !== item[f]);
   if (item.source === 'code' && fixed.length) {
     throw AppError.badRequest(`This game's ${fixed.join(', ')} ${fixed.length === 1 ? 'is' : 'are'} fixed by its content in the app`, fixed.map((f) => ({ path: f, message: 'Fixed by the app' })));
@@ -283,7 +312,7 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
     if (moved) item.order = await nextOrder({ ...siblingFilter({ type: 'kid_game', classLevel, subject }), archivedAt: null });
   }
 
-  const before = { isEnabled: item.isEnabled, isVisible: item.isVisible };
+  const before = { isEnabled: item.isEnabled, isVisible: item.isVisible, showOnLanding: item.showOnLanding ?? true, featured: item.featured ?? false };
   const editable = ['title', 'description', 'thumbnailUrl', 'glyph', 'classLevel', 'subject', 'difficulty', 'gameType'] as const;
   const edited: string[] = editable.filter((f) => given(f) && input[f] !== item[f]);
   for (const f of editable) if (given(f)) (item as unknown as Record<string, unknown>)[f] = input[f];
@@ -294,6 +323,8 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
   }
   if (given('isEnabled')) item.isEnabled = input.isEnabled!;
   if (given('isVisible')) item.isVisible = input.isVisible!;
+  if (given('showOnLanding')) item.showOnLanding = input.showOnLanding!;
+  if (given('featured')) item.featured = input.featured!;
   item.updatedBy = new Types.ObjectId(req.user!.id);
   await item.save();
   invalidateCatalog();
@@ -307,6 +338,14 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
     if (wasOn !== isOn) {
       await auditItem(req, isOn ? 'section_enabled' : 'section_disabled', item, isOn ? 'Turned on' : 'Turned off', { section: item.key, previous: state(wasOn), next: state(isOn) });
     }
+  } else if (FIXED_CONTENT_TYPES.includes(item.type)) {
+    if (item.isEnabled !== before.isEnabled) {
+      await auditItem(req, item.isEnabled ? 'content_enabled' : 'content_disabled', item, item.isEnabled ? 'Turned on' : 'Turned off', {
+        field: 'isEnabled',
+        previous: state(before.isEnabled),
+        next: state(item.isEnabled),
+      });
+    }
   } else {
     if (item.isEnabled !== before.isEnabled) {
       await auditItem(req, item.isEnabled ? 'content_enabled' : 'content_disabled', item, item.isEnabled ? 'Enabled' : 'Disabled', {
@@ -316,12 +355,25 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
       });
     }
     if (item.isVisible !== before.isVisible) {
+      // For games, "visible" is their place in the signed-in app: the dashboard and the hub.
+      const surface = takesFeatured(item) ? (item.isVisible ? ' on the user dashboard' : ' from the user dashboard') : '';
       await auditItem(req, item.isVisible ? 'content_shown' : 'content_hidden', item, item.isVisible ? 'Showed' : 'Hid', {
         field: 'isVisible',
         previous: before.isVisible,
         next: item.isVisible,
-      });
+      }, surface);
     }
+  }
+  if (item.showOnLanding !== before.showOnLanding) {
+    const on = item.showOnLanding;
+    await auditItem(req, on ? 'content_shown' : 'content_hidden', item, on ? 'Showed' : 'Hid', {
+      field: 'showOnLanding',
+      previous: before.showOnLanding,
+      next: on,
+    }, on ? ' on the landing page' : ' from the landing page');
+  }
+  if (item.featured !== before.featured) {
+    await auditItem(req, 'content_updated', item, item.featured ? 'Featured' : 'Stopped featuring', { field: 'featured', previous: before.featured, next: item.featured });
   }
   sendSuccess(res, serializeItem(item), 200, undefined, 'Saved');
 });
@@ -344,6 +396,7 @@ export const moveContent = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
   const previousOrder = item.order;
+  const previousPosition = await positionOf(item);
   // Equal orders (possible after creates) still separate cleanly.
   const [a, b] = neighbour.order === item.order ? (direction === 'up' ? [item.order - 1, item.order] : [item.order + 1, item.order]) : [neighbour.order, item.order];
   item.order = a;
@@ -351,12 +404,15 @@ export const moveContent = asyncHandler(async (req: Request, res: Response) => {
   item.updatedBy = new Types.ObjectId(req.user!.id);
   await Promise.all([item.save(), neighbour.save()]);
   invalidateCatalog();
-  await auditItem(req, item.type === 'section' ? 'section_reordered' : 'content_reordered', item, `Moved ${direction}`, {
+  const position = await positionOf(item);
+  await auditItem(req, item.type === 'section' ? 'section_reordered' : 'content_reordered', item, 'Moved', {
     direction,
     ...(item.type === 'section' ? { section: item.key } : {}),
     previous: previousOrder,
     next: item.order,
-  });
+    previousPosition,
+    position,
+  }, ` from position ${previousPosition} to position ${position}`);
   sendSuccess(res, serializeItem(item), 200, undefined, 'Moved');
 });
 
@@ -365,6 +421,7 @@ export const archiveContent = asyncHandler(async (req: Request, res: Response) =
   const item = await ContentItem.findById(req.params.id);
   if (!item) throw AppError.notFound('Content not found');
   if (item.archivedAt) throw AppError.conflict('Already archived');
+  if (FIXED_CONTENT_TYPES.includes(item.type)) throw AppError.badRequest('Dashboard blocks and navigation links can’t be archived — switch them off instead');
   item.archivedAt = new Date();
   item.updatedBy = new Types.ObjectId(req.user!.id);
   await item.save();
@@ -385,6 +442,63 @@ export const restoreContent = asyncHandler(async (req: Request, res: Response) =
   invalidateCatalog();
   await auditItem(req, 'content_restored', item, 'Restored');
   sendSuccess(res, serializeItem(item), 200, undefined, 'Restored');
+});
+
+// ------------------------------------------------------------------------------------ bulk
+
+const BULK_WORDS: Record<keyof BulkUpdateInput['patch'], [string, string]> = {
+  isEnabled: ['enabled', 'disabled'],
+  isVisible: ['shown on the user dashboard', 'hidden from the user dashboard'],
+  showOnLanding: ['shown on the landing page', 'hidden from the landing page'],
+  featured: ['featured', 'unfeatured'],
+};
+
+/**
+ * One change to many arcade games or Kid Games: the ones picked by id, or every live one in a
+ * class and/or subject. Only entries that actually change are written (and counted), and the whole
+ * operation is one audit entry saying what changed, for how many, and where.
+ */
+export const bulkUpdateContent = asyncHandler(async (req: Request, res: Response) => {
+  const { ids, scope, patch } = req.body as BulkUpdateInput;
+  await ensureCatalogSeeded();
+  const filter: FilterQuery<IContentItem> = ids
+    ? { _id: { $in: ids.map((id) => new Types.ObjectId(id)) }, type: { $in: ['game', 'kid_game'] }, archivedAt: null }
+    : {
+        type: scope!.type,
+        archivedAt: null,
+        ...(scope!.classLevel !== undefined ? { classLevel: scope!.classLevel } : {}),
+        ...(scope!.subject ? { subject: scope!.subject } : {}),
+      };
+  const types = (await ContentItem.distinct('type', filter)) as ContentType[];
+  if (types.length === 0) throw AppError.notFound('Nothing matched — pick games or Kid Games that aren’t archived');
+  if (types.length > 1) throw AppError.badRequest('Change games and Kid Games separately');
+  const type = types[0];
+
+  const changes = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Record<keyof BulkUpdateInput['patch'], boolean>;
+  const matched = await ContentItem.countDocuments(filter);
+  const result = await ContentItem.updateMany(
+    { ...filter, $or: Object.entries(changes).map(([field, value]) => ({ [field]: { $ne: value } })) },
+    { $set: { ...changes, updatedBy: new Types.ObjectId(req.user!.id) } },
+  );
+  invalidateCatalog();
+
+  const what = (Object.keys(changes) as Array<keyof typeof changes>).map((f) => BULK_WORDS[f][changes[f] ? 0 : 1]).join(', ');
+  const where = scope ? `${scope.classLevel !== undefined ? ` in Class ${scope.classLevel}` : ''}${scope.subject ? ` · ${scope.subject}` : ''}` : '';
+  const label = type === 'kid_game' ? 'Kid Games' : 'games';
+  await logActivity(req, {
+    action: 'content_bulk_updated',
+    targetType: 'content',
+    targetName: `${matched} ${label}${where}`,
+    message: `Bulk change: ${what} — ${result.modifiedCount} of ${matched} ${label}${where}`,
+    metadata: {
+      type,
+      matched,
+      changed: result.modifiedCount,
+      ...(ids ? { picked: ids.length } : { classLevel: scope!.classLevel ?? null, subject: scope!.subject ?? null }),
+      ...Object.fromEntries(Object.entries(changes).map(([f, v]) => [`next_${f}`, v])),
+    },
+  });
+  sendSuccess(res, { matched, changed: result.modifiedCount }, 200, undefined, `Updated ${result.modifiedCount} of ${matched}`);
 });
 
 // ------------------------------------------------------------------------------------ courses

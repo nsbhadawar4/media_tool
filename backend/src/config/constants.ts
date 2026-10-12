@@ -147,6 +147,7 @@ export const ACTIVITY_ACTIONS = [
   'section_enabled',
   'section_disabled',
   'section_reordered',
+  'content_bulk_updated',
   'course_created',
   'course_updated',
   'course_enabled',
@@ -180,7 +181,7 @@ export const ACTIVITY_CATEGORIES = {
   reviews: ['review_submitted', 'review_updated', 'review_approved', 'review_rejected', 'review_published', 'review_unpublished', 'review_deleted'],
   cms: [
     'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored',
-    'section_enabled', 'section_disabled', 'section_reordered',
+    'section_enabled', 'section_disabled', 'section_reordered', 'content_bulk_updated',
     'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored',
   ],
 } as const satisfies Record<string, readonly ActivityAction[]>;
@@ -200,9 +201,21 @@ export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number];
 export const REVIEW_TEXT_MIN = 10;
 export const REVIEW_TEXT_MAX = 500;
 
-/** Admin-managed catalog: what kinds of entry exist. */
-export const CONTENT_TYPES = ['section', 'class', 'subject', 'class_subject', 'kid_game', 'game'] as const;
+/**
+ * Admin-managed catalog: what kinds of entry exist. dashboard_widget (a block of the signed-in
+ * dashboard) and nav_item (a public header link) are defined by code and only switched, ordered
+ * and — nav items — relabelled; they can't be added or archived.
+ */
+export const CONTENT_TYPES = ['section', 'class', 'subject', 'class_subject', 'kid_game', 'game', 'dashboard_widget', 'nav_item'] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
+/** Types an administrator can only switch, order and rename — never add or archive. */
+export const FIXED_CONTENT_TYPES: readonly ContentType[] = ['dashboard_widget', 'nav_item'];
+/**
+ * Website sections that stand for a whole feature of the app. Their ON switch is the feature's
+ * master switch (app pages, links); their block on the public home page is a separate opt-in
+ * (showOnLanding), off by default.
+ */
+export const FEATURE_SECTIONS: readonly string[] = ['games', 'kid-games'];
 
 /** Learning content difficulty (Kid Games and courses). */
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
