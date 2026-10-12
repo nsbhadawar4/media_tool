@@ -24,7 +24,7 @@ const body = `/**
  * type + key, and never overwritten: after that the database (and the admin panel) is in charge.
  */
 export interface CatalogSeedEntry {
-  type: 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game';
+  type: 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game' | 'dashboard_widget' | 'nav_item';
   key: string;
   title: string;
   description: string;
@@ -32,6 +32,7 @@ export interface CatalogSeedEntry {
   classLevel?: number;
   subject?: string;
   isVisible?: boolean;
+  showOnLanding?: boolean;
   difficulty?: 'easy' | 'medium' | 'hard';
   gameType?: string;
 }

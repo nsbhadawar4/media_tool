@@ -75,7 +75,7 @@ after(async () => {
 
 test('every public section is seeded, Contact included; Pricing starts off', async () => {
   const keys = (await ContentItem.find({ type: 'section' }).sort({ order: 1 }).lean()).map((s) => s.key);
-  assert.deepEqual(keys, ['hero', 'highlights', 'features', 'media', 'documents', 'games', 'kid-games', 'how-it-works', 'security', 'reviews', 'pricing', 'faq', 'cta', 'contact']);
+  assert.deepEqual(keys, ['hero', 'highlights', 'features', 'media', 'documents', 'games', 'kid-games', 'how-it-works', 'security', 'reviews', 'pricing', 'faq', 'cta', 'contact', 'footer']);
   assert.equal(on(await publicSection('pricing')), false);
   assert.equal(on(await publicSection('faq')), true);
   assert.equal(on(await publicSection('contact')), true);
@@ -164,7 +164,7 @@ test('new sections can be added, and appear in the public catalog', async () => 
   assert.equal(created.status, 201);
   const entry = await publicSection('announcement');
   assert.ok(on(entry));
-  assert.equal(entry!.order, 12, 'at the end');
+  assert.equal(entry!.order, 13, 'at the end (after Contact and Footer)');
   await turn(created.data.id, false);
   assert.equal(on(await publicSection('announcement')), false);
 });

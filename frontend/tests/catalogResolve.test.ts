@@ -16,11 +16,11 @@ function course(c: Partial<CatalogCourse> & { id: string }): CatalogCourse {
   return { slug: c.id, title: c.id, summary: '', classLevel: 1, subject: 'math', thumbnailUrl: null, difficulty: null, ageGroup: null, lessonCount: 0, order: 1, isEnabled: true, isVisible: true, ...c };
 }
 function seeded(): PublicCatalog {
-  const out: PublicCatalog = { sections: [], classes: [], subjects: [], classSubjects: [], kidGames: [], games: [], courses: [] };
-  const group = { section: 'sections', class: 'classes', subject: 'subjects', class_subject: 'classSubjects', kid_game: 'kidGames', game: 'games' } as const;
+  const out: Required<PublicCatalog> = { sections: [], classes: [], subjects: [], classSubjects: [], kidGames: [], games: [], dashboardWidgets: [], navItems: [], courses: [] };
+  const group = { section: 'sections', class: 'classes', subject: 'subjects', class_subject: 'classSubjects', kid_game: 'kidGames', game: 'games', dashboard_widget: 'dashboardWidgets', nav_item: 'navItems' } as const;
   for (const e of buildCatalogSeed()) {
     out[group[e.type]].push(
-      entry({ key: e.key, title: e.title, description: e.description, order: e.order, classLevel: e.classLevel ?? null, subject: e.subject ?? null, isVisible: e.isVisible ?? true, difficulty: e.difficulty ?? null, gameType: e.gameType ?? null }),
+      entry({ key: e.key, title: e.title, description: e.description, order: e.order, classLevel: e.classLevel ?? null, subject: e.subject ?? null, isVisible: e.isVisible ?? true, showOnLanding: e.showOnLanding ?? true, featured: false, difficulty: e.difficulty ?? null, gameType: e.gameType ?? null }),
     );
   }
   return out;

@@ -123,6 +123,9 @@ test('admin and user navigation stay separate; the admin panel links every manag
     '/admin/content/subjects',
     '/admin/content/courses',
     '/admin/content/games',
+    '/admin/content/kid-games',
+    '/admin/content/dashboard',
+    '/admin/content/navigation',
     '/admin/settings',
   ]) {
     assert.ok(admin.includes(href), href);
@@ -140,8 +143,11 @@ test('admin breadcrumbs name every admin page, and only admin pages', () => {
   assert.deepEqual(labels('/admin/dashboard'), ['Admin', 'Dashboard']);
   assert.deepEqual(labels('/admin/users/6a1b2c3d4e5f60718293a4b5'), ['Admin', 'Users', 'User details']);
   assert.deepEqual(labels('/admin/activity'), ['Admin', 'User activity']);
-  assert.deepEqual(labels('/admin/content/sections'), ['Admin', 'Content', 'Website sections']);
-  assert.deepEqual(labels('/admin/content/games'), ['Admin', 'Content', 'Educational games']);
+  assert.deepEqual(labels('/admin/content/sections'), ['Admin', 'Content', 'Landing page']);
+  assert.deepEqual(labels('/admin/content/games'), ['Admin', 'Content', 'Games']);
+  assert.deepEqual(labels('/admin/content/kid-games'), ['Admin', 'Content', 'Kid Games']);
+  assert.deepEqual(labels('/admin/content/dashboard'), ['Admin', 'Content', 'User dashboard']);
+  assert.deepEqual(labels('/admin/content/navigation'), ['Admin', 'Content', 'Navigation']);
   assert.deepEqual(labels('/admin/content/courses/new'), ['Admin', 'Content', 'Courses', 'New course']);
   assert.deepEqual(labels('/admin/content/courses/6a1b2c3d4e5f60718293a4b5'), ['Admin', 'Content', 'Courses', 'Edit course']);
   assert.deepEqual(adminCrumbs('/admin/content/classes').map((c) => c.href), ['/admin/dashboard', '/admin/content', '/admin/content/classes']);

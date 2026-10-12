@@ -1671,7 +1671,7 @@ a,
 html:has(.mk-root) {
   scroll-behavior: smooth;
   /* In-page links land below the sticky header rather than under it. */
-  scroll-padding-top: 5rem;
+  scroll-padding-top: calc(5rem + env(safe-area-inset-top, 0px));
 }
 
 .mk-safe-top {

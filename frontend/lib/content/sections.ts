@@ -38,14 +38,32 @@ export interface HomeBlock {
   custom: boolean;
 }
 
+/**
+ * Sections that stand for a whole feature of the signed-in app (Games, Kid Games). Their ON
+ * switch is the feature's master switch — the app pages (APP_AREA_SECTIONS) and their links.
+ * Their block on the public home page is a separate opt-in, `showOnLanding`, off by default:
+ * the two are independent ("Landing: off, Dashboard: on").
+ */
+export const FEATURE_SECTIONS: ReadonlySet<string> = new Set(['games', 'kid-games']);
+
+/**
+ * A section's block is on the public home page: ON, and — for a feature section — also opted in
+ * to the home page. With no catalog, feature sections stay off the home page.
+ */
+export function isOnLanding(catalog: PublicCatalog | null | undefined, key: string): boolean {
+  if (!isSectionOn(catalog, key)) return false;
+  if (!FEATURE_SECTIONS.has(key)) return true;
+  return catalog?.sections.find((s) => s.key === key)?.showOnLanding === true;
+}
+
 /** The home page's blocks that are ON, in the administrator's order. */
 export function homeBlocks(catalog: PublicCatalog | null | undefined): HomeBlock[] {
   const home = new Set(HOME_SECTIONS.map((s) => s.key));
   if (!catalog) {
-    return HOME_SECTIONS.filter((s) => s.isVisible !== false).map((s) => ({ key: s.key, title: s.title, description: s.description, custom: false }));
+    return HOME_SECTIONS.filter((s) => s.isVisible !== false && !FEATURE_SECTIONS.has(s.key)).map((s) => ({ key: s.key, title: s.title, description: s.description, custom: false }));
   }
   return [...catalog.sections]
-    .filter((s) => s.isEnabled && s.isVisible)
+    .filter((s) => s.isEnabled && s.isVisible && (!FEATURE_SECTIONS.has(s.key) || s.showOnLanding === true))
     // Code sections that aren't home blocks (Contact) have pages of their own.
     .filter((s) => home.has(s.key) || !isImplemented('section', s.key))
     .sort((a, b) => a.order - b.order)
@@ -62,8 +80,8 @@ export const SECTION_EFFECTS: Readonly<Record<string, string>> = {
   features: 'Home page block and its header/footer links',
   media: 'Home page block',
   documents: 'Home page block',
-  games: 'Home page block, its links, and the Games pages in the app',
-  'kid-games': 'Home page block, its links, and Kid Games + Courses in the app',
+  games: 'The whole Games feature: its pages, dashboard block and links (the home page block has its own switch)',
+  'kid-games': 'The whole Kid Games feature with Courses: pages, dashboard block and links (the home page block has its own switch)',
   'how-it-works': 'Home page block',
   security: 'Home page block',
   reviews: 'Home page block',
@@ -71,6 +89,7 @@ export const SECTION_EFFECTS: Readonly<Record<string, string>> = {
   faq: 'Home page block and its header/footer links',
   cta: 'Home page block',
   contact: 'The Contact page and its footer links',
+  footer: 'The footer’s link columns on every public page (a slim copyright and legal line stays)',
 };
 
 export const CUSTOM_SECTION_EFFECT = 'Home page text block';

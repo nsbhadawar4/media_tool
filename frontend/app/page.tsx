@@ -18,15 +18,15 @@ import {
   Pricing,
   SecuritySection,
 } from '@/components/marketing/sections';
+import { getServerCatalog } from '@/lib/server/contentCatalog';
 import { resolveCatalog, type ResolvedCatalog } from '@/lib/content/catalog';
 import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
-import { getServerCatalog } from '@/lib/server/contentCatalog';
 import { homeBlocks, isSectionOn, type HomeBlock } from '@/lib/content/sections';
 import { PublicReviews } from '@/components/reviews/PublicReviews';
 
 const TITLE = 'media_tool — Your Digital World, Organized';
 const DESCRIPTION =
-  'Store, organize and manage your photos, videos, documents and learning games in one secure place. Private folders, in-app previews, seven games and 150 Kid Games for Classes 1–5.';
+  'Store, organize and manage your photos, videos and documents in one secure place. Private folders, in-app previews and search — in any browser.';
 
 const METADATA: Metadata = {
   title: TITLE,
@@ -34,7 +34,7 @@ const METADATA: Metadata = {
   // The app's pages stay out of search (root layout); the public site is meant to be found.
   robots: { index: true, follow: true },
   alternates: { canonical: '/' },
-  keywords: ['media library', 'photo organizer', 'document manager', 'private cloud storage', 'kids learning games', 'Hindi English Maths games'],
+  keywords: ['media library', 'photo organizer', 'document manager', 'private cloud storage'],
   openGraph: {
     type: 'website',
     url: '/',
@@ -83,28 +83,37 @@ interface Ctx {
   catalog: ResolvedCatalog;
 }
 
-/** The Kid Games section's content: listed classes, their subjects and how many games each has. */
+/**
+ * The Kid Games block's content: the listed classes that have games on the landing page, their
+ * subjects and how many of those games each has — so switching games (or a class or subject) off
+ * for the landing page is reflected in the counts.
+ */
 function kidGamesProps(catalog: ResolvedCatalog) {
-  const classes = catalog.classViews;
+  const classes = catalog.classViews.filter((c) => catalog.landingKidGames(c.level).length > 0);
   const keys = [...new Set(classes.flatMap((c) => catalog.subjectsFor(c.level).map((s) => s.key)))];
-  const subjects = keys.map((key) => {
-    const view = catalog.subjectView(key);
-    const title = view?.title ?? (key in SUBJECT_INFO ? SUBJECT_INFO[key as keyof typeof SUBJECT_INFO].name : key);
-    return kidSubjectSummary(key, title, catalog.listedGames(undefined, key).length);
-  });
-  return { classes, subjects, totalGames: catalog.listedGames().length };
+  const subjects = keys
+    .map((key) => {
+      const view = catalog.subjectView(key);
+      const title = view?.title ?? (key in SUBJECT_INFO ? SUBJECT_INFO[key as keyof typeof SUBJECT_INFO].name : key);
+      return kidSubjectSummary(key, title, catalog.landingKidGames(undefined, key).length);
+    })
+    .filter((s) => s.games > 0);
+  return { classes, subjects, totalGames: catalog.landingKidGames().length };
 }
 
 const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   hero: ({ on }) => <Hero featuresLink={on('features')} />,
-  highlights: ({ on, catalog }) => (
-    <Highlights games={on('games') && catalog.arcadeGames.length ? catalog.arcadeGames : null} kidGames={on('kid-games') && catalog.classViews.length ? catalog.classViews : null} />
-  ),
-  features: ({ on }) => <Features games={on('games')} kidGames={on('kid-games')} />,
+  highlights: () => <Highlights />,
+  features: () => <Features />,
   media: () => <MediaSection />,
   documents: () => <DocumentsSection />,
-  games: ({ catalog }) => <GamesSection games={catalog.arcadeGames} />,
-  'kid-games': ({ catalog }) => <KidGamesSection {...kidGamesProps(catalog)} />,
+  // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);
+  // each lists only the games switched on for the landing page. Empty, the block isn't rendered.
+  games: ({ catalog }) => <GamesSection games={catalog.landingArcadeGames} />,
+  'kid-games': ({ catalog }) => {
+    const props = kidGamesProps(catalog);
+    return props.totalGames > 0 ? <KidGamesSection {...props} /> : null;
+  },
   'how-it-works': () => <HowItWorks />,
   security: () => <SecuritySection />,
   // Approved, published reviews only (the server decides); a polished empty state otherwise.

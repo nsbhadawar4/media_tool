@@ -56,7 +56,7 @@ export function NewPasswordForm({ resetToken, onSuccess }: { resetToken: string;
   return (
     <AuthCard step={{ current: 3, total: 3, label: 'New password' }} title="Choose a new password" subtitle="You’ll be signed in on this device, and signed out everywhere else.">
       <form onSubmit={handleSubmit} noValidate className="mt-7 flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5 pb-1">
           <AuthField
             id="newPassword"
             label="New password"

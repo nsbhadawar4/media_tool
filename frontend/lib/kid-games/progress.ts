@@ -243,8 +243,19 @@ export function recommendations(progress: Pick<KidProgress, 'games' | 'lastGameI
 }
 
 /** The first unfinished game of a subject in a class: where "Continue" goes. */
-export function nextInSubject(progress: Pick<KidProgress, 'games'>, classLevel: ClassLevel, subject: Subject): LearningGame {
-  const games = ALL_GAMES.filter((g) => g.classLevel === classLevel && g.subject === subject);
+/**
+ * The game to offer next in a class's subject: the first one not yet completed, else the first.
+ * `available` is the list to choose from, in order — pass the games the admin catalog lists (so a
+ * switched-off game is never offered, and the administrator's order is followed). Undefined when
+ * there is nothing to offer.
+ */
+export function nextInSubject(
+  progress: Pick<KidProgress, 'games'>,
+  classLevel: ClassLevel,
+  subject: Subject,
+  available: readonly LearningGame[] = ALL_GAMES,
+): LearningGame | undefined {
+  const games = available.filter((g) => g.classLevel === classLevel && g.subject === subject);
   return games.find((g) => !progress.games[g.id]?.completed) ?? games[0];
 }
 

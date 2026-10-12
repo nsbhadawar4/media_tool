@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/utils/cn';
-import { CONTENT_TYPES, COURSES_INFO, OVERVIEW_ICON } from './contentTypes';
+import { CONTENT_TYPES, COURSES_INFO, NAV_ORDER, OVERVIEW_ICON } from './contentTypes';
 
-const LINKS = [
-  { href: '/admin/content', label: 'Overview', icon: OVERVIEW_ICON },
-  ...CONTENT_TYPES.map((t) => ({ href: `/admin/content/${t.slug}`, label: t.label, icon: t.icon })),
-  { href: `/admin/content/${COURSES_INFO.slug}`, label: COURSES_INFO.label, icon: COURSES_INFO.icon },
-];
+const PAGES = [
+  ...CONTENT_TYPES.map((t) => ({ slug: t.slug, label: t.label, icon: t.icon })),
+  { slug: COURSES_INFO.slug, label: COURSES_INFO.label, icon: COURSES_INFO.icon },
+].sort((a, b) => NAV_ORDER.indexOf(a.slug) - NAV_ORDER.indexOf(b.slug));
+const LINKS = [{ href: '/admin/content', label: 'Overview', icon: OVERVIEW_ICON }, ...PAGES.map((p) => ({ href: `/admin/content/${p.slug}`, label: p.label, icon: p.icon }))];
 
 /** The section switcher across every content page; scrolls sideways on small screens. */
 export function ContentNav() {

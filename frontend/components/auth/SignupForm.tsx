@@ -95,7 +95,7 @@ function EmailSignupPanel({ onSignedUp }: { onSignedUp: (user: UserProfile) => v
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <AuthField id="email-name" label="Full name" icon={<UserRound className="h-4 w-4" />} autoComplete="name" value={v.name} onChange={set('name')} error={errors.name} placeholder="Your name" />
       <AuthField id="email-email" label="Email" icon={<Mail className="h-4 w-4" />} type="email" autoComplete="email" value={v.email} onChange={set('email')} error={errors.email} placeholder="you@example.com" />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5 pb-1">
         <AuthField id="email-password" label="Password" icon={<Lock className="h-4 w-4" />} type="password" autoComplete="new-password" value={v.password} onChange={set('password')} error={errors.password} placeholder="Create a strong password" />
         <PasswordChecklist password={v.password} />
       </div>
@@ -216,7 +216,7 @@ function MobileSignupPanel({
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <AuthField id="mobile-name" label="Full name" icon={<UserRound className="h-4 w-4" />} autoComplete="name" value={v.name} onChange={(e) => update('name', e.target.value)} error={errors.name} placeholder="Your name" />
       <PhoneField id="mobile-number" country={v.country} onCountryChange={(c) => update('country', c)} number={v.mobile} onNumberChange={(n) => update('mobile', n)} error={errors.mobile ?? errors.country} />
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5 pb-1">
         <AuthField id="mobile-password" label="Password" icon={<Lock className="h-4 w-4" />} type="password" autoComplete="new-password" value={v.password} onChange={(e) => update('password', e.target.value)} error={errors.password} placeholder="Create a strong password" />
         <PasswordChecklist password={v.password} />
       </div>

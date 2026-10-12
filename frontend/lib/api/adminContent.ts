@@ -3,7 +3,7 @@ import type { Course } from './content';
 
 /** Admin content management (requireAuth + requireAdmin on every route). */
 
-export type ContentType = 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game';
+export type ContentType = 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game' | 'dashboard_widget' | 'nav_item';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type ContentStatus = 'live' | 'active' | 'disabled' | 'hidden' | 'archived' | 'all';
 export type ContentSort = 'order' | 'title' | 'updated' | 'created';
@@ -24,6 +24,10 @@ export interface AdminContentItem {
   order: number;
   isEnabled: boolean;
   isVisible: boolean;
+  /** Feature sections, games and Kid Games: part of the public home page block. */
+  showOnLanding: boolean;
+  /** Games and Kid Games: listed first, marked "Featured". */
+  featured: boolean;
   /** 'code': seeded from the app's own catalog; 'admin': added in the admin panel. */
   source: 'code' | 'admin';
   archivedAt: string | null;
@@ -50,10 +54,17 @@ export interface ListContentParams {
   status?: ContentStatus;
   classLevel?: number;
   subject?: string;
+  landing?: 'on' | 'off';
+  featured?: 'yes' | 'no';
   sort?: ContentSort;
   page?: number;
   limit?: number;
 }
+
+/** The switches a bulk change can set. */
+export type BulkPatch = Partial<Pick<AdminContentItem, 'isEnabled' | 'isVisible' | 'showOnLanding' | 'featured'>>;
+/** Picked entries, or every live one of a type in a class and/or subject. */
+export type BulkTarget = { ids: string[] } | { scope: { type: 'game' | 'kid_game'; classLevel?: number; subject?: string } };
 
 export interface CreateContentInput {
   type: ContentType;
@@ -73,7 +84,7 @@ export interface CreateContentInput {
 }
 
 export type UpdateContentInput = Partial<
-  Pick<AdminContentItem, 'title' | 'description' | 'isEnabled' | 'isVisible' | 'thumbnailUrl' | 'glyph' | 'courseId' | 'classLevel' | 'subject' | 'gameType'> & {
+  Pick<AdminContentItem, 'title' | 'description' | 'isEnabled' | 'isVisible' | 'showOnLanding' | 'featured' | 'thumbnailUrl' | 'glyph' | 'courseId' | 'classLevel' | 'subject' | 'gameType'> & {
     difficulty: Difficulty;
   }
 >;
@@ -125,6 +136,7 @@ export const adminContentApi = {
   move: (id: string, direction: 'up' | 'down') => api.post<AdminContentItem>(`/api/admin/content/items/${id}/move`, { direction }),
   archive: (id: string) => api.delete<AdminContentItem>(`/api/admin/content/items/${id}`),
   restore: (id: string) => api.post<AdminContentItem>(`/api/admin/content/items/${id}/restore`),
+  bulk: (target: BulkTarget, patch: BulkPatch) => api.post<{ matched: number; changed: number }>('/api/admin/content/items/bulk', { ...target, patch }),
 
   courses: (params: ListCoursesParams = {}) => api.get<Course[]>('/api/admin/content/courses', { ...params }),
   course: (id: string) => api.get<Course>(`/api/admin/content/courses/${id}`),

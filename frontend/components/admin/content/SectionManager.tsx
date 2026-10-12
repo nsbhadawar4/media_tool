@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, ArchiveRestore, ArrowDown, ArrowUp, CircleCheck, CircleOff, LayoutTemplate, PencilLine, Plus, Search, Sparkles, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowDown, ArrowUp, CircleCheck, CircleOff, Eye, Globe2, LayoutTemplate, PencilLine, Plus, Search, Sparkles, X } from 'lucide-react';
 import { adminContentApi, type AdminContentItem } from '@/lib/api/adminContent';
-import { APP_AREA_SECTIONS, CUSTOM_SECTION_EFFECT, SECTION_EFFECTS } from '@/lib/content/sections';
+import { APP_AREA_SECTIONS, CUSTOM_SECTION_EFFECT, FEATURE_SECTIONS, SECTION_EFFECTS } from '@/lib/content/sections';
 import { useToast } from '@/lib/toast/ToastContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Badge } from '@/components/ui/Badge';
@@ -35,6 +35,10 @@ const effectOf = (s: AdminContentItem) => (s.source === 'admin' ? CUSTOM_SECTION
 /** Sections whose OFF switch reaches past one home page block: turning them off is flagged as such. */
 const WIDE_EFFECT = new Set(['hero', 'contact', ...Object.keys(APP_AREA_SECTIONS)]);
 const closesAppArea = (s: AdminContentItem) => s.key in APP_AREA_SECTIONS;
+/** Games / Kid Games: ON is the feature's master switch; the home page block is its own switch. */
+const isFeature = (s: AdminContentItem) => s.source === 'code' && FEATURE_SECTIONS.has(s.key);
+/** The block is on the public home page right now. */
+const onLanding = (s: AdminContentItem) => !s.archivedAt && isOn(s) && (!isFeature(s) || s.showOnLanding);
 
 function UpdatedBy({ item }: { item: AdminContentItem }) {
   if (!item.updatedBy) return <span className="text-subtle">App default</span>;
@@ -123,7 +127,15 @@ export function SectionManager({ info }: { info: ContentTypeInfo }) {
     },
     onError,
   });
-  const busy = setState.isPending || move.isPending || archive.isPending || restore.isPending;
+  const setLanding = useMutation({
+    mutationFn: ({ item, on }: { item: AdminContentItem; on: boolean }) => adminContentApi.update(item.id, { showOnLanding: on }),
+    onSuccess: (res, { on }) => {
+      toast.success(on ? `The ${res.data.title} block is on the landing page` : `The ${res.data.title} block is off the landing page — the feature stays on for signed-in users`);
+      refresh();
+    },
+    onError,
+  });
+  const busy = setState.isPending || move.isPending || archive.isPending || restore.isPending || setLanding.isPending;
 
   const toggle = (item: AdminContentItem, on: boolean) => {
     if (on) setState.mutate({ item, on: true });
@@ -159,10 +171,24 @@ export function SectionManager({ info }: { info: ContentTypeInfo }) {
     </div>
   );
   const status = (item: AdminContentItem) => (
-    <label className="inline-flex items-center gap-2.5">
-      <Toggle checked={isOn(item)} onChange={(v) => toggle(item, v)} label={`${item.title} on`} disabled={busy} />
-      <span className={cn('text-xs font-semibold', isOn(item) ? 'text-success' : 'text-muted')}>{isOn(item) ? 'On' : 'Off'}</span>
-    </label>
+    <div className="flex flex-col gap-1.5">
+      <label className="inline-flex items-center gap-2.5" title={isFeature(item) ? 'The whole feature: app pages, dashboard block and links' : undefined}>
+        <Toggle checked={isOn(item)} onChange={(v) => toggle(item, v)} label={isFeature(item) ? `${item.title} feature on` : `${item.title} on`} disabled={busy} />
+        <span className={cn('whitespace-nowrap text-xs font-semibold', isOn(item) ? 'text-success' : 'text-muted')}>
+          {isFeature(item) ? 'Feature ' : ''}
+          {isOn(item) ? 'On' : 'Off'}
+        </span>
+      </label>
+      {isFeature(item) && (
+        <label className="inline-flex items-center gap-2.5" title="The block on the public home page — separate from the feature itself">
+          <Toggle checked={item.showOnLanding} onChange={(v) => setLanding.mutate({ item, on: v })} label={`${item.title} on the landing page`} disabled={busy || !isOn(item)} />
+          <span className={cn('inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold', onLanding(item) ? 'text-success' : 'text-muted')}>
+            <Globe2 className="h-3 w-3" aria-hidden />
+            Landing {item.showOnLanding ? 'On' : 'Off'}
+          </span>
+        </label>
+      )}
+    </div>
   );
   const actions = (item: AdminContentItem) =>
     item.archivedAt ? (
@@ -212,8 +238,8 @@ export function SectionManager({ info }: { info: ContentTypeInfo }) {
       <PageHeader
         eyebrow="Content"
         icon={LayoutTemplate}
-        title="Website sections"
-        description="Switch each public section on or off and set the order they appear in. Changes reach the site on its next page load — no rebuild needed."
+        title="Landing page"
+        description="Switch each public home page section on or off and set the order they appear in. Games and Kid Games have a separate landing switch: their feature can stay on for signed-in users while the block is off here. Changes reach the site on its next page load — no rebuild needed."
         actions={
           <Button onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" />
@@ -235,6 +261,8 @@ export function SectionManager({ info }: { info: ContentTypeInfo }) {
           </>
         )}
       </section>
+
+      <PageOutline sections={live} />
 
       <section aria-label="Search and filters" className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface p-3 sm:p-4">
         <div className="relative min-w-0 flex-1 basis-60">
@@ -388,5 +416,35 @@ export function SectionManager({ info }: { info: ContentTypeInfo }) {
         isLoading={archive.isPending}
       />
     </div>
+  );
+}
+
+/**
+ * The public home page from top to bottom, as saved: what visitors get, in order. A picture of
+ * the configuration — nothing here changes it.
+ */
+function PageOutline({ sections }: { sections: AdminContentItem[] }) {
+  const shown = sections.filter(onLanding);
+  return (
+    <section aria-labelledby="page-outline" className="rounded-2xl border border-border bg-surface p-4 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="page-outline" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Eye className="h-4 w-4 text-accent" aria-hidden />
+          Preview: the home page, top to bottom
+        </h2>
+        <span className="text-xs text-muted">
+          {shown.length} of {sections.length} sections shown
+        </span>
+      </div>
+      <ol className="mt-3 flex flex-wrap gap-1.5" aria-label="Sections visitors see, in order">
+        {shown.length === 0 && <li className="text-xs text-subtle">Nothing is shown — every section is off.</li>}
+        {shown.map((s, i) => (
+          <li key={s.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-foreground-soft">
+            <span className="tabular-nums text-subtle">{i + 1}</span>
+            {s.title}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

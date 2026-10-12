@@ -21,7 +21,8 @@ export function AdminBreadcrumbs({ area = 'admin' }: { area?: 'admin' | 'user' }
         {crumbs.map((crumb, i) => {
           const last = i === crumbs.length - 1;
           return (
-            <li key={crumb.href} className="flex min-w-0 items-center gap-1">
+            // Position + address: two crumbs can share an address (Library › Dashboard are both /dashboard).
+            <li key={`${i}:${crumb.href}`} className="flex min-w-0 items-center gap-1">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-subtle" aria-hidden />}
               {last ? (
                 <span aria-current="page" className="truncate rounded-md px-1.5 py-1 font-semibold text-foreground">

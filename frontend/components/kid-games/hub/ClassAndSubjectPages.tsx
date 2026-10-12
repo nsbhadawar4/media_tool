@@ -173,7 +173,8 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
   if (!level || !subject || !classView.isCode || !subjectView.isCode) return <GenericSubjectPage classView={classView} subject={subjectView} />;
   const info = SUBJECT_INFO[subject];
   const summary = summarise(progress, level, subject);
-  const next = nextInSubject(progress, level, subject);
+  // From the games the catalog lists — never a game an administrator switched off.
+  const next = nextInSubject(progress, level, subject, games);
 
   return (
     <div style={subjectStyle(subject)} className="space-y-6">
@@ -202,13 +203,15 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
                 </span>
               </div>
               <KidProgressBar value={summary.percent} label={`${info.name} progress`} size="lg" />
-              <Link href={gameHref(next)} className="kg-btn mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold">
-                <Gamepad2 aria-hidden className="h-4 w-4" />
-                <span className="truncate">
-                  {summary.completed === 0 ? 'Start' : summary.completed === summary.total ? 'Play again' : 'Next up'}:{' '}
-                  <span lang={subject === 'hindi' ? 'hi' : 'en'}>{next.title}</span>
-                </span>
-              </Link>
+              {next && (
+                <Link href={gameHref(next)} className="kg-btn mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold">
+                  <Gamepad2 aria-hidden className="h-4 w-4" />
+                  <span className="truncate">
+                    {summary.completed === 0 ? 'Start' : summary.completed === summary.total ? 'Play again' : 'Next up'}:{' '}
+                    <span lang={subject === 'hindi' ? 'hi' : 'en'}>{next.title}</span>
+                  </span>
+                </Link>
+              )}
             </div>
           </div>
           <div className="relative mt-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">

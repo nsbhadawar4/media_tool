@@ -9,7 +9,7 @@ import { GAMES } from '../../components/games/games';
  * Relative imports only: this file is also run by the export script outside Next.js.
  */
 
-export type ContentType = 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game';
+export type ContentType = 'section' | 'class' | 'subject' | 'class_subject' | 'kid_game' | 'game' | 'dashboard_widget' | 'nav_item';
 
 export interface ManifestEntry {
   type: ContentType;
@@ -20,6 +20,8 @@ export interface ManifestEntry {
   classLevel?: number;
   subject?: string;
   isVisible?: boolean;
+  /** Seeded with the home page opt-in off (Games and Kid Games sections). */
+  showOnLanding?: boolean;
   /** Kid Games: fixed by the game's content in code. */
   difficulty?: 'easy' | 'medium' | 'hard';
   gameType?: string;
@@ -39,6 +41,7 @@ interface SectionSeed {
    */
   order: number;
   isVisible?: boolean;
+  showOnLanding?: boolean;
 }
 
 /** The public home page's sections, in page order. */
@@ -48,8 +51,9 @@ export const HOME_SECTIONS: ReadonlyArray<SectionSeed> = [
   { key: 'features', title: 'Features', description: 'What media_tool does, at a glance.', order: 2 },
   { key: 'media', title: 'Media library', description: 'Photos and videos section.', order: 3 },
   { key: 'documents', title: 'Documents', description: 'Documents and in-app previews.', order: 4 },
-  { key: 'games', title: 'Games', description: 'The games collection.', order: 5 },
-  { key: 'kid-games', title: 'Kid Games', description: 'Learning games for Classes 1–5.', order: 6 },
+  // Feature sections: ON opens the feature in the app; the home page block is a separate opt-in.
+  { key: 'games', title: 'Games', description: 'The games collection.', order: 5, showOnLanding: false },
+  { key: 'kid-games', title: 'Kid Games', description: 'Learning games for Classes 1–5.', order: 6, showOnLanding: false },
   { key: 'how-it-works', title: 'How it works', description: 'Three steps from sign-up to your library.', order: 6.4 },
   { key: 'security', title: 'Security & privacy', description: 'How accounts and files are kept private.', order: 6.7 },
   { key: 'reviews', title: 'Reviews', description: 'Approved public reviews.', order: 7 },
@@ -62,6 +66,40 @@ export const HOME_SECTIONS: ReadonlyArray<SectionSeed> = [
 /** Public sections that aren't a home page block: pages of their own, linked from the site. */
 export const SITE_SECTIONS: ReadonlyArray<SectionSeed> = [
   { key: 'contact', title: 'Contact', description: 'The Contact page: support email and help links.', order: 11 },
+  { key: 'footer', title: 'Footer', description: 'Product, account and company links at the bottom of every public page.', order: 12 },
+];
+
+/**
+ * The signed-in dashboard's blocks, in their default order. The dashboard renders the enabled ones
+ * in the administrator's order (/admin/content/dashboard); each key is a component in
+ * app/(protected)/dashboard/page.tsx.
+ */
+export const DASHBOARD_WIDGETS: ReadonlyArray<{ key: string; title: string; description: string }> = [
+  { key: 'welcome', title: 'Welcome', description: 'Greeting with the upload and new-folder buttons.' },
+  { key: 'stats', title: 'Statistics', description: 'Totals for files, photos, videos and documents.' },
+  { key: 'quick-actions', title: 'Quick actions', description: 'Shortcuts: browse, upload, create a folder, games.' },
+  { key: 'recent-files', title: 'Recent files', description: 'The latest uploads, with previews.' },
+  { key: 'recent-activity', title: 'Recent activity', description: 'What happened in the library lately.' },
+  { key: 'storage', title: 'Storage', description: 'Space used, by kind of file.' },
+  { key: 'games', title: 'Games', description: 'Tiles for every listed game (needs the Games feature on).' },
+  { key: 'kid-games', title: 'Kid Games', description: 'Class progress and Continue Learning (needs the Kid Games feature on).' },
+  { key: 'recent-folders', title: 'Recent folders', description: 'The newest top-level folders.' },
+];
+
+/**
+ * The public header's links and buttons, in their default order. Where each goes is fixed by code
+ * (components/marketing/nav.ts) — an administrator switches, orders and relabels them, but can
+ * never point one at an arbitrary address.
+ */
+export const NAV_ITEMS: ReadonlyArray<{ key: string; title: string; description: string }> = [
+  { key: 'home', title: 'Home', description: 'Top of the home page.' },
+  { key: 'features', title: 'Features', description: 'The Features section (needs it on).' },
+  { key: 'games', title: 'Games', description: 'The Games page — through sign-in for visitors (needs Games on).' },
+  { key: 'kid-games', title: 'Kid Games', description: 'The Kid Games page — through sign-in for visitors (needs Kid Games on).' },
+  { key: 'faq', title: 'FAQ', description: 'The FAQ section (needs it on).' },
+  { key: 'pricing', title: 'Pricing', description: 'The Pricing section (needs it on).' },
+  { key: 'login', title: 'Login', description: 'Header button: the sign-in page.' },
+  { key: 'get-started', title: 'Get Started', description: 'Header button: the sign-up page.' },
 ];
 
 export function buildCatalogSeed(): ManifestEntry[] {
@@ -72,6 +110,7 @@ export function buildCatalogSeed(): ManifestEntry[] {
     description: s.description,
     order: s.order,
     ...(s.isVisible === false ? { isVisible: false } : {}),
+    ...(s.showOnLanding === false ? { showOnLanding: false } : {}),
   }));
   const classes = CLASS_LEVELS.map((level): ManifestEntry => ({
     type: 'class',
@@ -118,7 +157,9 @@ export function buildCatalogSeed(): ManifestEntry[] {
     description: game.description,
     order: i + 1,
   }));
-  return [...sections, ...classes, ...subjects, ...classSubjects, ...kidGames, ...games];
+  const widgets = DASHBOARD_WIDGETS.map((w, i): ManifestEntry => ({ type: 'dashboard_widget', key: w.key, title: w.title, description: w.description, order: i + 1 }));
+  const nav = NAV_ITEMS.map((n, i): ManifestEntry => ({ type: 'nav_item', key: n.key, title: n.title, description: n.description, order: i + 1 }));
+  return [...sections, ...classes, ...subjects, ...classSubjects, ...kidGames, ...games, ...widgets, ...nav];
 }
 
 /** "type:key" for every entry the code implements. */

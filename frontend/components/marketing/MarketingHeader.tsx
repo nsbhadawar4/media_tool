@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { Lock, Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import { LOGIN_PATH } from '@/lib/auth/routes';
 import { cn } from '@/utils/cn';
 import type { MarketingLink } from './nav';
 
 /**
- * The public site's header: sticky, glassy once the page has scrolled, with a full-width
- * menu below `lg`. `nav` holds only the sections that are switched on (MarketingShell).
+ * The public site's header: sticky, solid once the page has scrolled, with a full-screen
+ * menu below `lg`. `nav` holds only the sections that are switched on, with Games and Kid Games
+ * pointing where this viewer can go (MarketingShell, navForViewer).
  */
-export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
+export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[]; buttons: readonly MarketingLink[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -35,6 +35,34 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
       window.removeEventListener('keydown', onKey);
     };
   }, [isOpen]);
+
+  /**
+   * Opening (or refreshing) a page at /#section. The browser jumps there as soon as the HTML is
+   * in, but blocks that load afterwards — the reviews — grow above the later sections and push
+   * them down, so it lands short. Keep the target aligned while the page settles, and stop the
+   * moment the visitor scrolls, taps or types themselves.
+   */
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    const target = id ? document.getElementById(id) : null;
+    if (!target) return;
+    // 'instant': the page's smooth scrolling is for clicks, not for arriving at an address.
+    const align = () => target.scrollIntoView({ behavior: 'instant', block: 'start' });
+    align();
+    const observer = new ResizeObserver(align);
+    observer.observe(document.getElementById('main-content') ?? document.body);
+    const events = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const;
+    const stop = () => {
+      observer.disconnect();
+      events.forEach((e) => window.removeEventListener(e, stop));
+    };
+    events.forEach((e) => window.addEventListener(e, stop, { passive: true }));
+    const timer = window.setTimeout(stop, 3000);
+    return () => {
+      window.clearTimeout(timer);
+      stop();
+    };
+  }, []);
 
   // The section in view lights up its link. Only on the home page, where the sections are.
   const [active, setActive] = useState<string | null>(null);
@@ -90,9 +118,13 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
   return (
     <header
       className={cn(
-        'mk-safe-top sticky top-0 z-50 border-b transition-[background-color,border-color,backdrop-filter] duration-300',
+        'mk-safe-top sticky top-0 z-50 border-b transition-[background-color,border-color,box-shadow] duration-300',
+        // Solid once the page moves (or the menu is open): any transparency let the headline
+        // and images scrolling underneath show through and read as content over the header.
+        // No backdrop-filter either — it would make the header the containing block of the
+        // full-screen mobile menu below, which is position: fixed.
         isScrolled || isOpen
-          ? 'border-border bg-background/80 backdrop-blur-xl'
+          ? 'border-border bg-background shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]'
           : 'border-transparent bg-transparent',
       )}
     >
@@ -108,6 +140,7 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
             <Link
               key={item.href}
               href={item.href}
+              title={item.signIn ? `Sign in to open ${item.label}` : undefined}
               aria-current={isActive(item.href) ? 'location' : undefined}
               className={cn(
                 'relative rounded-full px-3.5 py-1.5 text-[13px] font-medium text-foreground-soft transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
@@ -115,23 +148,26 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
               )}
             >
               {item.label}
+              {item.signIn && <SignInMark />}
             </Link>
           ))}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href={LOGIN_PATH}
-            className="hidden rounded-lg px-3 py-2 text-[13px] font-medium text-foreground-soft transition-colors hover:text-foreground sm:inline-flex"
-          >
-            Login
-          </Link>
-          <Link
-            href="/signup"
-            className="btn-primary mk-sheen hidden items-center rounded-xl px-4 py-2 text-[13px] font-semibold text-accent-foreground sm:inline-flex"
-          >
-            Get Started
-          </Link>
+          {/* Login and Get Started, as administrators switched, ordered and labelled them. */}
+          {buttons.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={
+                item.key === 'get-started'
+                  ? 'btn-primary mk-sheen hidden items-center whitespace-nowrap rounded-xl px-4 py-2 text-[13px] font-semibold text-accent-foreground sm:inline-flex'
+                  : 'hidden whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium text-foreground-soft transition-colors hover:text-foreground sm:inline-flex'
+              }
+            >
+              {item.label}
+            </Link>
+          ))}
           <button
             type="button"
             onClick={() => setIsOpen((open) => !open)}
@@ -146,37 +182,55 @@ export function MarketingHeader({ nav }: { nav: readonly MarketingLink[] }) {
       </div>
 
       {isOpen && (
-        <div id="mk-mobile-menu" className="animate-fade-in border-t border-border lg:hidden">
-          <nav aria-label="Mobile" className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
+        // The whole screen below the header, on a solid background: no page content shows
+        // around or behind the open menu. Scrolls on its own if a short screen needs it.
+        <div
+          id="mk-mobile-menu"
+          className="animate-fade-in fixed inset-x-0 bottom-0 top-[calc(4rem+1px+env(safe-area-inset-top,0px))] z-50 overflow-y-auto overscroll-contain border-t border-border bg-background lg:hidden"
+        >
+          <nav aria-label="Mobile" className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-6">
             {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={close}
-                className="rounded-xl px-3 py-3 text-[15px] font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
+                className="flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.signIn && <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-normal text-subtle"><Lock className="h-3.5 w-3.5" aria-hidden />Sign in to play</span>}
               </Link>
             ))}
-            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-4">
-              <Link
-                href={LOGIN_PATH}
-                onClick={close}
-                className="inline-flex items-center justify-center rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-foreground"
-              >
-                Login
-              </Link>
-              <Link
-                href="/signup"
-                onClick={close}
-                className="btn-primary inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-accent-foreground"
-              >
-                Get Started
-              </Link>
-            </div>
+            {buttons.length > 0 && (
+              <div className={cn('mt-3 grid gap-2 border-t border-border pt-4', buttons.length > 1 && 'grid-cols-2')}>
+                {buttons.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    onClick={close}
+                    className={
+                      item.key === 'get-started'
+                        ? 'btn-primary inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold text-accent-foreground'
+                        : 'inline-flex items-center justify-center rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold text-foreground'
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </nav>
         </div>
       )}
     </header>
+  );
+}
+
+/** A small lock after a link that goes through sign-in first; the label says so to screen readers. */
+function SignInMark() {
+  return (
+    <>
+      <Lock className="ml-1 inline h-3 w-3 -translate-y-px text-subtle" aria-hidden />
+      <span className="sr-only"> (sign in required)</span>
+    </>
   );
 }

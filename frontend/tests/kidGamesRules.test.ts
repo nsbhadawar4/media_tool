@@ -32,3 +32,20 @@ test('levels need 200 XP, then 100 more each time', () => {
   assert.deepEqual(levelFor(250), { level: 2, current: 50, needed: 300 });
   assert.deepEqual(levelFor(500), { level: 3, current: 0, needed: 400 });
 });
+
+test('"Next up" offers only a game the catalog lists, in the administrator\'s order', async () => {
+  const { nextInSubject } = await import('../lib/kid-games/progress');
+  const { ALL_GAMES } = await import('../lib/kid-games/catalog');
+  const englishClass1 = ALL_GAMES.filter((g) => g.classLevel === 1 && g.subject === 'english');
+  const none = { games: {} };
+  // Everything listed: the first game.
+  assert.equal(nextInSubject(none, 1, 'english', englishClass1)?.id, englishClass1[0].id);
+  // The first game switched off by an administrator: never offered.
+  assert.equal(nextInSubject(none, 1, 'english', englishClass1.slice(1))?.id, englishClass1[1].id);
+  // Reordered: the administrator's first game leads.
+  const reordered = [englishClass1[1], englishClass1[0], ...englishClass1.slice(2)];
+  assert.equal(nextInSubject(none, 1, 'english', reordered)?.id, englishClass1[1].id);
+  // Completed games are skipped; with all of them switched off there is nothing to offer.
+  assert.equal(nextInSubject({ games: { [englishClass1[0].id]: { completed: true } } } as never, 1, 'english', englishClass1)?.id, englishClass1[1].id);
+  assert.equal(nextInSubject(none, 1, 'english', []), undefined);
+});

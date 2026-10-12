@@ -6,11 +6,10 @@ import { Logo } from '@/components/brand/Logo';
 import { ADMIN_HOME_PATH, LOGIN_PATH, USER_HOME_PATH, roleHintFromToken } from '@/lib/auth/routes';
 import { MarketingHeader } from './MarketingHeader';
 import { getServerCatalog } from '@/lib/server/contentCatalog';
-import { LEGAL_LINKS, MARKETING_NAV, linksFor, type MarketingLink } from './nav';
+import { LEGAL_LINKS, linksFor, navForViewer, navItemsFor, type MarketingLink, type Viewer } from './nav';
+import { isSectionOn } from '@/lib/content/sections';
 
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
-
-type Viewer = 'visitor' | 'user' | 'admin';
 
 /**
  * The footer's Account links for who is looking. Only a display choice, read from the session
@@ -59,7 +58,7 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
           <nav aria-label="Footer: product">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-subtle">Product</p>
             <ul className="mt-4 space-y-2.5">
-              {nav.filter((item) => item.label !== 'Home').map((item) => (
+              {nav.filter((item) => item.key !== 'home').map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="text-sm text-foreground-soft transition hover:text-foreground">
                     {item.label}
@@ -111,6 +110,24 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
   );
 }
 
+/** The copyright and legal links alone, while the Footer section is off. */
+function LegalLine({ legal }: { legal: typeof LEGAL_LINKS }) {
+  return (
+    <footer className="border-t border-border px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 text-xs text-subtle sm:flex-row">
+        <p>© {new Date().getFullYear()} media_tool. All rights reserved.</p>
+        <ul className="flex items-center gap-5">
+          {legal.map((item) => (
+            <li key={item.href}>
+              <Link href={item.href} className="transition hover:text-foreground">{item.label}</Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </footer>
+  );
+}
+
 /**
  * Frame for every public page: header, content, footer. `mk-root` turns on smooth in-page
  * scrolling (see globals.css) for these pages only, leaving the app's own scrolling alone.
@@ -120,13 +137,22 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
  */
 export async function MarketingShell({ children }: { children: ReactNode }) {
   const catalog = await getServerCatalog();
-  const nav = linksFor(MARKETING_NAV, catalog);
   const viewer = await currentViewer();
+  // Switched-off sections lose their links; Games and Kid Games point where this viewer can go.
+  const items = navForViewer(linksFor(navItemsFor(catalog), catalog), viewer);
+  const nav = items.filter((item) => !item.button);
+  const buttons = items.filter((item) => item.button);
   return (
     <div className="mk-root relative min-h-screen overflow-x-clip bg-background">
-      <MarketingHeader nav={nav} />
+      <MarketingHeader nav={nav} buttons={buttons} />
       <main id="main-content">{children}</main>
-      <MarketingFooter nav={nav} legal={linksFor(LEGAL_LINKS, catalog)} viewer={viewer} />
+      {/* The Footer section switch (/admin/content/sections) drops the link columns only:
+          Privacy and Terms must stay reachable from every public page. */}
+      {isSectionOn(catalog, 'footer') ? (
+        <MarketingFooter nav={nav} legal={linksFor(LEGAL_LINKS, catalog)} viewer={viewer} />
+      ) : (
+        <LegalLine legal={linksFor(LEGAL_LINKS, catalog)} />
+      )}
     </div>
   );
 }

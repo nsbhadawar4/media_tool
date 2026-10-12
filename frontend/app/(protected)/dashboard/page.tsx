@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { AdminOnlyNotice } from '@/components/auth/AdminOnlyNotice';
+import { MediaThumbnail } from '@/components/media/MediaThumbnail';
 import { useQuery } from '@tanstack/react-query';
-import { Suspense, type CSSProperties } from 'react';
+import { Suspense, type CSSProperties, type ReactNode } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -32,6 +33,7 @@ import { FolderGrid, FolderGridSkeleton } from '@/components/folders/FolderGrid'
 import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { FadeUp } from '@/components/ui/motion';
 import { KidGamesDashboardCard } from '@/components/kid-games/KidGamesDashboardCard';
+import { GamesDashboardCard } from '@/components/games/GamesDashboardCard';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
@@ -94,6 +96,9 @@ export default function DashboardPage() {
   const firstName = user?.name.trim().split(/\s+/)[0];
   // Games and Kid Games come and go with their website sections (/admin/content/sections).
   const catalog = useContentCatalog();
+  // The dashboard's blocks, in the administrator's order (enabled ones only).
+  const widgets = catalog.dashboardWidgets;
+  const showGames = catalog.arcadeGames.length > 0;
 
   const quickActions: QuickAction[] = [
     { label: 'Browse media', hint: 'Photos & videos', icon: ImageIcon, color: '#38bdf8', href: '/media' },
@@ -104,14 +109,14 @@ export default function DashboardPage() {
     ...(catalog.isSectionOn('kid-games') ? [{ label: 'Kid Games', hint: 'Learn with Classes 1–5', icon: GraduationCap, color: '#fbbf24', href: '/kid-games' }] : []),
   ];
 
-  return (
-    <div className="min-w-0">
-      {/* Shown only after a visit to /admin by a signed-in non-admin (see the admin layout). */}
-      <Suspense fallback={null}>
-        <AdminOnlyNotice />
-      </Suspense>
-      {/* Welcome */}
-      <section className="gradient-border relative mb-6 overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-card sm:mb-8 sm:p-8">
+  /**
+   * Every block of the dashboard, by its widget key (/admin/content/dashboard). Only the enabled
+   * ones render, in the administrator's order — see catalog.dashboardWidgets, which also leaves
+   * Games and Kid Games out while their feature is off.
+   */
+  const blocks: Record<string, ReactNode> = {
+    welcome: (
+      <section className="gradient-border relative overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-card sm:p-8">
         {/* Aurora wash: two soft accent blobs, static, clipped to the card. */}
         <div
           aria-hidden
@@ -137,215 +142,195 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
-
-      {/* A paid plan chosen at onboarding stays pending until real payment exists — say so plainly. */}
-      {user?.plan && user.subscriptionStatus === 'pending' && (
-        <div role="status" className="mb-6 flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5 text-sm sm:mb-8">
-          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-warning" aria-hidden />
-          <p className="text-foreground-soft">
-            <span className="font-semibold text-foreground">Your {planInfo(user.plan).name} plan ({formatPrice(planInfo(user.plan).price)}/month) is waiting for payment.</span>{' '}
-            Online payments aren’t available yet, so nothing has been charged — you have full access to the Free plan until then.
-          </p>
-        </div>
-      )}
-
-      {/* Library at a glance */}
-      {statsQuery.isError ? (
-        <ErrorState error={statsQuery.error} onRetry={() => statsQuery.refetch()} subject="your library stats" />
-      ) : (
-        <div
-          className={cn(
-            'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6',
-            // Only once the real figures arrive: fading the skeleton in as well would
-            // just delay the thing being waited for.
-            !statsQuery.isLoading && stats && 'app-content-enter',
-          )}
-        >
-          {statsQuery.isLoading || !stats ? (
-            Array.from({ length: 6 }).map((_, index) => <StatCardSkeleton key={index} />)
-          ) : (
-            <>
-              <StatCard
-                index={0}
-                icon={Layers}
-                label="Total files"
-                value={(stats.data.totalImages + stats.data.totalVideos + stats.data.totalDocuments).toLocaleString()}
-                hint="Across your library"
-              />
-              <StatCard index={1} icon={ImageIcon} label="Images" value={stats.data.totalImages.toLocaleString()} hint="Photos & graphics" color="#38bdf8" />
-              <StatCard index={2} icon={Video} label="Videos" value={stats.data.totalVideos.toLocaleString()} hint="Clips & recordings" color="#fbbf24" />
-              <StatCard index={3} icon={FileText} label="Documents" value={stats.data.totalDocuments.toLocaleString()} hint="PDF, Word, Excel, text" color="#34d399" />
-              <StatCard index={4} icon={FolderClosed} label="Folders" value={stats.data.totalFolders.toLocaleString()} hint="Top-level & nested" color="var(--accent-2)" />
-              <StatCard
-                index={5}
-                icon={HardDrive}
-                label="Storage used"
-                value={formatBytes(stats.data.storageUsedBytes)}
-                hint={stats.data.trashItems > 0 ? `${stats.data.trashItems} in trash` : 'Trash is empty'}
-                color="var(--accent)"
-              />
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Quick actions */}
-      <FadeUp index={6} className="mt-6 sm:mt-8">
-        <section aria-labelledby="quick-actions-title">
-          <h2 id="quick-actions-title" className="mb-3 text-base font-semibold tracking-tight text-foreground">
-            Quick actions
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
-            {quickActions.map((action) => (
-              <QuickActionTile key={action.label} action={action} />
-            ))}
-          </div>
-        </section>
-      </FadeUp>
-
-      {/* Recent files + recent activity */}
-      <FadeUp index={7} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 xl:grid-cols-3">
-        <Card className="min-w-0 xl:col-span-2">
-          <CardHeader className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">Recent files</h2>
-            <Link href="/media" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-              View all
-            </Link>
-          </CardHeader>
-          <CardBody>
-            {recentQuery.isError ? (
-              <InlineErrorState error={recentQuery.error} onRetry={() => recentQuery.refetch()} subject="recent files" />
-            ) : recentQuery.isLoading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {Array.from({ length: RECENT_FILE_COUNT }).map((_, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="aspect-square animate-pulse rounded-xl bg-surface-hover" />
-                    <div className="h-3 w-3/4 animate-pulse rounded bg-surface-hover" />
-                  </div>
-                ))}
-              </div>
-            ) : recentFiles.length === 0 ? (
-              <EmptyState
-                icon={Upload}
-                title="No files yet"
-                description="Upload photos, videos or documents and your newest ones will appear here."
-                action={
-                  <Button onClick={() => requestUpload(null)}>
-                    <Upload className="h-4 w-4" />
-                    Upload files
-                  </Button>
-                }
-              />
-            ) : (
-              <ul className="app-content-enter grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {recentFiles.map((media) => {
-                  const Icon = iconForFileType(media.fileType, media.mimeType);
-                  // Same colour the file's card carries in the gallery, so a tile does not
-                  // change identity between here and there.
-                  const iconTone = toneForMedia(media.fileType, media.mimeType).icon;
-                  return (
-                    <li key={media.id} className="min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => viewer.openAt(media.id)}
-                        aria-label={`Preview ${media.originalName}`}
-                        className="group block w-full min-w-0 text-left"
-                      >
-                        <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-hover transition duration-200 group-hover:border-border-strong group-hover:shadow-lift">
-                          {media.fileType === 'image' ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={media.thumbnailUrl ?? media.viewUrl}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.06]"
-                            />
-                          ) : (
-                            <Icon className={cn('h-8 w-8', iconTone)} />
-                          )}
-                          {media.fileType === 'video' && (
-                            <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
-                              Video
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-2 block truncate text-xs font-medium text-foreground" title={media.originalName}>
-                          {media.originalName}
-                        </span>
-                        <span className="block truncate text-[11px] text-muted">
-                          {formatBytes(media.size)} · {formatRelativeTime(media.createdAt)}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+    ),
+    stats: (
+      <>
+        {statsQuery.isError ? (
+          <ErrorState error={statsQuery.error} onRetry={() => statsQuery.refetch()} subject="your library stats" />
+        ) : (
+          <div
+            className={cn(
+              'grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6',
+              // Only once the real figures arrive: fading the skeleton in as well would
+              // just delay the thing being waited for.
+              !statsQuery.isLoading && stats && 'app-content-enter',
             )}
-          </CardBody>
-        </Card>
-
-        <Card className="flex min-w-0 flex-col">
-          <CardHeader className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">Recent activity</h2>
-            <Link href="/activity" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-              View all
-            </Link>
-          </CardHeader>
-          {/* padded={false} rather than a p-0 override — see CardBody for why. */}
-          <CardBody padded={false} className="max-h-[28rem] min-h-0 flex-1 overflow-y-auto">
-            {recentQuery.isError ? (
-              <InlineErrorState error={recentQuery.error} onRetry={() => recentQuery.refetch()} subject="activity" />
-            ) : recentQuery.isLoading ? (
-              <div className="space-y-3 p-5">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="h-7 w-7 shrink-0 animate-pulse rounded-lg bg-surface-hover" />
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <div className="h-3 w-3/4 animate-pulse rounded bg-surface-hover" />
-                      <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface-hover" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : recentActivity.length === 0 ? (
-              <div className="p-5">
-                <EmptyState icon={Activity} title="No activity yet" />
-              </div>
+          >
+            {statsQuery.isLoading || !stats ? (
+              Array.from({ length: 6 }).map((_, index) => <StatCardSkeleton key={index} />)
             ) : (
-              recentActivity.map((log) => (
-                <div key={log._id} className="app-content-enter flex items-start gap-3 border-b border-border px-5 py-3 last:border-b-0">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                    <ActivityIcon action={log.action} className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="wrap-break-word text-xs font-medium text-foreground">{log.message}</p>
-                    <p className="mt-0.5 text-[11px] text-muted">{formatRelativeTime(log.createdAt)}</p>
+              <>
+                <StatCard
+                  index={0}
+                  icon={Layers}
+                  label="Total files"
+                  value={(stats.data.totalImages + stats.data.totalVideos + stats.data.totalDocuments).toLocaleString()}
+                  hint="Across your library"
+                />
+                <StatCard index={1} icon={ImageIcon} label="Images" value={stats.data.totalImages.toLocaleString()} hint="Photos & graphics" color="#38bdf8" />
+                <StatCard index={2} icon={Video} label="Videos" value={stats.data.totalVideos.toLocaleString()} hint="Clips & recordings" color="#fbbf24" />
+                <StatCard index={3} icon={FileText} label="Documents" value={stats.data.totalDocuments.toLocaleString()} hint="PDF, Word, Excel, text" color="#34d399" />
+                <StatCard index={4} icon={FolderClosed} label="Folders" value={stats.data.totalFolders.toLocaleString()} hint="Top-level & nested" color="var(--accent-2)" />
+                <StatCard
+                  index={5}
+                  icon={HardDrive}
+                  label="Storage used"
+                  value={formatBytes(stats.data.storageUsedBytes)}
+                  hint={stats.data.trashItems > 0 ? `${stats.data.trashItems} in trash` : 'Trash is empty'}
+                  color="var(--accent)"
+                />
+              </>
+            )}
+          </div>
+        )}
+      </>
+    ),
+    'quick-actions': (
+      <section aria-labelledby="quick-actions-title">
+        <h2 id="quick-actions-title" className="mb-3 text-base font-semibold tracking-tight text-foreground">
+          Quick actions
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+          {quickActions.map((action) => (
+            <QuickActionTile key={action.label} action={action} />
+          ))}
+        </div>
+      </section>
+    ),
+    'recent-files': (
+      <Card className="min-w-0 xl:col-span-2">
+        <CardHeader className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Recent files</h2>
+          <Link href="/media" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            View all
+          </Link>
+        </CardHeader>
+        <CardBody>
+          {recentQuery.isError ? (
+            <InlineErrorState error={recentQuery.error} onRetry={() => recentQuery.refetch()} subject="recent files" />
+          ) : recentQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {Array.from({ length: RECENT_FILE_COUNT }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="aspect-square animate-pulse rounded-xl bg-surface-hover" />
+                  <div className="h-3 w-3/4 animate-pulse rounded bg-surface-hover" />
+                </div>
+              ))}
+            </div>
+          ) : recentFiles.length === 0 ? (
+            <EmptyState
+              icon={Upload}
+              title="No files yet"
+              description="Upload photos, videos or documents and your newest ones will appear here."
+              action={
+                <Button onClick={() => requestUpload(null)}>
+                  <Upload className="h-4 w-4" />
+                  Upload files
+                </Button>
+              }
+            />
+          ) : (
+            <ul className="app-content-enter grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {recentFiles.map((media) => {
+                const Icon = iconForFileType(media.fileType, media.mimeType);
+                // Same colour the file's card carries in the gallery, so a tile does not
+                // change identity between here and there.
+                const iconTone = toneForMedia(media.fileType, media.mimeType).icon;
+                return (
+                  <li key={media.id} className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => viewer.openAt(media.id)}
+                      aria-label={`Preview ${media.originalName}`}
+                      className="group block w-full min-w-0 text-left"
+                    >
+                      <span className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-hover transition duration-200 group-hover:border-border-strong group-hover:shadow-lift">
+                        {media.fileType === 'image' ? (
+                          // The shared thumbnail: a placeholder rather than a broken-image icon if
+                          // the picture can't be loaded.
+                          <MediaThumbnail media={media} className="transition-transform duration-200 group-hover:scale-[1.06]" />
+                        ) : (
+                          <Icon className={cn('h-8 w-8', iconTone)} />
+                        )}
+                        {media.fileType === 'video' && (
+                          <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+                            Video
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-2 block truncate text-xs font-medium text-foreground" title={media.originalName}>
+                        {media.originalName}
+                      </span>
+                      <span className="block truncate text-[11px] text-muted">
+                        {formatBytes(media.size)} · {formatRelativeTime(media.createdAt)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
+    ),
+    'recent-activity': (
+      <Card className="flex min-w-0 flex-col">
+        <CardHeader className="flex items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight text-foreground">Recent activity</h2>
+          <Link href="/activity" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            View all
+          </Link>
+        </CardHeader>
+        {/* padded={false} rather than a p-0 override — see CardBody for why. */}
+        <CardBody padded={false} className="max-h-[28rem] min-h-0 flex-1 overflow-y-auto">
+          {recentQuery.isError ? (
+            <InlineErrorState error={recentQuery.error} onRetry={() => recentQuery.refetch()} subject="activity" />
+          ) : recentQuery.isLoading ? (
+            <div className="space-y-3 p-5">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="h-7 w-7 shrink-0 animate-pulse rounded-lg bg-surface-hover" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-3 w-3/4 animate-pulse rounded bg-surface-hover" />
+                    <div className="h-2.5 w-1/3 animate-pulse rounded bg-surface-hover" />
                   </div>
                 </div>
-              ))
-            )}
-          </CardBody>
-        </Card>
-      </FadeUp>
-
-      {/* Storage + Kid Games. Side by side only from 2xl: the Kid Games card lays its subjects
-          out in a row, which needs more than half the content width at xl. */}
-      {stats && (
-        <FadeUp index={8} className="mt-6 grid grid-cols-1 gap-4 sm:mt-8 sm:gap-6 2xl:grid-cols-2">
-          <StorageOverview
-            usedBytes={stats.data.storageUsedBytes}
-            images={stats.data.totalImages}
-            videos={stats.data.totalVideos}
-            documents={stats.data.totalDocuments}
-            trashItems={stats.data.trashItems}
-          />
-          {catalog.isSectionOn('kid-games') && <KidGamesDashboardCard />}
-        </FadeUp>
-      )}
-
-      {/* Recent folders */}
-      <FadeUp as="section" index={9} className="mt-6 sm:mt-8">
+              ))}
+            </div>
+          ) : recentActivity.length === 0 ? (
+            <div className="p-5">
+              <EmptyState icon={Activity} title="No activity yet" />
+            </div>
+          ) : (
+            recentActivity.map((log) => (
+              <div key={log._id} className="app-content-enter flex items-start gap-3 border-b border-border px-5 py-3 last:border-b-0">
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <ActivityIcon action={log.action} className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="wrap-break-word text-xs font-medium text-foreground">{log.message}</p>
+                  <p className="mt-0.5 text-[11px] text-muted">{formatRelativeTime(log.createdAt)}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </CardBody>
+      </Card>
+    ),
+    storage: stats ? (
+      <StorageOverview
+        usedBytes={stats.data.storageUsedBytes}
+        images={stats.data.totalImages}
+        videos={stats.data.totalVideos}
+        documents={stats.data.totalDocuments}
+        trashItems={stats.data.trashItems}
+      />
+    ) : null,
+    // The games an administrator lists for the app (dashboard visibility), featured first.
+    games: showGames ? <GamesDashboardCard games={catalog.arcadeGames} featured={catalog.isArcadeFeatured} /> : null,
+    'kid-games': <KidGamesDashboardCard />,
+    'recent-folders': (
+      <section aria-label="Recent folders">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold tracking-tight text-foreground">Recent folders</h2>
           <Link href="/folders" className="inline-flex min-h-10 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline lg:min-h-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
@@ -373,7 +358,54 @@ export default function DashboardPage() {
             }
           />
         )}
-      </FadeUp>
+      </section>
+    ),
+  };
+
+  // Recent files and recent activity share a row when they sit next to each other.
+  const rows: string[][] = [];
+  for (const key of widgets) {
+    if (!(key in blocks) || blocks[key] === null) continue;
+    const last = rows[rows.length - 1];
+    const pair = last?.length === 1 && ((last[0] === 'recent-files' && key === 'recent-activity') || (last[0] === 'recent-activity' && key === 'recent-files'));
+    if (pair) last.push(key);
+    else rows.push([key]);
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-6 sm:gap-8">
+      {/* Shown only after a visit to /admin by a signed-in non-admin (see the admin layout). */}
+      <Suspense fallback={null}>
+        <AdminOnlyNotice />
+      </Suspense>
+      {/* The page keeps its heading when the Welcome block (which holds it) is switched off. */}
+      {!widgets.includes('welcome') && <h1 className="sr-only">Dashboard</h1>}
+
+      {/* A paid plan chosen at onboarding stays pending until real payment exists — say so plainly. */}
+      {user?.plan && user.subscriptionStatus === 'pending' && (
+        <div role="status" className="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3.5 text-sm">
+          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-warning" aria-hidden />
+          <p className="text-foreground-soft">
+            <span className="font-semibold text-foreground">Your {planInfo(user.plan).name} plan ({formatPrice(planInfo(user.plan).price)}/month) is waiting for payment.</span>{' '}
+            Online payments aren’t available yet, so nothing has been charged — you have full access to the Free plan until then.
+          </p>
+        </div>
+      )}
+
+      {rows.map((row, index) =>
+        row.length === 2 ? (
+          <FadeUp key={row.join('+')} index={index} className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+            {/* Files take two columns wherever they sit in the pair. */}
+            {row.map((key) => (key === 'recent-files' ? <div key={key} className="min-w-0 xl:col-span-2 xl:[&>*]:h-full">{blocks[key]}</div> : <div key={key} className="min-w-0 xl:[&>*]:h-full">{blocks[key]}</div>))}
+          </FadeUp>
+        ) : (
+          <FadeUp key={row[0]} index={index}>
+            {blocks[row[0]]}
+          </FadeUp>
+        ),
+      )}
+
+      {widgets.length === 0 && <EmptyState icon={Layers} title="Nothing to show here yet" description="Your dashboard has no blocks switched on. Your files are still in Media, Documents and Folders." />}
 
       <MediaViewerModals viewer={viewer} />
       <FolderCrudModals crud={crud} />
@@ -404,7 +436,7 @@ function QuickActionTile({ action }: { action: QuickAction }) {
       >
         <Icon className="h-5 w-5" strokeWidth={1.9} />
       </span>
-      <span className="min-w-0">
+      <span className="block w-full min-w-0">
         <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
           <span className="truncate">{action.label}</span>
           <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />

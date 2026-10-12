@@ -7,7 +7,7 @@ import { adminContentApi } from '@/lib/api/adminContent';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { InlineErrorState } from '@/components/ui/ErrorState';
 import { ContentNav } from '@/components/admin/content/ContentNav';
-import { CONTENT_TYPES, COURSES_INFO, OVERVIEW_ICON } from '@/components/admin/content/contentTypes';
+import { CONTENT_TYPES, COURSES_INFO, NAV_ORDER, OVERVIEW_ICON } from '@/components/admin/content/contentTypes';
 
 /**
  * /admin/content: every kind of managed content at a glance, with live counts from the database.
@@ -18,12 +18,16 @@ export default function AdminContentPage() {
   const data = stats.data;
 
   const cards = [
-    ...CONTENT_TYPES.map((t) => ({
+    ...[...CONTENT_TYPES].sort((a, b) => NAV_ORDER.indexOf(a.slug) - NAV_ORDER.indexOf(b.slug)).map((t) => ({
       href: `/admin/content/${t.slug}`,
       label: t.label,
       description: t.description,
       icon: t.icon,
-      figures: data ? [
+      // Dashboard blocks and header links are simply on or off.
+      figures: data && (t.type === 'dashboard_widget' || t.type === 'nav_item') ? [
+        { label: 'On', value: data[t.type].total - data[t.type].disabled, tone: 'text-success' },
+        { label: 'Off', value: data[t.type].disabled, tone: 'text-subtle' },
+      ] : data ? [
         { label: 'Active', value: data[t.type].active, tone: 'text-success' },
         { label: 'Disabled', value: data[t.type].disabled, tone: 'text-danger' },
         { label: 'Hidden', value: data[t.type].hidden, tone: 'text-warning' },
@@ -51,7 +55,7 @@ export default function AdminContentPage() {
         eyebrow="Manage"
         icon={OVERVIEW_ICON}
         title="Content"
-        description="Website sections, Kid Games, games and courses — what users see, in what order, and what's switched on."
+        description="The landing page, the user dashboard, Games, Kid Games, courses and navigation — what visitors and users see, in what order, and what's switched on."
       />
       <ContentNav />
 

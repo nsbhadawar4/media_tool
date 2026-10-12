@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   ChevronDown,
   Download,
@@ -14,7 +13,6 @@ import {
   FolderOpen,
   FolderTree,
   Gamepad2,
-  GraduationCap,
   Image as ImageIcon,
   KeyRound,
   LibraryBig,
@@ -203,8 +201,6 @@ export function Hero({ featuresLink = true }: { featuresLink?: boolean }) {
             style={{ '--i': 1 } as CSSProperties}
             className="anim-rise mt-7 text-[36px] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground min-[400px]:text-[40px] sm:text-[56px] lg:text-[40px] xl:text-[50px] 2xl:text-[52px]"
           >
-            {/* Set lines from sm up. The gradient sits on inline words only: clipped to text, it
-                paints just the element's own boxes. */}
             <span className="sm:block">Everything You Create.</span> <span className="sm:block">
               One <span className="mk-text-gradient">Beautifully</span>
             </span>{' '}
@@ -265,13 +261,11 @@ function BentoCaption({ icon, color, title, body }: { icon: LucideIcon; color: s
   );
 }
 
-/** "Classes 1–5", or "Class 3" when there is just one. */
-function classRange(classes: readonly ClassView[]): string {
-  const levels = classes.map((c) => c.level);
-  return levels.length > 1 ? `Classes ${Math.min(...levels)}–${Math.max(...levels)}` : `Class ${levels[0]}`;
-}
-
-export function Highlights({ games, kidGames }: { games: readonly GameMeta[] | null; kidGames: readonly ClassView[] | null }) {
+/**
+ * The library only. Games and Kid Games are part of the signed-in app and are not presented on
+ * the public site (their header links go through sign-in — see nav.ts).
+ */
+export function Highlights() {
   return (
     <Section id="highlights" className="pt-6 sm:pt-10 lg:pt-12">
       <SectionHeading
@@ -281,7 +275,7 @@ export function Highlights({ games, kidGames }: { games: readonly GameMeta[] | n
             Everything you keep, <Highlight>finally together</Highlight>
           </>
         }
-        description="Your photos, videos and documents share the same folders — with games for a break and learning games for the kids, all in one private place."
+        description="Your photos, videos and documents share the same folders — organised, searchable and private to you."
       />
 
       <div className="mt-14 grid auto-rows-auto gap-4 md:grid-cols-4 lg:gap-5">
@@ -360,44 +354,6 @@ export function Highlights({ games, kidGames }: { games: readonly GameMeta[] | n
           <BentoCaption icon={FolderTree} color="#22d3ee" title="Folders" body="Nest as deep as you like; move and tidy files in bulk." />
         </BentoCard>
 
-        {games && (
-          <BentoCard label="Games" className={kidGames ? 'md:col-span-2' : 'md:col-span-4'}>
-            <div aria-hidden className="flex flex-wrap gap-2 pl-5 pr-14 pt-5 sm:pl-6 sm:pt-6">
-              {games.slice(0, 5).map((game) => (
-                <span
-                  key={game.slug}
-                  className="mk-tile flex h-12 w-12 items-center justify-center rounded-xl text-white"
-                  style={{ backgroundImage: `linear-gradient(135deg, ${game.colors[0]}, ${game.colors[1]})` }}
-                >
-                  <game.icon className="h-5 w-5" strokeWidth={1.8} />
-                </span>
-              ))}
-            </div>
-            <BentoCaption icon={Gamepad2} color="#f472b6" title="Games" body={`A small arcade in your browser — ${games.slice(0, 2).map((g) => g.name).join(' and ')}${games.length > 2 ? ' and more' : ''}.`} />
-            <Link href="/#games" className={cn('absolute right-4 top-4 rounded-full p-2 text-muted transition hover:bg-white/5 hover:text-foreground', focusRing)} aria-label="See the games">
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </BentoCard>
-        )}
-        {kidGames && (
-          <BentoCard label="Kid Games" className={games ? 'md:col-span-2' : 'md:col-span-4'}>
-            <div aria-hidden className="flex flex-wrap gap-2 pl-5 pr-14 pt-5 sm:pl-6 sm:pt-6">
-              {kidGames.map((c) => (
-                <span
-                  key={c.key}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl text-base font-bold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)]"
-                  style={{ backgroundColor: c.isCode ? `var(--kid-class-${c.level})` : 'var(--accent)' }}
-                >
-                  {c.level}
-                </span>
-              ))}
-            </div>
-            <BentoCaption icon={GraduationCap} color="#fbbf24" title="Kid Games" body={`Learning games for ${classRange(kidGames)}, with stars, streaks and saved progress.`} />
-            <Link href="/#kid-games" className={cn('absolute right-4 top-4 rounded-full p-2 text-muted transition hover:bg-white/5 hover:text-foreground', focusRing)} aria-label="See Kid Games">
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </BentoCard>
-        )}
       </div>
     </Section>
   );
@@ -407,17 +363,16 @@ export function Highlights({ games, kidGames }: { games: readonly GameMeta[] | n
  * Features — a single bordered matrix, one lead feature and the rest around it
  * ---------------------------------------------------------------------------------------- */
 
-const FEATURES: readonly { icon: LucideIcon; title: string; body: string; color: string; area?: 'games' | 'kid-games' }[] = [
+const FEATURES: readonly { icon: LucideIcon; title: string; body: string; color: string }[] = [
   { icon: Lock, title: 'Private media library', body: 'Every file belongs to one account and is checked on every request. Nobody else can open your library.', color: '#a78bfa' },
   { icon: FolderTree, title: 'Folders & organisation', body: 'Nested folders, renaming, moving and bulk actions — plus search across everything by name.', color: '#22d3ee' },
   { icon: FileText, title: 'Document management', body: 'PDF, Word, Excel and text files beside your media. PDFs and text open right in the app.', color: '#f59e0b' },
   { icon: MonitorSmartphone, title: 'Browser-based access', body: 'Nothing to install. Use it on desktop or phone, or add it to your home screen like an app.', color: '#60a5fa' },
-  { icon: Gamepad2, title: 'Games', body: 'Browser games for a quick break — single player, local multiplayer and against the computer.', color: '#f472b6', area: 'games' },
-  { icon: Trophy, title: 'Kid Games & progress', body: 'Class 1–5 learning games with XP, stars, streaks and per-subject progress saved to the account.', color: '#34d399', area: 'kid-games' },
+  { icon: Eye, title: 'Previews & viewer', body: 'Thumbnails for photos and videos, a full-screen viewer and a built-in player — no downloading to take a look.', color: '#f472b6' },
+  { icon: Trash2, title: 'Trash & restore', body: 'Deleted files and folders go to Trash first. Restore them any time, or remove them for good.', color: '#34d399' },
 ];
 
-export function Features({ games = true, kidGames = true }: { games?: boolean; kidGames?: boolean }) {
-  const items = FEATURES.filter((f) => (f.area === 'games' ? games : f.area === 'kid-games' ? kidGames : true));
+export function Features() {
   return (
     <Section id="features">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-end lg:gap-16">
@@ -431,12 +386,12 @@ export function Features({ games = true, kidGames = true }: { games?: boolean; k
           }
         />
         <p className="mk-reveal max-w-xl text-pretty text-[15px] leading-relaxed text-muted sm:text-[17px] lg:pb-1">
-          media_tool brings your files and your downtime together — organised, searchable and private to you, with nothing to install.
+          media_tool brings your files together — organised, searchable and private to you, with nothing to install.
         </p>
       </div>
 
       <div className="mk-reveal mk-matrix mt-14 grid overflow-hidden rounded-3xl sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((feature) => (
+        {FEATURES.map((feature) => (
           <article key={feature.title} className="mk-matrix-cell group relative p-7 sm:p-8">
             <div
               aria-hidden
@@ -656,7 +611,7 @@ export function GamesSection({ games }: { games: readonly GameMeta[] }) {
             ))}
           </ul>
           <div className="mk-reveal mt-9">
-            <PrimaryCta href="/games">Explore Games</PrimaryCta>
+            <PrimaryCta href={`${LOGIN_PATH}?from=/games`}>Sign in to play</PrimaryCta>
           </div>
         </div>
 
@@ -701,6 +656,12 @@ const KID_POINTS: readonly { icon: LucideIcon; title: string; body: string }[] =
   { icon: Trophy, title: 'High scores', body: 'Best scores are kept for every game — always a record to beat.' },
 ];
 
+/** "Classes 1–5", or "Class 3" when there is just one. */
+function classRange(classes: readonly ClassView[]): string {
+  const levels = classes.map((c) => c.level);
+  return levels.length > 1 ? `Classes ${Math.min(...levels)}–${Math.max(...levels)}` : `Class ${levels[0]}`;
+}
+
 export interface KidSubjectSummary {
   key: string;
   name: string;
@@ -740,7 +701,7 @@ export function KidGamesSection({ classes, subjects, totalGames }: { classes: re
               ))}
             </div>
             <div className="mk-reveal mt-9">
-              <PrimaryCta href="/kid-games">Explore Kid Games</PrimaryCta>
+              <PrimaryCta href={`${LOGIN_PATH}?from=/kid-games`}>Sign in to start learning</PrimaryCta>
             </div>
           </div>
 
@@ -826,7 +787,7 @@ export function kidSubjectSummary(key: string, title: string, games: number): Ki
 const STEPS: readonly { icon: LucideIcon; title: string; body: string }[] = [
   { icon: UserPlus, title: 'Create your account', body: 'Sign up in a minute and start on the Free plan — no card needed.' },
   { icon: LibraryBig, title: 'Organise your library', body: 'Upload photos, videos and documents, then file them into folders that make sense to you.' },
-  { icon: Sparkles, title: 'Open it anywhere', body: 'Your library, games and learning progress are waiting in any browser you sign in from.' },
+  { icon: Sparkles, title: 'Open it anywhere', body: 'Your library is waiting in any browser you sign in from — on your desktop, tablet or phone.' },
 ];
 
 export function HowItWorks() {
@@ -954,12 +915,8 @@ export const FAQ_ITEMS: readonly { q: string; a: string }[] = [
     a: 'Yes for PDFs and plain-text files, which preview inside the app. Word and Excel files can be stored, organised and downloaded to open in your usual software.',
   },
   {
-    q: 'What are Kid Games?',
-    a: 'Learning games for Classes 1 to 5 in Hindi, English and Mathematics — ten per subject per class, 150 in total. Children earn XP and stars, build daily streaks and unlock achievements, and their best scores and progress are saved to the account.',
-  },
-  {
-    q: 'Which games are included?',
-    a: 'Ludo, Snake, Memory Match, Number Puzzle, Water Race, Reaction Test and Target Click. Ludo is for 2–4 players on one device, or against computer players at Easy, Medium or Hard.',
+    q: 'Are there games too?',
+    a: 'Yes — signed-in accounts include browser games for a quick break and Kid Games, learning games for younger children with stars, streaks and saved progress. Sign in, then open Games or Kid Games from your dashboard.',
   },
   {
     q: 'Do I need to install anything?',

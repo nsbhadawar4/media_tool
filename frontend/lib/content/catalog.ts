@@ -3,6 +3,7 @@ import { GAMES, type GameMeta } from '../../components/games/games';
 import type { ClassLevel, LearningGame, Subject } from '../kid-games/types';
 import type { CatalogCourse, CatalogEntry, PublicCatalog } from '../api/content';
 import { isSectionOn } from './sections';
+import { DASHBOARD_WIDGETS } from './catalogManifest';
 
 /**
  * The code catalog seen through the admin-managed one: what is listed, in which order, under
@@ -18,6 +19,10 @@ import { isSectionOn } from './sections';
  * Classes and subjects that exist only in the database (e.g. a "Class 6" or "Science" an
  * administrator added) are included: they carry courses, even before any game is built for them.
  * With no catalog (still loading, or the API unreachable) the code catalog applies unchanged.
+ *
+ * Surfaces are switched separately: the signed-in app (dashboard and hubs) lists what is visible;
+ * the public home page's Games / Kid Games block shows what is enabled and `showOnLanding`.
+ * Featured games come first wherever games are listed.
  */
 
 export interface ClassView {
@@ -68,7 +73,20 @@ export interface ResolvedCatalog {
   listedGames(level?: number, subject?: string): LearningGame[];
   /** A Kid Game with the administrator's title and description applied. */
   applyGame(game: LearningGame): LearningGame;
+  /** Arcade games listed in the app (dashboard and hub), featured first. */
   arcadeGames: GameMeta[];
+  /** Arcade games for the public home page block: enabled and on the landing page, featured first. */
+  landingArcadeGames: GameMeta[];
+  isArcadeFeatured(slug: string): boolean;
+  /** Kid Games for the public home page block (enabled, on the landing page, class and subject listed). */
+  landingKidGames(level?: number, subject?: string): LearningGame[];
+  /** Listed Kid Games an administrator featured. */
+  featuredKidGames: LearningGame[];
+  /**
+   * The user dashboard's blocks to render, in order: enabled ones, with Games and Kid Games only
+   * while their feature is on. Keys the dashboard doesn't know are left to it to skip.
+   */
+  dashboardWidgets: string[];
   isArcadePlayable(slug: string): boolean;
   applyArcade(game: GameMeta): GameMeta;
   /** A website section is ON — some also stand for an app area ("games", "kid-games"); see sections.ts. */
@@ -113,6 +131,11 @@ function codeDefaults(): ResolvedCatalog {
     listedGames,
     applyGame: (game) => game,
     arcadeGames: [...GAMES],
+    landingArcadeGames: [...GAMES],
+    isArcadeFeatured: () => false,
+    landingKidGames: listedGames,
+    featuredKidGames: [],
+    dashboardWidgets: DASHBOARD_WIDGETS.map((w) => w.key),
     isArcadePlayable: (slug) => GAMES.some((g) => g.slug === slug),
     applyArcade: (game) => game,
     isSectionOn: (key) => isSectionOn(null, key),
@@ -187,6 +210,27 @@ export function resolveCatalog(catalog: PublicCatalog | null | undefined): Resol
     .map(toClassView);
 
   const isArcadePlayable = (slug: string) => Boolean(GAMES.some((g) => g.slug === slug) && arcade.get(slug)?.isEnabled);
+  const isArcadeFeatured = (slug: string) => arcade.get(slug)?.featured === true;
+  // Featured first, then the administrator's order.
+  const arcadeRank = (a: GameMeta, b: GameMeta) =>
+    Number(isArcadeFeatured(b.slug)) - Number(isArcadeFeatured(a.slug)) || arcade.get(a.slug)!.order - arcade.get(b.slug)!.order;
+  // Not stored yet (an older API) reads as the default: in the block once it's switched on.
+  const onLanding = (entry: CatalogEntry | undefined) => entry?.showOnLanding !== false;
+  const isGameOnLanding = (game: LearningGame) =>
+    isGamePlayable(game.id) && onLanding(kidGames.get(game.id)) && isPairListed(game.classLevel, game.subject);
+  const landingKid = ALL_GAMES.filter(isGameOnLanding)
+    .sort(
+      (a, b) =>
+        classOrder(a.classLevel) - classOrder(b.classLevel) ||
+        subjectOrder(a.subject) - subjectOrder(b.subject) ||
+        kidGames.get(a.id)!.order - kidGames.get(b.id)!.order,
+    )
+    .map(applyGame);
+  const widgetEntries = catalog.dashboardWidgets;
+  const featureOn = (key: string) => (key === 'games' || key === 'kid-games' ? isSectionOn(catalog, key) : true);
+  const dashboardWidgets = (
+    widgetEntries?.length ? [...widgetEntries].filter((w) => w.isEnabled).sort((a, b) => a.order - b.order).map((w) => w.key) : DASHBOARD_WIDGETS.map((w) => w.key)
+  ).filter(featureOn);
   const applyArcade = (game: GameMeta): GameMeta => {
     const entry = arcade.get(game.slug);
     return entry ? { ...game, name: entry.title, description: entry.description || game.description } : game;
@@ -223,8 +267,15 @@ export function resolveCatalog(catalog: PublicCatalog | null | undefined): Resol
     listedGames: (level, subject) => listed.filter((g) => (!level || g.classLevel === level) && (!subject || g.subject === subject)),
     applyGame,
     arcadeGames: GAMES.filter((g) => isArcadePlayable(g.slug) && arcade.get(g.slug)?.isVisible)
-      .sort((a, b) => arcade.get(a.slug)!.order - arcade.get(b.slug)!.order)
+      .sort(arcadeRank)
       .map(applyArcade),
+    landingArcadeGames: GAMES.filter((g) => isArcadePlayable(g.slug) && onLanding(arcade.get(g.slug)))
+      .sort(arcadeRank)
+      .map(applyArcade),
+    isArcadeFeatured,
+    landingKidGames: (level, subject) => landingKid.filter((g) => (!level || g.classLevel === level) && (!subject || g.subject === subject)),
+    featuredKidGames: listed.filter((g) => kidGames.get(g.id)?.featured === true),
+    dashboardWidgets,
     isArcadePlayable,
     applyArcade,
     isSectionOn: (key) => isSectionOn(catalog, key),

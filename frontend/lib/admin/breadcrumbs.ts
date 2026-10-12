@@ -7,12 +7,14 @@ const LABELS: Record<string, string> = {
   activity: 'User activity',
   reviews: 'Reviews',
   content: 'Content',
-  sections: 'Website sections',
+  sections: 'Landing page',
   classes: 'Classes',
   subjects: 'Subjects',
   courses: 'Courses',
-  games: 'Educational games',
-  arcade: 'Arcade games',
+  games: 'Games',
+  'kid-games': 'Kid Games',
+  navigation: 'Navigation',
+  arcade: 'Games',
   settings: 'Settings',
   new: 'New course',
 };
@@ -34,7 +36,9 @@ export function adminCrumbs(pathname: string): Crumb[] {
   for (let i = 1; i < parts.length; i++) {
     const segment = parts[i];
     href += `/${segment}`;
-    crumbs.push({ label: LABELS[segment] ?? DETAIL[parts[i - 1]] ?? 'Details', href });
+    // /admin/content/dashboard manages the users' dashboard, not this one.
+    const label = parts[i - 1] === 'content' && segment === 'dashboard' ? 'User dashboard' : LABELS[segment];
+    crumbs.push({ label: label ?? DETAIL[parts[i - 1]] ?? 'Details', href });
   }
   return crumbs;
 }

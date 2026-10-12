@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import {
   CheckCircle2,
   Eye,
@@ -8,12 +8,12 @@ import {
   FileText,
   FolderClosed,
   FolderOpen,
-  GraduationCap,
   HardDrive,
   Image as ImageIcon,
   Play,
   Search,
   Star,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -95,7 +95,7 @@ export function HeroPreview() {
               </button>
             ))}
             <div aria-hidden className="space-y-1 pt-1 opacity-70">
-              {[GraduationCap, Star].map((Icon, i) => (
+              {[Star, Trash2].map((Icon, i) => (
                 <div key={i} className="flex items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-subtle sm:justify-start">
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="hidden h-1.5 w-14 rounded-full bg-white/[0.06] sm:block" />
@@ -215,18 +215,14 @@ export function HeroPreview() {
         </div>
       </div>
 
-      {/* Floating: a Kid Games result */}
+      {/* Floating: a search result */}
       <div aria-hidden className="mk-float-slow mk-chip absolute -right-3 -top-10 hidden items-center gap-2.5 rounded-2xl px-3 py-2.5 sm:flex lg:-right-6">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f59e0b]/15 text-[#fbbf24]">
-          <GraduationCap className="h-4 w-4" />
+          <Search className="h-4 w-4" />
         </span>
         <div>
-          <p className="text-[11px] font-semibold text-foreground">Class 2 · Maths</p>
-          <p className="flex items-center gap-0.5 text-[#fbbf24]">
-            {[0, 1, 2].map((i) => (
-              <Star key={i} className="h-3 w-3" fill="currentColor" style={{ '--i': i } as CSSProperties} />
-            ))}
-          </p>
+          <p className="text-[11px] font-semibold text-foreground">“beach”</p>
+          <p className="text-[10px] text-subtle">4 photos · 1 video</p>
         </div>
       </div>
 

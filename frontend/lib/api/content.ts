@@ -17,6 +17,10 @@ export interface CatalogEntry {
   courseId: string | null;
   isEnabled: boolean;
   isVisible: boolean;
+  /** Feature sections, games and Kid Games: part of the public home page block. */
+  showOnLanding?: boolean;
+  /** Games and Kid Games: listed first, marked "Featured". */
+  featured?: boolean;
 }
 
 /** A course as listed in the catalog (no lessons). */
@@ -44,6 +48,10 @@ export interface PublicCatalog {
   classSubjects: CatalogEntry[];
   kidGames: CatalogEntry[];
   games: CatalogEntry[];
+  /** The user dashboard's blocks (ON = enabled). Optional: an older API doesn't send them. */
+  dashboardWidgets?: CatalogEntry[];
+  /** The public header's links and buttons (ON = enabled; label = title). */
+  navItems?: CatalogEntry[];
   courses: CatalogCourse[];
 }
 

@@ -121,6 +121,13 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
     "order": 11
   },
   {
+    "type": "section",
+    "key": "footer",
+    "title": "Footer",
+    "description": "Product, account and company links at the bottom of every public page.",
+    "order": 12
+  },
+  {
     "type": "class",
     "key": "class-1",
     "title": "Class 1",
