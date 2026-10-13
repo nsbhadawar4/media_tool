@@ -360,3 +360,7 @@ media_tool/
   work with every provider and need no extra serving route. They are cropped in the browser
   first, then re-encoded by the server.
 - **Frontend and backend are decoupled:** the frontend never holds the JWT secret.
+
+1. This is setup for ludo runtime management.
+https://dashboard.render.com
+https://media-tool-realtime.onrender.com/health

@@ -72,5 +72,14 @@ export function connectionProblem(state: Connection): string | null {
   }
 }
 
+/**
+ * How long Create / Join keep waiting for a first connection. A free host that sleeps when idle
+ * (Render free) holds the first requests while it boots, which takes 30–60 s; giving up sooner
+ * reports a failure for a server that is about to answer. Once connected, replies are quick.
+ */
+export const FIRST_CONNECT_WAIT_MS = 90_000;
+/** How long Create / Join wait for the server's reply once the socket is connected. */
+export const REPLY_WAIT_MS = 8_000;
+
 /** Create / Join can't work at all until someone fixes the configuration. */
 export const blocksOnlinePlay = (state: Connection) => state === 'unavailable' || state === 'refused';

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { Ack, ClientToServer, GameEvent, JoinData, PlayerColor, RoomState, ServerToClient } from 'ludo-core';
 import { clearLudoSession, loadLudoSession, saveLudoSession } from '../persistence';
-import { diagnose, probeHealth, resolveRealtimeUrl, type Connection } from './realtimeStatus';
+import { FIRST_CONNECT_WAIT_MS, REPLY_WAIT_MS, diagnose, probeHealth, resolveRealtimeUrl, type Connection } from './realtimeStatus';
 
 export type { Connection } from './realtimeStatus';
 
@@ -270,7 +270,8 @@ export function useLudoRoom() {
       new Promise((resolve) => {
         const socket = ensureSocket();
         if (!socket) return resolve({ ok: false, error: NOT_SET_UP });
-        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), 8000);
+        // Not connected yet: the server may be waking up (the socket keeps retrying meanwhile).
+        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), socket.connected ? REPLY_WAIT_MS : FIRST_CONNECT_WAIT_MS);
         whenConnected(socket, () =>
           socket.emit('room:create', { name, playerId: sessionRef.current?.playerId ?? newPlayerId() }, (ack: Ack<JoinData>) => {
             clearTimeout(timeout);
@@ -286,7 +287,8 @@ export function useLudoRoom() {
       new Promise((resolve) => {
         const socket = ensureSocket();
         if (!socket) return resolve({ ok: false, error: NOT_SET_UP });
-        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), 8000);
+        // Not connected yet: the server may be waking up (the socket keeps retrying meanwhile).
+        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), socket.connected ? REPLY_WAIT_MS : FIRST_CONNECT_WAIT_MS);
         whenConnected(socket, () =>
           socket.emit('room:join', { code, name, playerId: sessionRef.current?.playerId ?? newPlayerId() }, (ack: Ack<JoinData>) => {
             clearTimeout(timeout);

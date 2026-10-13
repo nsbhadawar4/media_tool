@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { blocksOnlinePlay, connectionProblem, diagnose, probeHealth, resolveRealtimeUrl } from '../components/games/ludo/online/realtimeStatus';
+import { FIRST_CONNECT_WAIT_MS, REPLY_WAIT_MS, blocksOnlinePlay, connectionProblem, diagnose, probeHealth, resolveRealtimeUrl } from '../components/games/ludo/online/realtimeStatus';
 
 const prodPage = { protocol: 'https:', hostname: 'media-tool.vercel.app' };
 
@@ -41,4 +41,9 @@ test('diagnosis and messages: each failure says what is actually wrong', () => {
   assert.equal(connectionProblem('connecting'), null);
   assert.ok(blocksOnlinePlay('unavailable') && blocksOnlinePlay('refused'));
   assert.ok(!blocksOnlinePlay('unreachable'), 'a sleeping server may wake: Create / Join stay available');
+});
+
+test('Create / Join outwait a sleeping free host (30–60 s to wake), but not a connected server', () => {
+  assert.ok(FIRST_CONNECT_WAIT_MS >= 75_000, 'longer than a cold start');
+  assert.ok(REPLY_WAIT_MS <= 10_000, 'a connected server answers quickly');
 });
