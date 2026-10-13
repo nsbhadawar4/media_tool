@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { Server } from 'socket.io';
 import type { Ack, ClientToServer, ServerToClient } from 'ludo-core';
 import { DEFAULT_TIMING, RoomManager, type IO, type Sock, type Timing } from './rooms';
@@ -11,22 +11,42 @@ const ALLOWED = (process.env.ALLOWED_ORIGINS ?? '')
   .map((s) => s.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
-export function createRealtime(port = PORT, timing?: Partial<Timing>) {
+/** Who may connect: development accepts any origin; production only ALLOWED_ORIGINS. */
+export interface Access {
+  production: boolean;
+  allowedOrigins: readonly string[];
+}
+
+/**
+ * Whether a browser on `origin` may use the server. Development accepts any origin so a phone on
+ * the LAN can test against a laptop. A request without an Origin header is not a browser page
+ * (health checks, curl) and carries no user's cookies, so it is let through.
+ */
+export function originAllowed(origin: string | undefined, access: Access): boolean {
+  if (!origin || !access.production) return true;
+  return access.allowedOrigins.includes(origin.replace(/\/$/, ''));
+}
+
+export function createRealtime(port = PORT, timing?: Partial<Timing>, access: Access = { production: IS_PROD, allowedOrigins: ALLOWED }) {
+  const allowed = (req: IncomingMessage) => originAllowed(req.headers.origin, access);
+
   const http = createServer((req, res) => {
-    if (req.url === '/health') {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, rooms: manager.roomCount }));
+    if (req.url === '/health' || req.url?.startsWith('/health?')) {
+      // Readable from any page (no cookies, nothing private) so the app can tell the player
+      // whether the server is up, and whether it accepts the page's own address.
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ ok: true, rooms: manager.roomCount, originAllowed: allowed(req) }));
       return;
     }
     res.writeHead(404).end();
   });
 
   const io: IO = new Server<ClientToServer, ServerToClient>(http, {
-    cors: {
-      // Development accepts any origin so a phone on the LAN can test against a laptop.
-      // Production accepts only the origins listed in ALLOWED_ORIGINS.
-      origin: (origin, cb) => cb(null, !origin || !IS_PROD || ALLOWED.includes(origin.replace(/\/$/, ''))),
-    },
+    // CORS headers only matter to the browser for HTTP long-polling; a WebSocket upgrade is not
+    // subject to CORS at all. allowRequest runs for both transports, so it is what actually
+    // enforces ALLOWED_ORIGINS.
+    cors: { origin: (origin, cb) => cb(null, originAllowed(origin, access)) },
+    allowRequest: (req, cb) => cb(null, allowed(req)),
     // Rooms are tiny; a small buffer stops one client from sending huge payloads.
     maxHttpBufferSize: 8 * 1024,
     pingInterval: 10_000,

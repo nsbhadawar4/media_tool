@@ -43,6 +43,25 @@ function apiOrigin(): string {
 const api = apiOrigin();
 
 /**
+ * The Ludo realtime server (NEXT_PUBLIC_REALTIME_URL), allowed explicitly like the API: https:
+ * and wss: already cover a host on TLS, but a server on plain http (a self-hosted box, or a local
+ * production check) would otherwise be blocked. Both its http(s) and ws(s) forms, since Socket.IO
+ * may poll before upgrading. Unset: nothing added.
+ */
+function realtimeOrigins(): string {
+  const raw = process.env.NEXT_PUBLIC_REALTIME_URL?.trim();
+  if (!raw) return '';
+  try {
+    const { origin, protocol } = new URL(raw);
+    if (protocol !== 'http:' && protocol !== 'https:') return '';
+    return ` ${origin} ${origin.replace(/^http/, 'ws')}`;
+  } catch {
+    return '';
+  }
+}
+const realtime = realtimeOrigins();
+
+/**
  * Google Identity Services ("Continue with Google"): its script, the button and sign-in popup
  * frames, and its stylesheet. Listed by exact path prefix rather than allowing all of google.com.
  */
@@ -55,7 +74,7 @@ const PRODUCTION_CSP: Record<string, string> = {
   'img-src': `'self' data: blob: https:${api}`,
   'media-src': `'self' data: blob: https:${api}`,
   'font-src': "'self' data:",
-  'connect-src': `'self' https: wss:${api}`,
+  'connect-src': `'self' https: wss:${api}${realtime}`,
   'frame-src': `'self' blob:${api}${GOOGLE_GSI}${vercelPreview}`,
   'worker-src': "'self' blob:",
   'manifest-src': "'self'",

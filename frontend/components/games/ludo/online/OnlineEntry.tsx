@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, LogIn, Plus } from 'lucide-react';
 import { MAX_PLAYERS, NAME_MAX, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH } from 'ludo-core';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import { ConnectionBadge } from './ConnectionBadge';
+import { blocksOnlinePlay, connectionProblem } from './realtimeStatus';
 import type { Connection, LudoRoomApi } from './useLudoRoom';
 
 const ALLOWED = new Set(ROOM_CODE_ALPHABET);
@@ -30,6 +31,9 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<{ field: Field; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Check the server as soon as online play is chosen, so its status shows before Create / Join.
+  const { connect } = api;
+  useEffect(() => connect(), [connect]);
 
 
   const validName = () => {
@@ -66,7 +70,8 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
     if (!ack.ok) setError({ field: 'code', text: ack.error ?? 'Room not found.' });
   };
 
-  const unavailable = connection === 'unavailable';
+  const unavailable = blocksOnlinePlay(connection);
+  const problem = connectionProblem(connection);
 
   return (
     <div className="ludo-enter mx-auto flex w-full max-w-sm flex-col gap-5 rounded-3xl border border-border-strong bg-white/[0.03] p-5 shadow-pop sm:p-6">
@@ -121,9 +126,9 @@ export function OnlineEntry({ api, connection, onMenu }: OnlineEntryProps) {
         )}
       </label>
 
-      {unavailable && (
+      {problem && (
         <p role="alert" className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-left text-xs text-amber-200">
-          Online play needs the realtime server. Set <code className="font-mono">NEXT_PUBLIC_REALTIME_URL</code> (see the README).
+          {problem}
         </p>
       )}
 

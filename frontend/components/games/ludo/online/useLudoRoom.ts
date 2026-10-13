@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { Ack, ClientToServer, GameEvent, JoinData, PlayerColor, RoomState, ServerToClient } from 'ludo-core';
 import { clearLudoSession, loadLudoSession, saveLudoSession } from '../persistence';
+import { diagnose, probeHealth, resolveRealtimeUrl, type Connection } from './realtimeStatus';
 
-export type Connection = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'unavailable';
+export type { Connection } from './realtimeStatus';
 
 export interface Toast {
   id: number;
@@ -23,16 +24,7 @@ type LudoSocket = Socket<ServerToClient, ClientToServer>;
 
 /** Where the realtime server lives. See realtime/README.md: it is a separate long-running process. */
 function realtimeUrl(): string | null {
-  const configured = process.env.NEXT_PUBLIC_REALTIME_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    // Also covers a phone on the LAN opening the laptop's dev server.
-    if (host === 'localhost' || host === '127.0.0.1' || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
-      return `${window.location.protocol}//${host}:4001`;
-    }
-  }
-  return null;
+  return resolveRealtimeUrl(process.env.NEXT_PUBLIC_REALTIME_URL, typeof window !== 'undefined' ? window.location : null);
 }
 
 /** The saved multiplayer seat for this browser, if there is a valid one. */
@@ -65,7 +57,14 @@ function newPlayerId(): string {
  * game events. It never decides anything: every action is an intent that the server validates.
  */
 export function useLudoRoom() {
-  const [connection, setConnection] = useState<Connection>('idle');
+  const [connection, setConnectionState] = useState<Connection>('idle');
+  // The latest state, for messages written outside render (a create/join that timed out).
+  const connectionRef = useRef<Connection>('idle');
+  const setConnection = useCallback((next: Connection) => {
+    connectionRef.current = next;
+    setConnectionState(next);
+  }, []);
+  const probing = useRef(false);
   const [room, setRoom] = useState<RoomState | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -155,9 +154,25 @@ export function useLudoRoom() {
       // "io client disconnect" is our own close; anything else will be retried automatically.
       setConnection(reason === 'io client disconnect' ? 'disconnected' : 'reconnecting');
     });
-    socket.io.on('reconnect_attempt', () => setConnection('reconnecting'));
+    // Before a first connection the diagnosed problem (unreachable…) stays on screen while retrying.
+    socket.io.on('reconnect_attempt', () => everConnected.current && setConnection('reconnecting'));
     socket.on('connect_error', () => {
-      setConnection(everConnected.current ? 'reconnecting' : 'disconnected');
+      if (everConnected.current) return setConnection('reconnecting');
+      // Never connected yet: ask /health why, so the player sees the actual problem. One probe at a
+      // time; socket.io keeps retrying meanwhile, and a later success overrides the diagnosis.
+      if (probing.current) return;
+      probing.current = true;
+      void probeHealth(url).then((health) => {
+        probing.current = false;
+        if (socket.connected) return;
+        const why = diagnose(health);
+        if (why === 'refused') {
+          // Retrying can't help until the server's configuration changes; the next Create/Join tries afresh.
+          socket.close();
+          if (socketRef.current === socket) socketRef.current = null;
+        }
+        setConnection(why);
+      });
     });
     socket.on('room:state', (state) => {
       roomRef.current = state;
@@ -179,7 +194,7 @@ export function useLudoRoom() {
       forget();
     });
     return socket;
-  }, [flushSave, forget, scheduleSave, toast]);
+  }, [flushSave, forget, scheduleSave, setConnection, toast]);
 
   // Backup only: the session is already saved after each change. This catches the last few hundred ms.
   useEffect(() => {
@@ -241,12 +256,21 @@ export function useLudoRoom() {
     else socket.once('connect', fn);
   }, []);
 
+  /** Why a create / join got no answer, in the player's words. */
+  const unreachableMessage = useCallback(() => {
+    const state = connectionRef.current;
+    if (state === 'refused') return 'The game server doesn’t accept this site yet.';
+    if (state === 'unreachable') return 'Can’t reach the game server — it may be waking up. Try again in a minute.';
+    return 'Could not reach the game server.';
+  }, []);
+  const NOT_SET_UP = 'Online play isn’t set up on this site yet.';
+
   const createRoom = useCallback(
     (name: string): Promise<Ack<JoinData>> =>
       new Promise((resolve) => {
         const socket = ensureSocket();
-        if (!socket) return resolve({ ok: false, error: 'Multiplayer server is not available.' });
-        const timeout = setTimeout(() => resolve({ ok: false, error: 'Could not reach the game server.' }), 8000);
+        if (!socket) return resolve({ ok: false, error: NOT_SET_UP });
+        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), 8000);
         whenConnected(socket, () =>
           socket.emit('room:create', { name, playerId: sessionRef.current?.playerId ?? newPlayerId() }, (ack: Ack<JoinData>) => {
             clearTimeout(timeout);
@@ -254,15 +278,15 @@ export function useLudoRoom() {
           }),
         );
       }),
-    [ensureSocket, finishJoin, whenConnected],
+    [ensureSocket, finishJoin, unreachableMessage, whenConnected],
   );
 
   const joinRoom = useCallback(
     (code: string, name: string): Promise<Ack<JoinData>> =>
       new Promise((resolve) => {
         const socket = ensureSocket();
-        if (!socket) return resolve({ ok: false, error: 'Multiplayer server is not available.' });
-        const timeout = setTimeout(() => resolve({ ok: false, error: 'Could not reach the game server.' }), 8000);
+        if (!socket) return resolve({ ok: false, error: NOT_SET_UP });
+        const timeout = setTimeout(() => resolve({ ok: false, error: unreachableMessage() }), 8000);
         whenConnected(socket, () =>
           socket.emit('room:join', { code, name, playerId: sessionRef.current?.playerId ?? newPlayerId() }, (ack: Ack<JoinData>) => {
             clearTimeout(timeout);
@@ -270,8 +294,13 @@ export function useLudoRoom() {
           }),
         );
       }),
-    [ensureSocket, finishJoin, whenConnected],
+    [ensureSocket, finishJoin, unreachableMessage, whenConnected],
   );
+
+  /** Opens the connection ahead of Create / Join, so the status shows before the player asks. */
+  const connect = useCallback(() => {
+    ensureSocket();
+  }, [ensureSocket]);
 
   /** Sends an intent and turns a refusal into a toast. */
   const intent = useCallback(
@@ -338,6 +367,7 @@ export function useLudoRoom() {
     toast,
     dismissToast,
     resume,
+    connect,
     createRoom,
     joinRoom,
     setColor,

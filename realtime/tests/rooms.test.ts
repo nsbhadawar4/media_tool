@@ -3,7 +3,7 @@ import { after, before, describe, it } from 'node:test';
 import { io as connect, type Socket } from 'socket.io-client';
 import type { Ack, GameEvent, JoinData, RoomState } from 'ludo-core';
 import { getValidMoves, ROOM_CODE_ALPHABET } from 'ludo-core';
-import { createRealtime } from '../src/server';
+import { createRealtime, originAllowed } from '../src/server';
 
 type C = Socket & { room?: RoomState; events: GameEvent[]; closed?: string; playerId?: string };
 
@@ -262,5 +262,47 @@ describe('rooms', () => {
     await sleep(1000);
     server.manager.sweep();
     assert.ok(server.manager.roomCount < before);
+  });
+});
+
+describe('origin allow-list (production)', () => {
+  const access = { production: true, allowedOrigins: ['https://app.example'] };
+  let prod: ReturnType<typeof createRealtime>;
+  let prodUrl = '';
+  before(async () => {
+    prod = createRealtime(0, {}, access);
+    prodUrl = `http://localhost:${await prod.listen()}`;
+  });
+  after(async () => {
+    await prod.close();
+  });
+
+  const attempt = (origin: string, transport: 'websocket' | 'polling') =>
+    new Promise<boolean>((resolve) => {
+      const c = connect(prodUrl, { transports: [transport], extraHeaders: { origin }, forceNew: true, reconnection: false, timeout: 3000 });
+      c.on('connect', () => (c.close(), resolve(true)));
+      c.on('connect_error', () => (c.close(), resolve(false)));
+    });
+
+  it('refuses other origins on BOTH transports — WebSocket upgrades are not covered by CORS', async () => {
+    assert.equal(await attempt('https://app.example', 'websocket'), true);
+    assert.equal(await attempt('https://app.example', 'polling'), true);
+    assert.equal(await attempt('https://evil.example', 'websocket'), false);
+    assert.equal(await attempt('https://evil.example', 'polling'), false);
+  });
+
+  it('/health is readable from any page and says whether the caller’s origin is allowed', async () => {
+    const ok = await fetch(`${prodUrl}/health`, { headers: { origin: 'https://app.example' } });
+    assert.equal(ok.headers.get('access-control-allow-origin'), '*');
+    assert.deepEqual(await ok.json(), { ok: true, rooms: 0, originAllowed: true });
+    const other = await (await fetch(`${prodUrl}/health?t=1`, { headers: { origin: 'https://evil.example' } })).json();
+    assert.equal(other.originAllowed, false);
+  });
+
+  it('origin rules: trailing slash ignored; development and non-browser callers allowed', () => {
+    assert.equal(originAllowed('https://app.example/', access), true);
+    assert.equal(originAllowed(undefined, access), true);
+    assert.equal(originAllowed('https://evil.example', { production: false, allowedOrigins: [] }), true);
+    assert.equal(originAllowed('https://app.example', { production: true, allowedOrigins: [] }), false);
   });
 });

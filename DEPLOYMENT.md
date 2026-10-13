@@ -543,5 +543,6 @@ is the one case where backend secrets legitimately live there.
 Everything above is one Vercel project. Online Ludo is the exception: it uses WebSockets, which
 Vercel's serverless functions cannot hold open. The realtime server in `realtime/` must be
 hosted separately on any Node host with persistent connections (Render, Fly.io, Railway, …).
-Set `NEXT_PUBLIC_REALTIME_URL` in the Vercel project to its URL. The rest of the app, and the
-other games, work without it. See `realtime/README.md`.
+Set `NEXT_PUBLIC_REALTIME_URL` in the Vercel project to its URL **and redeploy** (it is inlined at
+build time). Without it, online Ludo shows "Not set up"; the rest of the app, and the other games,
+work without it. Step-by-step hosting (Render) and the status badges: `realtime/README.md`.

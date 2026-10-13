@@ -69,7 +69,46 @@ Render (free web service), Fly.io, Railway (trial credit). The service just need
 - Health check path: `/health`
 - Env: `NODE_ENV=production`, `ALLOWED_ORIGINS=https://<your vercel domain>`
 
-Then set `NEXT_PUBLIC_REALTIME_URL` in the Vercel project and redeploy the frontend.
+Then set `NEXT_PUBLIC_REALTIME_URL` in the Vercel project and **redeploy** the frontend: it is a
+`NEXT_PUBLIC_` variable, inlined into the browser bundle at build time, so a deployment built
+before it was set keeps showing "Not set up" until it is rebuilt.
+
+### Render, step by step
+
+1. New → Web Service → connect this repository.
+2. Root directory: leave empty (repo root). Runtime: Node (20+).
+3. Build command: `npm install`
+4. Start command: `npm run start --workspace media-tool-realtime`
+5. Health check path: `/health`
+6. Environment: `NODE_ENV=production`, `ALLOWED_ORIGINS=https://media-tool.vercel.app`
+   (add every origin players use — a custom domain too — comma-separated, no trailing slash).
+   `PORT` is injected by Render.
+7. After it is live, `https://<service>.onrender.com/health` answers
+   `{"ok":true,"rooms":0,"originAllowed":true}`.
+8. Vercel → Project → Settings → Environment Variables: `NEXT_PUBLIC_REALTIME_URL` =
+   `https://<service>.onrender.com` (Production, and Preview if wanted) → Redeploy.
+
+## Health and status
+
+`GET /health` → `{ "ok": true, "rooms": <live rooms>, "originAllowed": <bool> }`. It is readable
+from any page (`Access-Control-Allow-Origin: *`, nothing private) and `originAllowed` says whether
+the caller's Origin is on the allow-list. The game's online screen checks it when a first
+connection fails, and tells the player which of these it is:
+
+| Badge | Meaning | Fix |
+| --- | --- | --- |
+| Not set up | the build has no `NEXT_PUBLIC_REALTIME_URL` | set it in Vercel, redeploy |
+| Server unreachable | nothing answers at that URL (down, asleep, wrong URL) | start / wake the service, check the URL |
+| Site not allowed | the server is up but refuses this site's origin | add the origin to `ALLOWED_ORIGINS` |
+| Connected | ready; Create / Join work | — |
+
+A failed Create / Join (bad code, full room, game already started) is shown under the form.
+
+## Origin allow-list
+
+In production only origins in `ALLOWED_ORIGINS` may connect, enforced with Socket.IO's
+`allowRequest` for **both** transports. (The `cors` option alone only adds headers to HTTP
+long-polling responses; browsers don't apply CORS to WebSocket upgrades.)
 
 ## Room lifecycle
 

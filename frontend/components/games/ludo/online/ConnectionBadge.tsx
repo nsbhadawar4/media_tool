@@ -7,13 +7,15 @@ const LABEL: Record<Connection, string> = {
   connected: 'Connected',
   reconnecting: 'Reconnecting…',
   disconnected: 'Disconnected',
-  unavailable: 'Server unavailable',
+  unavailable: 'Not set up',
+  unreachable: 'Server unreachable',
+  refused: 'Site not allowed',
 };
 
 /** A small status pill. Only the dot pulses (opacity), and only while something is in progress. */
 export function ConnectionBadge({ state }: { state: Connection }) {
   const good = state === 'connected';
-  const busy = state === 'connecting' || state === 'reconnecting';
+  const busy = state === 'connecting' || state === 'reconnecting' || state === 'unreachable';
   return (
     <span
       role="status"
