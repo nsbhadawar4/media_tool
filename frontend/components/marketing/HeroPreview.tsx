@@ -62,13 +62,13 @@ export function HeroPreview() {
 
       <div className="mk-window relative overflow-hidden rounded-[22px]">
         {/* Title bar */}
-        <div aria-hidden className="flex items-center gap-3 border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+        <div aria-hidden className="flex items-center gap-3 border-b border-(--mk-hairline) bg-(--mk-faint) px-4 py-3">
           <div className="flex gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/80" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]/80" />
           </div>
-          <div className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/[0.06] bg-black/30 px-3 text-[11px] text-subtle">
+          <div className="flex h-7 min-w-0 flex-1 items-center gap-2 rounded-lg border border-(--mk-hairline) bg-(--mk-sunken) px-3 text-[11px] text-subtle">
             <Search className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">Search your library…</span>
           </div>
@@ -76,7 +76,7 @@ export function HeroPreview() {
 
         <div className="grid grid-cols-[52px_minmax(0,1fr)] sm:grid-cols-[148px_minmax(0,1fr)]">
           {/* Sidebar: the three views are real switches */}
-          <div className="space-y-1 border-r border-white/[0.06] bg-black/20 p-2 sm:p-3">
+          <div className="space-y-1 border-r border-(--mk-hairline) bg-(--mk-sunken) p-2 sm:p-3">
             {VIEWS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -87,7 +87,7 @@ export function HeroPreview() {
                 className={cn(
                   'flex w-full items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors duration-200 sm:justify-start',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-                  view === id ? 'bg-accent/15 text-foreground ring-1 ring-accent/30' : 'text-subtle hover:bg-white/[0.04] hover:text-foreground-soft',
+                  view === id ? 'bg-accent/15 text-foreground ring-1 ring-accent/30' : 'text-subtle hover:bg-(--mk-faint-strong) hover:text-foreground-soft',
                 )}
               >
                 <Icon className={cn('h-3.5 w-3.5 shrink-0', view === id && 'text-accent-2')} />
@@ -98,15 +98,15 @@ export function HeroPreview() {
               {[Star, Trash2].map((Icon, i) => (
                 <div key={i} className="flex items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-subtle sm:justify-start">
                   <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden h-1.5 w-14 rounded-full bg-white/[0.06] sm:block" />
+                  <span className="hidden h-1.5 w-14 rounded-full bg-(--mk-track) sm:block" />
                 </div>
               ))}
             </div>
-            <div aria-hidden className="mt-4 hidden rounded-lg border border-white/[0.06] bg-white/[0.02] p-2 sm:block">
+            <div aria-hidden className="mt-4 hidden rounded-lg border border-(--mk-hairline) bg-(--mk-faint) p-2 sm:block">
               <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted">
                 <HardDrive className="h-3 w-3" /> Storage
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-(--mk-track)">
                 <div className="h-full w-[38%] rounded-full bg-linear-to-r from-accent to-[#22d3ee]" />
               </div>
             </div>
@@ -154,7 +154,7 @@ export function HeroPreview() {
                   <div className="mk-tile overflow-hidden rounded-xl">
                     <PhotoArt scene={1} />
                   </div>
-                  <div className="col-span-2 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3">
+                  <div className="col-span-2 flex items-center gap-2 rounded-xl border border-(--mk-hairline) bg-(--mk-faint) px-3">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-[#f87171]" />
                     <span className="truncate text-[11px] font-medium text-foreground-soft">Travel itinerary.pdf</span>
                   </div>
@@ -163,7 +163,7 @@ export function HeroPreview() {
               {view === 'documents' && (
                 <div className="flex h-full flex-col gap-1.5">
                   {DOCS.map(({ icon: Icon, color, name, kind, ...rest }) => (
-                    <div key={name} className="mk-row flex flex-1 items-center gap-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5">
+                    <div key={name} className="mk-row flex flex-1 items-center gap-2.5 rounded-lg border border-(--mk-hairline) bg-(--mk-faint) px-2.5">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md" style={{ color, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}>
                         <Icon className="h-3.5 w-3.5" />
                       </span>
@@ -173,7 +173,7 @@ export function HeroPreview() {
                           <Eye className="h-3 w-3" /> Preview
                         </span>
                       ) : (
-                        <span className="shrink-0 rounded border border-white/[0.08] px-1 py-px text-[9px] font-semibold text-subtle">{kind}</span>
+                        <span className="shrink-0 rounded border border-(--mk-hairline) px-1 py-px text-[9px] font-semibold text-subtle">{kind}</span>
                       )}
                     </div>
                   ))}
@@ -182,7 +182,7 @@ export function HeroPreview() {
               {view === 'folders' && (
                 <div className="grid h-full grid-cols-2 gap-2">
                   {FOLDERS.map((f) => (
-                    <div key={f.name} className="mk-tile group/folder relative flex flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+                    <div key={f.name} className="mk-tile group/folder relative flex flex-col overflow-hidden rounded-xl border border-(--mk-hairline) bg-(--mk-faint)">
                       <div className="h-1/2 overflow-hidden opacity-80">
                         <PhotoArt scene={f.scene} />
                       </div>
@@ -210,7 +210,7 @@ export function HeroPreview() {
             <p className="text-[10px] text-subtle">to Summer trip</p>
           </div>
         </div>
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-(--mk-track)">
           <span className="mk-progress block h-full rounded-full bg-linear-to-r from-accent to-[#22d3ee]" />
         </div>
       </div>

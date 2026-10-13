@@ -307,6 +307,15 @@ a,
   display: block;
 }
 
+/* The theme switch itself: hidden when the administrator allows one theme only (the pre-paint
+   script sets data-theme-lock), so it never appears and then vanishes during hydration. */
+.theme-switch {
+  display: flex;
+}
+:root[data-theme-lock] .theme-switch {
+  display: none;
+}
+
 @keyframes slide-in-left {
   from {
     transform: translateX(-100%);
@@ -1596,18 +1605,35 @@ a,
 :root[data-motion='reduce'] .kg-float,
 :root[data-motion='reduce'] .kg-burst { display: none; }
 
-/* ---- Kid Games: class cards (hover lift with a soft class-coloured glow) ---- */
-.kg-class-card { transition: transform 0.22s var(--ease-out), box-shadow 0.22s ease, border-color 0.22s ease; }
-.kg-class-art { transition: transform 0.25s var(--ease-out); }
-@media (hover: hover) {
-  .kg-class-card:hover {
-    transform: translateY(-3px);
-    border-color: color-mix(in srgb, var(--kg) 50%, transparent);
-    box-shadow: var(--shadow-lift), 0 12px 32px -16px color-mix(in srgb, var(--kg) 55%, transparent);
-  }
-  .kg-class-card:hover .kg-class-art { transform: scale(1.03); }
+/* ---- Class course cards (components/kid-games/cards/ClassCourseCard.tsx) ----
+   Enter with a short fade-up; on hover the card lifts a little, takes a soft class-coloured
+   glow, and the picture zooms inside its frame. Nothing moves for reduced motion. */
+.kg-course-card {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--kg) 6%, var(--surface)) 0%, var(--surface) 46%);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s ease, border-color 0.35s ease;
+  animation: kg-course-in 0.55s var(--ease-out) both;
+  animation-delay: calc(min(var(--i, 0), 10) * 70ms);
 }
-.kg-class-card:focus-within { border-color: color-mix(in srgb, var(--kg) 60%, transparent); }
+@keyframes kg-course-in {
+  from { opacity: 0; transform: translateY(14px); }
+}
+.kg-course-art { transition: transform 0.7s var(--ease-out); }
+.kg-course-badge { transition: transform 0.35s var(--ease-out), background-color 0.35s ease; }
+.kg-course-cta { transition: transform 0.2s var(--ease-out), box-shadow 0.25s ease, filter 0.25s ease; }
+.kg-course-cta-arrow { transition: transform 0.25s var(--ease-out); }
+@media (hover: hover) {
+  .kg-course-card:hover {
+    transform: translateY(-6px);
+    border-color: color-mix(in srgb, var(--kg) 42%, transparent);
+    box-shadow: var(--shadow-lift), 0 26px 48px -26px color-mix(in srgb, var(--kg) 60%, transparent);
+  }
+  .kg-course-card:hover .kg-course-art { transform: scale(1.06); }
+  .kg-course-card:hover .kg-course-badge { transform: translateY(-2px); background-color: rgb(15 23 42 / 0.55); }
+  .kg-course-card:hover .kg-course-cta { box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--kg) 75%, transparent); filter: brightness(1.06); }
+  .kg-course-card:hover .kg-course-cta-arrow { transform: translateX(3px); }
+}
+.kg-course-card:focus-within { border-color: color-mix(in srgb, var(--kg) 60%, transparent); }
+.kg-course-card:active .kg-course-cta { transform: scale(0.98); }
 .kg-cta:active { transform: scale(0.98); }
 
 /* ---- Kid Games: journey rows (class progress and subject rows) ---- */
@@ -1625,7 +1651,8 @@ a,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kg-class-card, .kg-class-art, .kg-row, .kg-row-icon, .kg-row-arrow { transition: none; }
+  .kg-course-card, .kg-course-art, .kg-course-badge, .kg-course-cta, .kg-course-cta-arrow, .kg-row, .kg-row-icon, .kg-row-arrow { transition: none; }
+  .kg-course-card { animation: none; }
 }
 
 /* ===========================================================================
@@ -1670,20 +1697,39 @@ a,
 =========================================================================== */
 html:has(.mk-root) {
   scroll-behavior: smooth;
-  /* In-page links land below the sticky header rather than under it. */
-  scroll-padding-top: calc(5rem + env(safe-area-inset-top, 0px));
+  /* In-page links land right below the sticky header (its exact height), not under it. */
+  scroll-padding-top: calc(4rem + 1px + env(safe-area-inset-top, 0px));
 }
+
+/*
+ * A section jumped to from the header: cancel most of its top padding, so its heading sits a
+ * steady 1.5rem below the header instead of behind a band of empty padding. The values are the
+ * padding of Section (sections.tsx) minus that gap, per breakpoint.
+ */
+.mk-section { scroll-margin-top: -2.5rem; }
+@media (min-width: 640px) { .mk-section { scroll-margin-top: -3.5rem; } }
+@media (min-width: 1024px) { .mk-section { scroll-margin-top: -4rem; } }
 
 .mk-safe-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
 /*
- * The public website is always dark — it is the brand's first impression, designed for one
- * palette. These re-declare the dark tokens for .mk-root and everything in it (the app keeps
- * following the visitor's own light / dark choice).
+ * The public website has its own tuned palette in each theme. Dark (below) is the brand's first
+ * impression; light (the :root[data-theme='light'] block after it) is designed to match, not an
+ * inversion. Which one shows follows the same rule as the app (lib/theme/policy.ts).
+ *
+ * --mk-* are the site's own surface tokens: hairlines, faint fills, tracks and sunken panels that
+ * components use instead of white / black alpha values, so both themes keep their contrast.
  */
 .mk-root {
+  --mk-hairline: rgba(255, 255, 255, 0.06);
+  --mk-faint: rgba(255, 255, 255, 0.025);
+  --mk-faint-strong: rgba(255, 255, 255, 0.045);
+  --mk-track: rgba(255, 255, 255, 0.06);
+  --mk-sunken: rgba(0, 0, 0, 0.25);
+  --mk-panel: #0d0d14;
+  --mk-header-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.8);
   --background: #07070a;
   --surface: #101015;
   --surface-elevated: #16161d;
@@ -1712,6 +1758,41 @@ html:has(.mk-root) {
 html:has(.mk-root) {
   background-color: #07070a;
   color-scheme: dark;
+}
+
+:root[data-theme='light'] .mk-root {
+  --background: #f7f7fb;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f2f1f7;
+  --border: rgba(24, 24, 27, 0.08);
+  --border-strong: rgba(24, 24, 27, 0.14);
+  --foreground: #14141a;
+  --foreground-soft: #3f3f46;
+  --muted: #5f5f6b;
+  --subtle: #82828e;
+  --accent: #6d4aff;
+  --accent-hover: #5b38f0;
+  --accent-2: #6a4dff;
+  --accent-foreground: #ffffff;
+  --danger: #dc3b41;
+  --success: #15803d;
+  --warning: #b45309;
+  --shadow-card: 0 1px 2px rgba(16, 16, 24, 0.05);
+  --shadow-lift: 0 18px 40px -18px rgba(40, 30, 90, 0.22), 0 2px 6px rgba(16, 16, 24, 0.06);
+  --glass: rgba(255, 255, 255, 0.78);
+  --mk-hairline: rgba(24, 24, 27, 0.08);
+  --mk-faint: rgba(24, 24, 27, 0.025);
+  --mk-faint-strong: rgba(24, 24, 27, 0.045);
+  --mk-track: rgba(24, 24, 27, 0.08);
+  --mk-sunken: rgba(24, 24, 27, 0.04);
+  --mk-panel: #ffffff;
+  --mk-header-shadow: 0 10px 28px -18px rgba(40, 30, 90, 0.28);
+  color-scheme: light;
+}
+:root[data-theme='light']:has(.mk-root) {
+  background-color: #f7f7fb;
+  color-scheme: light;
 }
 
 /* A fine film grain over the whole page, so large dark areas don't band. */
@@ -1984,6 +2065,97 @@ html:has(.mk-root) {
   bottom: -20%;
   background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.35), rgba(59, 130, 246, 0.1) 60%, transparent 70%);
 }
+
+/* ---- Light theme: the site's surfaces, lines and glows redrawn for a light page ---- */
+:root[data-theme='light'] .mk-root::before { opacity: 0.025; }
+:root[data-theme='light'] .mk-hero-glow {
+  background:
+    radial-gradient(48% 55% at 78% 18%, rgba(124, 92, 255, 0.16), transparent 70%),
+    radial-gradient(32% 40% at 92% 70%, rgba(56, 189, 248, 0.1), transparent 70%),
+    radial-gradient(38% 46% at 8% 22%, rgba(99, 102, 241, 0.09), transparent 70%);
+}
+:root[data-theme='light'] .mk-grid {
+  background-image:
+    linear-gradient(to right, rgba(24, 24, 27, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.05) 1px, transparent 1px);
+}
+:root[data-theme='light'] .mk-text-gradient {
+  background-image: linear-gradient(100deg, #7c3aed 0%, #6d4aff 45%, #2563eb 100%);
+}
+:root[data-theme='light'] .mk-badge {
+  border-color: rgba(109, 74, 255, 0.22);
+  background: linear-gradient(180deg, rgba(109, 74, 255, 0.1), rgba(109, 74, 255, 0.03));
+  box-shadow: none;
+}
+:root[data-theme='light'] .mk-btn-ghost { background: #ffffff; box-shadow: 0 1px 2px rgba(16, 16, 24, 0.05); }
+:root[data-theme='light'] .mk-btn-ghost:hover { background: #f4f3f9; border-color: rgba(24, 24, 27, 0.2); }
+:root[data-theme='light'] .mk-window {
+  border-color: rgba(24, 24, 27, 0.08);
+  background: linear-gradient(180deg, #ffffff, #fbfbfd);
+  box-shadow: 0 40px 90px -40px rgba(109, 74, 255, 0.28), 0 20px 40px -24px rgba(16, 16, 24, 0.18);
+}
+:root[data-theme='light'] .mk-preview-light { opacity: 0.6; }
+:root[data-theme='light'] .mk-tile { box-shadow: inset 0 0 0 1px rgba(24, 24, 27, 0.06); }
+:root[data-theme='light'] .mk-chip {
+  border-color: rgba(24, 24, 27, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 36px -18px rgba(40, 30, 90, 0.28);
+}
+:root[data-theme='light'] .mk-card {
+  border-color: rgba(24, 24, 27, 0.08);
+  background: linear-gradient(180deg, rgba(109, 74, 255, 0.025), transparent 60%), var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
+}
+:root[data-theme='light'] .mk-card:hover { border-color: rgba(109, 74, 255, 0.28); }
+:root[data-theme='light'] .mk-matrix {
+  border-color: rgba(24, 24, 27, 0.08);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
+}
+:root[data-theme='light'] .mk-matrix-cell { border-color: rgba(24, 24, 27, 0.07); }
+:root[data-theme='light'] .mk-band {
+  background:
+    linear-gradient(90deg, transparent, rgba(24, 24, 27, 0.08), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(24, 24, 27, 0.08), transparent) bottom / 100% 1px no-repeat,
+    linear-gradient(180deg, transparent, rgba(109, 74, 255, 0.035) 50%, transparent);
+}
+:root[data-theme='light'] .mk-kid-panel {
+  border-color: rgba(24, 24, 27, 0.07);
+  background: linear-gradient(160deg, #fff8ec 0%, #fdf4fa 50%, #f1f0ff 100%);
+  box-shadow: 0 40px 90px -50px rgba(245, 158, 11, 0.3);
+}
+:root[data-theme='light'] .mk-kid-glow { opacity: 0.6; }
+:root[data-theme='light'] .mk-step {
+  border-color: rgba(109, 74, 255, 0.25);
+  background: linear-gradient(180deg, #ffffff, #f4f1ff);
+  box-shadow: 0 0 0 6px var(--background), 0 12px 26px -14px rgba(109, 74, 255, 0.45);
+}
+:root[data-theme='light'] .mk-shield {
+  border-color: rgba(109, 74, 255, 0.2);
+  background:
+    radial-gradient(60% 60% at 50% 30%, rgba(124, 92, 255, 0.16), transparent 70%),
+    linear-gradient(180deg, #ffffff, #f4f1ff);
+  box-shadow: 0 30px 60px -32px rgba(109, 74, 255, 0.45);
+}
+:root[data-theme='light'] .mk-faq { border-color: rgba(24, 24, 27, 0.08); background: var(--surface); }
+:root[data-theme='light'] .mk-faq-item + .mk-faq-item { border-top-color: rgba(24, 24, 27, 0.07); }
+:root[data-theme='light'] .mk-faq-item[open] { background: rgba(109, 74, 255, 0.04); }
+:root[data-theme='light'] .mk-cta {
+  border-color: rgba(109, 74, 255, 0.18);
+  background: linear-gradient(160deg, #efeaff 0%, #f6f3ff 45%, #e8f3ff 100%);
+  box-shadow: 0 40px 100px -50px rgba(109, 74, 255, 0.4);
+}
+:root[data-theme='light'] .mk-cta-glow { opacity: 0.55; }
+:root[data-theme='light'] .mk-nav {
+  border-color: rgba(24, 24, 27, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
+}
+:root[data-theme='light'] .mk-nav-indicator {
+  background: linear-gradient(180deg, rgba(109, 74, 255, 0.14), rgba(109, 74, 255, 0.07));
+  box-shadow: inset 0 0 0 1px rgba(109, 74, 255, 0.25);
+}
+:root[data-theme='light'] .mk-aurora > span { opacity: 0.3; }
 
 /* ---- Hover details that apply whatever the motion setting (no movement involved) */
 .mk-row {

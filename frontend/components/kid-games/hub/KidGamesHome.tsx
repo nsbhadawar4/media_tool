@@ -7,9 +7,9 @@ import { Select } from '@/components/ui/Select';
 import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { ACHIEVEMENTS, currentStreak, recommendations, summarise, useKidProgress, useSavedSession } from '@/lib/kid-games/progress';
-import type { ClassLevel, LearningGame } from '@/lib/kid-games/types';
-import { ClassCard, KidGameCard } from '../cards/KidCards';
-import { GenericClassCard } from '../cards/GenericCards';
+import type { LearningGame } from '@/lib/kid-games/types';
+import { KidGameCard } from '../cards/KidCards';
+import { ClassCardsGrid } from '../cards/ClassCardsGrid';
 import { AchievementsGrid, ContinueSection, DailyGoalCard, LevelCard, LearningJourney, StreakCard } from '../progress/ProgressWidgets';
 import { KidEmptyState, KidFloatingShapes, KidSectionTitle, KidStat, SubjectIcon } from '../shared/KidUi';
 import { ProgressLoadError } from './ProgressLoadError';
@@ -152,15 +152,7 @@ export function KidGamesHome() {
       {/* Classes */}
       <section aria-labelledby="kg-classes">
         <KidSectionTitle id="kg-classes" icon={GraduationCap} title="Choose Your Class" hint="Every class has 30 games: 10 Hindi, 10 English and 10 Maths." />
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {catalog.classViews.map((view, i) =>
-            view.isCode ? (
-              <ClassCard key={view.key} level={view.level as ClassLevel} summary={summarise(progress, view.level as ClassLevel)} index={i} title={view.title} tagline={view.description} />
-            ) : (
-              <GenericClassCard key={view.key} view={view} index={i} />
-            ),
-          )}
-        </div>
+        <ClassCardsGrid />
       </section>
 
       {/* Search, filters, and either results or recommendations */}

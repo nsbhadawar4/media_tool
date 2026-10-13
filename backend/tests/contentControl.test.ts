@@ -96,7 +96,7 @@ test('defaults keep today’s behaviour: features off the landing page, every ga
   assert.ok(c.kidGames.every((g) => g.showOnLanding && !g.featured));
   assert.deepEqual(
     c.dashboardWidgets.map((w) => w.key),
-    ['welcome', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'recent-folders'],
+    ['welcome', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'classes', 'recent-folders'],
   );
   assert.ok(c.dashboardWidgets.every((w) => w.isEnabled));
   assert.deepEqual(c.navItems.map((n) => n.key), ['home', 'features', 'games', 'kid-games', 'faq', 'pricing', 'login', 'get-started']);

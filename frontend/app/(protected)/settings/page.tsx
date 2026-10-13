@@ -144,7 +144,7 @@ function PreferencesPanel() {
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, canSwitch, policy } = useTheme();
   const [section, setSection] = useState<Section>('account');
 
   const statsQuery = useQuery({
@@ -209,6 +209,12 @@ export default function SettingsPage() {
               <p className="mt-0.5 text-xs text-muted">Stored in this browser only; it does not follow your account.</p>
             </CardHeader>
             <CardBody>
+              {!canSwitch && policy ? (
+                // The administrator allows one theme only: say so instead of offering a choice.
+                <p role="status" className="rounded-xl border border-border bg-surface-hover/50 px-4 py-3 text-sm text-muted">
+                  This site uses the <span className="font-semibold text-foreground">{policy.themeMode === 'light' ? 'Light' : 'Dark'}</span> theme for everyone at the moment. Your own choice is kept and returns when switching is allowed again.
+                </p>
+              ) : (
               <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-3">
                 {THEME_OPTIONS.map((option) => {
                   const Icon = option.icon;
@@ -233,6 +239,7 @@ export default function SettingsPage() {
                   );
                 })}
               </div>
+              )}
             </CardBody>
           </Card>
         )}

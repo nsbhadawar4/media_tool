@@ -6,8 +6,12 @@ import { Logo } from '@/components/brand/Logo';
 import { ADMIN_HOME_PATH, LOGIN_PATH, USER_HOME_PATH, roleHintFromToken } from '@/lib/auth/routes';
 import { MarketingHeader } from './MarketingHeader';
 import { getServerCatalog } from '@/lib/server/contentCatalog';
-import { LEGAL_LINKS, linksFor, navForViewer, navItemsFor, type MarketingLink, type Viewer } from './nav';
-import { isSectionOn } from '@/lib/content/sections';
+import { getServerAppearance } from '@/lib/server/appearance';
+import { policyBootScript } from '@/lib/theme/policy';
+import { LEGAL_LINKS, linksFor, navForViewer, navItemsFor, withLandingSections, type MarketingLink, type Viewer } from './nav';
+import { homeBlocks, isOnLanding, isSectionOn } from '@/lib/content/sections';
+import { resolveCatalog } from '@/lib/content/catalog';
+import type { PublicCatalog } from '@/lib/api/content';
 
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_session';
 
@@ -46,7 +50,7 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
       <div className="relative mx-auto max-w-7xl">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div>
-            <Link href="/#top" className="flex w-fit items-center gap-2.5" aria-label="media_tool home">
+            <Link href="/" className="flex w-fit items-center gap-2.5" aria-label="media_tool home">
               <Logo className="h-8 w-8" />
               <span className="text-[15px] font-semibold tracking-tight text-foreground">media_tool</span>
             </Link>
@@ -110,6 +114,20 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
   );
 }
 
+/**
+ * Which of the header's scroll targets the home page renders, so Games and Kid Games scroll there
+ * (and only there). Mirrors app/page.tsx: the Games block needs its landing switch and games to
+ * show; Kid Games points at the "Learn by Class" cards, shown while that section and the Kid Games
+ * feature are on.
+ */
+function landingSections(raw: PublicCatalog | null): Set<string> {
+  const catalog = resolveCatalog(raw);
+  const present = new Set<string>();
+  if (isOnLanding(raw, 'games') && catalog.landingArcadeGames.length > 0) present.add('games');
+  if (isSectionOn(raw, 'kid-games') && homeBlocks(raw).some((b) => b.key === 'classes') && catalog.classViews.length > 0) present.add('kid-games');
+  return present;
+}
+
 /** The copyright and legal links alone, while the Footer section is off. */
 function LegalLine({ legal }: { legal: typeof LEGAL_LINKS }) {
   return (
@@ -136,14 +154,20 @@ function LegalLine({ legal }: { legal: typeof LEGAL_LINKS }) {
  * page rendering this must be dynamic — see getServerCatalog.
  */
 export async function MarketingShell({ children }: { children: ReactNode }) {
-  const catalog = await getServerCatalog();
+  const [catalog, appearance] = await Promise.all([getServerCatalog(), getServerAppearance()]);
   const viewer = await currentViewer();
   // Switched-off sections lose their links; Games and Kid Games point where this viewer can go.
-  const items = navForViewer(linksFor(navItemsFor(catalog), catalog), viewer);
+  const items = navForViewer(withLandingSections(linksFor(navItemsFor(catalog), catalog), landingSections(catalog)), viewer);
   const nav = items.filter((item) => !item.button);
   const buttons = items.filter((item) => item.button);
   return (
     <div className="mk-root relative min-h-screen overflow-x-clip bg-background">
+      {/* The site's appearance setting, applied before the content below paints (the root
+          layout's script only knows the last setting this browser saw). */}
+      {/* As markup inside a hidden element, not a React <script>: the browser runs it while parsing
+          the server's HTML (before this content paints), and React never re-creates a script on the
+          client — which it would warn about, since such a script would not run there. */}
+      {appearance && <div hidden suppressHydrationWarning dangerouslySetInnerHTML={{ __html: `<script>${policyBootScript(appearance)}</script>` }} />}
       <MarketingHeader nav={nav} buttons={buttons} />
       <main id="main-content">{children}</main>
       {/* The Footer section switch (/admin/content/sections) drops the link columns only:

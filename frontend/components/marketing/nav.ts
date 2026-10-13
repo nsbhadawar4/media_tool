@@ -10,6 +10,11 @@ export interface MarketingLink {
   label: string;
   /** The website section the link points into: switched off, the link goes too. */
   section?: string;
+  /**
+   * The id of the element on the home page this link scrolls to (`#home`, `#features`, …) —
+   * what the header's "you are here" highlight watches.
+   */
+  anchor?: string;
   /** A page of the signed-in app rather than a section of the home page. */
   app?: boolean;
   /** One of the header's buttons (Login, Get Started) rather than a link in the menu. */
@@ -29,12 +34,14 @@ export type Viewer = 'visitor' | 'user' | 'admin';
  * `/#section` rather than `#section` so the links also work from /privacy, /terms and /contact.
  */
 const DESTINATIONS: Readonly<Record<string, Omit<MarketingLink, 'key' | 'label' | 'signIn'>>> = {
-  home: { href: '/#top', section: 'hero' },
-  features: { href: '/#features', section: 'features' },
-  games: { href: '/games', section: 'games', app: true },
-  'kid-games': { href: '/kid-games', section: 'kid-games', app: true },
-  faq: { href: '/#faq', section: 'faq' },
-  pricing: { href: '/#pricing', section: 'pricing' },
+  home: { href: '/', section: 'hero', anchor: 'home' },
+  features: { href: '/#features', section: 'features', anchor: 'features' },
+  // Games and Kid Games scroll to their home page section when it is there (withLandingSections);
+  // otherwise they lead to the app page itself.
+  games: { href: '/games', section: 'games', app: true, anchor: 'games' },
+  'kid-games': { href: '/kid-games', section: 'kid-games', app: true, anchor: 'kid-games' },
+  faq: { href: '/#faq', section: 'faq', anchor: 'faq' },
+  pricing: { href: '/#pricing', section: 'pricing', anchor: 'pricing' },
   login: { href: LOGIN_PATH, button: true },
   'get-started': { href: '/signup', button: true },
 };
@@ -71,6 +78,16 @@ export const LEGAL_LINKS: ReadonlyArray<{ href: string; label: string; section?:
  */
 export function linksFor<T extends { section?: string }>(links: readonly T[], catalog: PublicCatalog | null): T[] {
   return links.filter((link) => !link.section || isSectionOn(catalog, link.section));
+}
+
+/**
+ * Games and Kid Games scroll to their section of the home page whenever that section is on the
+ * page (`present`: the ids rendered there) — Kid Games to the Class 1–5 cards. Only when an
+ * administrator has taken the section off the home page do they lead to the app page instead,
+ * so no link ever points at a section that isn't there.
+ */
+export function withLandingSections(links: readonly MarketingLink[], present: ReadonlySet<string>): MarketingLink[] {
+  return links.map((link) => (link.app && link.anchor && present.has(link.anchor) ? { ...link, href: `/#${link.anchor}`, app: false } : link));
 }
 
 /**

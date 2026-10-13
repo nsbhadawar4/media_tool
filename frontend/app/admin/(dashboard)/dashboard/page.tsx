@@ -39,6 +39,7 @@ import { RecentActivity } from '@/components/admin/dashboard/RecentActivity';
 import { PendingReviews } from '@/components/admin/dashboard/PendingReviews';
 import { ADMIN_REVIEW_STATS_KEY } from '@/components/reviews/admin/AdminReviewsView';
 import { formatBytes } from '@/utils/format';
+import { ClassCardsPreview } from '@/components/kid-games/cards/ClassCardsPreview';
 import { cn } from '@/utils/cn';
 
 /** Where the admin manages things — the same destinations as the admin sidebar. */
@@ -193,6 +194,20 @@ export default function AdminDashboardPage() {
             )}
           </div>
         )}
+      </section>
+
+      {/* Classes 1–5 exactly as visitors and users see them (the shared card, the live catalog). */}
+      <section aria-labelledby="learn-by-class-heading" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 id="learn-by-class-heading" className="text-base font-semibold tracking-tight text-foreground">Learn by Class</h2>
+            <p className="text-xs text-muted">The class cards visitors and users see, as they are now</p>
+          </div>
+          <Link href="/admin/content/classes" className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            Manage classes
+          </Link>
+        </div>
+        <ClassCardsPreview />
       </section>
 
       {/* User activity — every figure is counted in the database; "today" is the admin's own day. */}

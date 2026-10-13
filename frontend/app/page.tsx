@@ -13,6 +13,7 @@ import {
   Highlights,
   HowItWorks,
   KidGamesSection,
+  LearnByClassSection,
   kidSubjectSummary,
   MediaSection,
   Pricing,
@@ -80,6 +81,8 @@ export const dynamic = 'force-dynamic';
 /** What a block needs: which sections are on, and the catalog as administrators set it. */
 interface Ctx {
   on: (key: string) => boolean;
+  /** A feature (Games, Kid Games) is switched on — its master switch, not its home page block. */
+  featureOn: (key: string) => boolean;
   catalog: ResolvedCatalog;
 }
 
@@ -107,6 +110,14 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   features: () => <Features />,
   media: () => <MediaSection />,
   documents: () => <DocumentsSection />,
+  // Learn by Class: every listed class, the same data and card as the app. Its pages belong to
+  // Kid Games, so it shows only while that feature is on.
+  classes: ({ catalog, featureOn }) =>
+    featureOn('kid-games') ? (
+      <LearnByClassSection
+        classes={catalog.classViews.map((c) => ({ ...c, games: catalog.listedGames(c.level).length, subjects: catalog.subjectsFor(c.level).length }))}
+      />
+    ) : null,
   // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);
   // each lists only the games switched on for the landing page. Empty, the block isn't rendered.
   games: ({ catalog }) => <GamesSection games={catalog.landingArcadeGames} />,
@@ -143,7 +154,7 @@ export default async function HomePage() {
   const raw = await getServerCatalog();
   const blocks = homeBlocks(raw);
   const shown = new Set(blocks.map((b) => b.key));
-  const ctx: Ctx = { catalog: resolveCatalog(raw), on: (key) => shown.has(key) || (key === 'contact' && isSectionOn(raw, key)) };
+  const ctx: Ctx = { catalog: resolveCatalog(raw), featureOn: (key) => isSectionOn(raw, key), on: (key) => shown.has(key) || (key === 'contact' && isSectionOn(raw, key)) };
   return (
     <MarketingShell>
       {/* Only while the FAQ itself is shown. */}

@@ -56,6 +56,13 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
   },
   {
     "type": "section",
+    "key": "classes",
+    "title": "Learn by Class",
+    "description": "Class 1–5 cards: what each class offers.",
+    "order": 4.5
+  },
+  {
+    "type": "section",
     "key": "games",
     "title": "Games",
     "description": "The games collection.",
@@ -2080,10 +2087,17 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
   },
   {
     "type": "dashboard_widget",
+    "key": "classes",
+    "title": "Learn by Class",
+    "description": "Class 1–5 cards with the user’s progress (needs the Kid Games feature on).",
+    "order": 9
+  },
+  {
+    "type": "dashboard_widget",
     "key": "recent-folders",
     "title": "Recent folders",
     "description": "The newest top-level folders.",
-    "order": 9
+    "order": 10
   },
   {
     "type": "nav_item",

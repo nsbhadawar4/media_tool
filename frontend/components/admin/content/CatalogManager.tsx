@@ -26,6 +26,7 @@ import { ContentFormDialog } from './ContentFormDialog';
 import { ClassSubjectMatrix } from './ClassSubjectMatrix';
 import { FeatureSurfaces } from './FeatureSurfaces';
 import { GamePreview } from './GamePreview';
+import { ClassCardsPreview } from '@/components/kid-games/cards/ClassCardsPreview';
 import { useTaxonomy } from './useTaxonomy';
 
 const PAGE_SIZE = 25;
@@ -289,6 +290,8 @@ export function CatalogManager({ info }: { info: ContentTypeInfo }) {
           </>
         )}
       </section>
+
+      {info.type === 'class' && <ClassCardsPreviewPanel />}
 
       {info.type === 'subject' && (
         <section aria-labelledby="class-subjects" className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -644,5 +647,18 @@ function ArcadeIcon({ slug }: { slug: string }) {
     >
       <Icon className="h-5 w-5" strokeWidth={1.8} />
     </span>
+  );
+}
+
+/** The class cards as users get them — the shared preview, under this page's heading. */
+function ClassCardsPreviewPanel() {
+  return (
+    <section aria-labelledby="class-cards-preview" className="rounded-2xl border border-border bg-surface p-4 shadow-card sm:p-5">
+      <h2 id="class-cards-preview" className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Eye className="h-4 w-4 text-accent" aria-hidden />
+        Preview: class cards as users see them
+      </h2>
+      <ClassCardsPreview />
+    </section>
   );
 }

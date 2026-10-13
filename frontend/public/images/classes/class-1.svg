@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="A young child holding a big alphabet block, surrounded by colourful learning blocks">
+  <title>A young child holding a big alphabet block, surrounded by colourful learning blocks</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff6e6"/><stop offset="1" stop-color="#ffe6ef"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="38"/></filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1e1b4b" flood-opacity="0.16"/></filter>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <circle cx="140" cy="120" r="150" fill="#f59e0b" opacity="0.28" filter="url(#soft)"/>
+  <circle cx="680" cy="380" r="170" fill="#ec4899" opacity="0.26" filter="url(#soft)"/>
+  <circle cx="660" cy="90" r="70" fill="#ffffff" opacity="0.55" filter="url(#soft)"/>
+  <path d="M110 346 Q112.52 357.48 124 360 Q112.52 362.52 110 374 Q107.48 362.52 96 360 Q107.48 357.48 110 346Z" fill="#f59e0b" opacity="0.75"/><path d="M700 139 Q701.98 148.02 711 150 Q701.98 151.98 700 161 Q698.02 151.98 689 150 Q698.02 148.02 700 139Z" fill="#ec4899" opacity="0.75"/><path d="M610 53 Q611.26 58.74 617 60 Q611.26 61.26 610 67 Q608.74 61.26 603 60 Q608.74 58.74 610 53Z" fill="#f59e0b" opacity="0.75"/>
+  <circle cx="230" cy="70" r="5" fill="#ec4899" opacity="0.5"/><circle cx="560" cy="430" r="6" fill="#f59e0b" opacity="0.45"/>
+  <circle cx="80" cy="230" r="4" fill="#f59e0b" opacity="0.5"/><circle cx="745" cy="260" r="4" fill="#ec4899" opacity="0.5"/>
+  <g filter="url(#shadow)">
+    <circle cx="308" cy="246" r="34" fill="#4a2c1d"/><circle cx="492" cy="246" r="34" fill="#4a2c1d"/>
+               <circle cx="330" cy="222" r="9" fill="#f472b6"/><circle cx="470" cy="222" r="9" fill="#f472b6"/>
+    <path d="M272 500 Q270 376 340 356 L460 356 Q530 376 528 500Z" fill="#f59e0b"/>
+    <path d="M360 356 Q400 396 440 356" fill="#fbbf24"/>
+    <rect x="380" y="300" width="40" height="60" rx="16" fill="#e0a87f"/>
+    <circle cx="320" cy="246" r="16" fill="#f1c19b"/><circle cx="480" cy="246" r="16" fill="#f1c19b"/>
+    <circle cx="400" cy="236" r="80" fill="#f1c19b"/>
+    <path d="M320 232 Q320 138 400 142 Q480 138 480 232 Q430 190 394 206 Q356 184 320 232Z" fill="#4a2c1d"/>
+    <ellipse cx="370" cy="244" rx="8" ry="10" fill="#1f2937"/><ellipse cx="430" cy="244" rx="8" ry="10" fill="#1f2937"/>
+    <circle cx="373" cy="240" r="3" fill="#ffffff"/><circle cx="433" cy="240" r="3" fill="#ffffff"/>
+    
+    <ellipse cx="348" cy="270" rx="13" ry="8" fill="#fb7185" opacity="0.35"/><ellipse cx="452" cy="270" rx="13" ry="8" fill="#fb7185" opacity="0.35"/>
+    <path d="M380 276 Q400 294 420 276" stroke="#7c2d12" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+      <path d="M300 420 Q305 436 350 392" stroke="#f59e0b" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M500 420 Q495 436 450 392" stroke="#f59e0b" stroke-width="38" stroke-linecap="round" fill="none"/>
+      <g transform="rotate(0 400 398)" filter="url(#shadow)">
+      <rect x="338" y="336" width="124" height="124" rx="19.84" fill="#ec4899"/><rect x="350.4" y="348.4" width="99.2" height="99.2" rx="14.879999999999999" fill="#ffffff" opacity="0.9"/>
+      <text x="400" y="422.8" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" font-size="69.44000000000001" fill="#ec4899">A</text></g><circle cx="338" cy="398" r="20" fill="#f1c19b"/><circle cx="462" cy="398" r="20" fill="#f1c19b"/>
+      <g transform="rotate(-12 149 189)" filter="url(#shadow)">
+      <rect x="110" y="150" width="78" height="78" rx="12.48" fill="#0ea5e9"/><rect x="117.8" y="157.8" width="62.400000000000006" height="62.400000000000006" rx="9.36" fill="#ffffff" opacity="0.9"/>
+      <text x="149" y="204.6" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" font-size="43.68000000000001" fill="#0ea5e9">B</text></g><g transform="rotate(10 654 252)" filter="url(#shadow)">
+      <rect x="612" y="210" width="84" height="84" rx="13.44" fill="#22c55e"/><rect x="620.4" y="218.4" width="67.2" height="67.2" rx="10.08" fill="#ffffff" opacity="0.9"/>
+      <text x="654" y="268.8" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" font-size="47.040000000000006" fill="#22c55e">C</text></g><g transform="rotate(8 178 298)" filter="url(#shadow)">
+      <rect x="150" y="270" width="56" height="56" rx="8.96" fill="#8b5cf6"/><rect x="155.6" y="275.6" width="44.800000000000004" height="44.800000000000004" rx="6.72" fill="#ffffff" opacity="0.9"/>
+      <text x="178" y="309.2" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" font-size="31.360000000000003" fill="#8b5cf6">1</text></g>
+      <g transform="rotate(-30 640 120)"><rect x="570" y="110" width="110" height="22" rx="6" fill="#f59e0b"/><path d="M680 110 L708 121 L680 132Z" fill="#fcd9a8"/><path d="M698 117 L708 121 L698 125Z" fill="#7c2d12"/></g>
+</svg>

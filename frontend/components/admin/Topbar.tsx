@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import { accountLabel } from '@/lib/auth/account';
 import { useNavigationRouter } from '@/lib/navigation/progress';
-import { ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, User } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Search, Settings, User } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
-import { useTheme } from '@/lib/theme/ThemeContext';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
@@ -22,7 +22,6 @@ export function Topbar({
   /** Opens the mobile navigation drawer; the button only shows below `lg`. */
   onOpenNav?: () => void;
 }) {
-  const { resolvedTheme, setTheme } = useTheme();
   const { user } = useAuth();
   const router = useNavigationRouter();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -122,21 +121,8 @@ export function Topbar({
               <Search className="h-5 w-5" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              className="group flex h-10 w-10 items-center justify-center rounded-xl text-muted transition hover:bg-surface-hover hover:text-foreground active:scale-90 lg:h-9 lg:w-9"
-              aria-label="Toggle light and dark theme"
-              data-tooltip="Toggle theme"
-            >
-              {/*
-                Both icons render and CSS picks one, keyed off the same `data-theme`
-                attribute the pre-paint script sets. Choosing in JS would either mismatch
-                during hydration or flash the wrong icon until the theme effect runs.
-              */}
-              <Sun className="theme-icon-dark h-4 w-4 transition-transform duration-500 group-hover:rotate-90" aria-hidden />
-              <Moon className="theme-icon-light h-4 w-4 transition-transform duration-500 group-hover:-rotate-12" aria-hidden />
-            </button>
+            {/* Hidden when the administrator allows one theme only (Settings → Appearance). */}
+            <ThemeToggle className="h-10 w-10 lg:h-9 lg:w-9" />
 
             {/*
               The avatar and name are the menu's trigger rather than a label sitting next to

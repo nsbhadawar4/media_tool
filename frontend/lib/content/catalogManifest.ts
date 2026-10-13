@@ -51,6 +51,8 @@ export const HOME_SECTIONS: ReadonlyArray<SectionSeed> = [
   { key: 'features', title: 'Features', description: 'What media_tool does, at a glance.', order: 2 },
   { key: 'media', title: 'Media library', description: 'Photos and videos section.', order: 3 },
   { key: 'documents', title: 'Documents', description: 'Documents and in-app previews.', order: 4 },
+  // Class cards for Classes 1–5; shown while the Kid Games feature is on (their pages live there).
+  { key: 'classes', title: 'Learn by Class', description: 'Class 1–5 cards: what each class offers.', order: 4.5 },
   // Feature sections: ON opens the feature in the app; the home page block is a separate opt-in.
   { key: 'games', title: 'Games', description: 'The games collection.', order: 5, showOnLanding: false },
   { key: 'kid-games', title: 'Kid Games', description: 'Learning games for Classes 1–5.', order: 6, showOnLanding: false },
@@ -83,6 +85,7 @@ export const DASHBOARD_WIDGETS: ReadonlyArray<{ key: string; title: string; desc
   { key: 'storage', title: 'Storage', description: 'Space used, by kind of file.' },
   { key: 'games', title: 'Games', description: 'Tiles for every listed game (needs the Games feature on).' },
   { key: 'kid-games', title: 'Kid Games', description: 'Class progress and Continue Learning (needs the Kid Games feature on).' },
+  { key: 'classes', title: 'Learn by Class', description: 'Class 1–5 cards with the user’s progress (needs the Kid Games feature on).' },
   { key: 'recent-folders', title: 'Recent folders', description: 'The newest top-level folders.' },
 ];
 

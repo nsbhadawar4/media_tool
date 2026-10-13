@@ -148,6 +148,7 @@ export const ACTIVITY_ACTIONS = [
   'section_disabled',
   'section_reordered',
   'content_bulk_updated',
+  'settings_updated',
   'course_created',
   'course_updated',
   'course_enabled',
@@ -181,14 +182,14 @@ export const ACTIVITY_CATEGORIES = {
   reviews: ['review_submitted', 'review_updated', 'review_approved', 'review_rejected', 'review_published', 'review_unpublished', 'review_deleted'],
   cms: [
     'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored',
-    'section_enabled', 'section_disabled', 'section_reordered', 'content_bulk_updated',
+    'section_enabled', 'section_disabled', 'section_reordered', 'content_bulk_updated', 'settings_updated',
     'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored',
   ],
 } as const satisfies Record<string, readonly ActivityAction[]>;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;
 export const ACTIVITY_CATEGORY_NAMES = Object.keys(ACTIVITY_CATEGORIES) as ActivityCategory[];
 
-export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review', 'content', 'course'] as const;
+export const ACTIVITY_TARGET_TYPES = ['folder', 'media', 'auth', 'user', 'review', 'content', 'course', 'settings'] as const;
 export type ActivityTargetType = (typeof ACTIVITY_TARGET_TYPES)[number];
 
 /** Reviews: moderation states and what a review can be about. */
@@ -216,6 +217,12 @@ export const FIXED_CONTENT_TYPES: readonly ContentType[] = ['dashboard_widget', 
  * (showOnLanding), off by default.
  */
 export const FEATURE_SECTIONS: readonly string[] = ['games', 'kid-games'];
+
+/** Site appearance (SiteSetting "appearance"): which themes are allowed, and the default. */
+export const THEME_MODES = ['both', 'light', 'dark'] as const;
+export type ThemeMode = (typeof THEME_MODES)[number];
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
 
 /** Learning content difficulty (Kid Games and courses). */
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;

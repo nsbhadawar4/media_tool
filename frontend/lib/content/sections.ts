@@ -79,6 +79,7 @@ export const SECTION_EFFECTS: Readonly<Record<string, string>> = {
   highlights: 'Home page block',
   features: 'Home page block and its header/footer links',
   media: 'Home page block',
+  classes: 'Home page block (shown while the Kid Games feature is on)',
   documents: 'Home page block',
   games: 'The whole Games feature: its pages, dashboard block and links (the home page block has its own switch)',
   'kid-games': 'The whole Kid Games feature with Courses: pages, dashboard block and links (the home page block has its own switch)',

@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Geist_Mono, Montserrat } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
+// Runs before first paint: the administrator's allowed themes, then the visitor's own choice,
+// then the default — so no page flashes the wrong theme (lib/theme/policy.ts).
+import { THEME_INIT_SCRIPT } from '@/lib/theme/policy';
 import { ToastProvider } from '@/lib/toast/ToastContext';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { QueryProvider } from '@/lib/QueryProvider';
@@ -60,12 +63,10 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before first paint so a saved theme preference never flashes the wrong colors.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("media_tool_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);if(localStorage.getItem("media_tool_reduce_motion")==="1")document.documentElement.setAttribute("data-motion","reduce");}catch(e){}})()`;
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${montserrat.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={`${montserrat.variable} ${geistMono.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

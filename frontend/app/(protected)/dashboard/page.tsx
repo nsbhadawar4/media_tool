@@ -34,6 +34,7 @@ import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { FadeUp } from '@/components/ui/motion';
 import { KidGamesDashboardCard } from '@/components/kid-games/KidGamesDashboardCard';
 import { GamesDashboardCard } from '@/components/games/GamesDashboardCard';
+import { ClassCardsGrid } from '@/components/kid-games/cards/ClassCardsGrid';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
 import { useFolderCrud } from '@/hooks/useFolderCrud';
@@ -329,6 +330,16 @@ export default function DashboardPage() {
     // The games an administrator lists for the app (dashboard visibility), featured first.
     games: showGames ? <GamesDashboardCard games={catalog.arcadeGames} featured={catalog.isArcadeFeatured} /> : null,
     'kid-games': <KidGamesDashboardCard />,
+    // The same class cards as the Kid Games hub and the public site, with this user's progress.
+    classes: (
+      <section aria-labelledby="learn-by-class-title">
+        <div className="mb-3">
+          <h2 id="learn-by-class-title" className="text-base font-semibold tracking-tight text-foreground">Learn by Class</h2>
+          <p className="text-xs text-muted">Fun, engaging and structured learning for Classes 1–5.</p>
+        </div>
+        <ClassCardsGrid />
+      </section>
+    ),
     'recent-folders': (
       <section aria-label="Recent folders">
         <div className="mb-3 flex items-center justify-between gap-3">

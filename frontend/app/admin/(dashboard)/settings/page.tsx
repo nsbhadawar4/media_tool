@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { FormCard, PasswordForm } from '@/components/profile/AccountForms';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useTheme } from '@/lib/theme/ThemeContext';
+import { AppearanceSettings } from '@/components/admin/AppearanceSettings';
 import { useToast } from '@/lib/toast/ToastContext';
 import { formatDate } from '@/utils/format';
 import { cn } from '@/utils/cn';
@@ -29,13 +30,16 @@ const WEBSITE_LINKS = [
  */
 export default function AdminSettingsPage() {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, canSwitch, policy } = useTheme();
   const toast = useToast();
   if (!user) return null;
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <PageHeader eyebrow="System" icon={Settings} title="Settings" description="Your administrator account, this browser's appearance, and where the website is configured." />
+      <PageHeader eyebrow="System" icon={Settings} title="Settings" description="Your administrator account, the site's appearance, and where the website is configured." />
+
+      {/* Site-wide: always available here, whatever theme it allows. */}
+      <AppearanceSettings />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <FormCard icon={UserRound} title="Administrator account" description="The account signed in to the admin panel.">
@@ -64,8 +68,13 @@ export default function AdminSettingsPage() {
 
         <PasswordForm toast={toast} />
 
-        <FormCard icon={Monitor} title="Appearance" description="Applies to this browser only.">
-          <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-2">
+        <FormCard icon={Monitor} title="Your theme" description="Your own choice, in this browser only.">
+          {!canSwitch && policy && (
+            <p className="mb-3 rounded-xl border border-border bg-surface-hover/50 px-3 py-2 text-xs text-muted">
+              The site currently allows the {policy.themeMode} theme only, so it applies here too. Your choice returns when both are allowed.
+            </p>
+          )}
+          <div role="radiogroup" aria-label="Theme" aria-disabled={!canSwitch} className={cn('grid grid-cols-3 gap-2', !canSwitch && 'pointer-events-none opacity-50')}>
             {THEMES.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}

@@ -37,6 +37,7 @@ import {
 import type { GameMeta } from "@/components/games/games";
 import { SUBJECT_INFO } from "@/lib/kid-games/catalog";
 import type { ClassView } from "@/lib/content/catalog";
+import { ClassCourseCard } from "@/components/kid-games/cards/ClassCourseCard";
 import { LOGIN_PATH } from "@/lib/auth/routes";
 import { PricingCards } from "@/components/billing/PricingCards";
 import { cn } from "@/utils/cn";
@@ -70,7 +71,8 @@ function Section({
     <section
       id={id}
       className={cn(
-        "relative px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[88px]",
+        // mk-section: a header link lands on the heading, not on this padding (globals.css).
+        "mk-section relative px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[88px]",
         className,
       )}
     >
@@ -249,7 +251,7 @@ const TRUST = [
 export function Hero({ featuresLink = true }: { featuresLink?: boolean }) {
   return (
     <section
-      id="top"
+      id="home"
       className="relative overflow-hidden px-4 pb-20 pt-12 sm:px-6 sm:pb-28 sm:pt-16 lg:px-8 lg:pb-32 lg:pt-20"
     >
       {/* Layered light, a fading grid and a horizon line — all decoration. */}
@@ -479,7 +481,7 @@ export function Highlights() {
             ].map((d) => (
               <div
                 key={d.kind}
-                className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2 py-1.5"
+                className="flex items-center gap-2 rounded-lg border border-(--mk-hairline) bg-(--mk-faint) px-2 py-1.5"
               >
                 <d.icon
                   className="h-3.5 w-3.5 shrink-0"
@@ -687,7 +689,7 @@ export function MediaSection() {
             <div className="mk-tile col-span-2 row-span-1 overflow-hidden rounded-2xl">
               <PhotoArt scene={5} />
             </div>
-            <div className="col-span-6 row-span-1 flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4">
+            <div className="col-span-6 row-span-1 flex items-center gap-3 rounded-2xl border border-(--mk-hairline) bg-(--mk-faint) px-4">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-2">
                 <Upload className="h-4 w-4" />
               </span>
@@ -695,7 +697,7 @@ export function MediaSection() {
                 <p className="truncate text-xs font-medium text-foreground">
                   beach-day.mp4
                 </p>
-                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-(--mk-track)">
                   <span className="mk-progress block h-full rounded-full bg-linear-to-r from-accent to-[#22d3ee]" />
                 </span>
               </div>
@@ -768,11 +770,11 @@ export function DocumentsSection() {
       <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
         <div aria-hidden className="mk-reveal order-last lg:order-first">
           <div className="mk-window overflow-hidden rounded-3xl">
-            <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">
+            <div className="flex items-center justify-between border-b border-(--mk-hairline) px-5 py-3.5">
               <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <FolderOpen className="h-4 w-4 text-accent-2" /> Documents
               </span>
-              <span className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] px-2 py-1 text-[10px] text-subtle">
+              <span className="flex items-center gap-1.5 rounded-lg border border-(--mk-hairline) px-2 py-1 text-[10px] text-subtle">
                 <Search className="h-3 w-3" /> Search
               </span>
             </div>
@@ -780,7 +782,7 @@ export function DocumentsSection() {
               <div
                 key={name}
                 className={cn(
-                  "flex items-center gap-3 border-b border-white/[0.05] px-5 py-3.5 last:border-b-0",
+                  "flex items-center gap-3 border-b border-(--mk-hairline) px-5 py-3.5 last:border-b-0",
                   i === 0 && "bg-accent/[0.06]",
                 )}
               >
@@ -791,7 +793,7 @@ export function DocumentsSection() {
                   </p>
                   <p className="text-[11px] text-subtle">{meta}</p>
                 </div>
-                <span className="hidden rounded-md border border-white/[0.08] px-1.5 py-0.5 text-[10px] font-semibold text-muted sm:inline">
+                <span className="hidden rounded-md border border-(--mk-hairline) px-1.5 py-0.5 text-[10px] font-semibold text-muted sm:inline">
                   {kind}
                 </span>
                 {i === 0 ? (
@@ -1022,7 +1024,7 @@ export function KidGamesSection({
   if (classes.length === 0) return null;
   const range = classRange(classes);
   return (
-    <Section id="kid-games" className="px-3 sm:px-6 lg:px-8">
+    <Section id="kid-games-intro" className="px-3 sm:px-6 lg:px-8">
       <div className="mk-kid-panel relative overflow-hidden rounded-[2rem] px-5 py-14 sm:rounded-[2.5rem] sm:px-10 sm:py-16 lg:px-14 lg:py-20">
         <div
           aria-hidden
@@ -1077,33 +1079,6 @@ export function KidGamesSection({
           </div>
 
           <div className="mk-reveal space-y-4">
-            {/* Class ladder */}
-            <div className="flex flex-wrap gap-2.5" aria-label="Classes">
-              {classes.map((c) => {
-                const color = c.isCode
-                  ? `var(--kid-class-${c.level})`
-                  : "var(--accent)";
-                return (
-                  <span
-                    key={c.key}
-                    className="inline-flex items-center gap-2 rounded-2xl border px-3.5 py-2 text-sm font-semibold text-foreground"
-                    style={{
-                      borderColor: `color-mix(in srgb, ${color} 42%, transparent)`,
-                      backgroundImage: `linear-gradient(135deg, color-mix(in srgb, ${color} 20%, transparent), color-mix(in srgb, ${color} 6%, transparent))`,
-                    }}
-                  >
-                    <span
-                      className="flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold text-white"
-                      style={{ backgroundColor: color }}
-                    >
-                      {c.level}
-                    </span>
-                    {c.title}
-                  </span>
-                );
-              })}
-            </div>
-
             {/* Subjects */}
             <div
               className={cn(
@@ -1121,7 +1096,7 @@ export function KidGamesSection({
                   className="card-lift relative overflow-hidden rounded-3xl border p-5"
                   style={{
                     borderColor: `color-mix(in srgb, var(--kid-${s.key}, var(--accent)) 35%, transparent)`,
-                    backgroundImage: `linear-gradient(160deg, color-mix(in srgb, var(--kid-${s.key}, var(--accent)) 22%, #0d0d14), #0d0d14 75%)`,
+                    backgroundImage: `linear-gradient(160deg, color-mix(in srgb, var(--kid-${s.key}, var(--accent)) 22%, var(--mk-panel)), var(--mk-panel) 75%)`,
                   }}
                 >
                   <span
@@ -1148,7 +1123,7 @@ export function KidGamesSection({
             {/* A finished round, as the app shows it */}
             <div
               aria-hidden
-              className="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-black/25 p-4 backdrop-blur"
+              className="flex items-center gap-4 rounded-2xl border border-(--mk-hairline) bg-(--mk-sunken) p-4 backdrop-blur"
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-[#fbbf24] to-[#f97316] text-white shadow-[0_8px_20px_-8px_#f97316]">
                 <Trophy className="h-5 w-5" />
@@ -1169,6 +1144,7 @@ export function KidGamesSection({
             </div>
           </div>
         </div>
+
       </div>
     </Section>
   );
@@ -1189,6 +1165,54 @@ export function kidSubjectSummary(
     glyph: info?.glyph ?? title.slice(0, 2),
     games,
   };
+}
+
+/* ------------------------------------------------------------------------------------------
+ * Learn by Class — the same class cards as the app, from the same catalog
+ * ---------------------------------------------------------------------------------------- */
+
+export interface LandingClass extends ClassView {
+  /** Games and subjects the class offers (counted from the catalog, never invented). */
+  games: number;
+  subjects: number;
+}
+
+export function LearnByClassSection({ classes }: { classes: readonly LandingClass[] }) {
+  if (classes.length === 0) return null;
+  return (
+    // #kid-games: the header's "Kid Games" link lands on these Class 1–5 cards.
+    <Section id="kid-games">
+      <SectionHeading
+        eyebrow="Classes"
+        title={
+          <>
+            Learn by <Highlight>Class</Highlight>
+          </>
+        }
+        description="Fun, engaging and structured learning for Classes 1–5."
+      />
+      <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 sm:mt-14">
+        {classes.map((c, i) => (
+          <ClassCourseCard
+            key={c.key}
+            level={c.level}
+            builtIn={c.isCode}
+            title={c.title}
+            description={c.description || undefined}
+            image={c.isCode ? undefined : c.thumbnailUrl}
+            href={`${LOGIN_PATH}?from=/kid-games/${c.key}`}
+            linkLabel={`${c.title}: sign in to start learning`}
+            facts={[
+              ...(c.subjects > 0 ? [{ label: `${c.subjects} ${c.subjects === 1 ? "subject" : "subjects"}` }] : []),
+              ...(c.games > 0 ? [{ label: `${c.games} ${c.games === 1 ? "game" : "games"}` }] : []),
+            ]}
+            cta="Start Learning"
+            index={i}
+          />
+        ))}
+      </div>
+    </Section>
+  );
 }
 
 /* ------------------------------------------------------------------------------------------
@@ -1297,7 +1321,7 @@ export function SecuritySection() {
   return (
     <Section id="security" className="mk-band">
       <div className="grid gap-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-28 lg:self-start">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading
             align="left"
             eyebrow="Security & privacy"
@@ -1409,7 +1433,7 @@ export function Faq({ contactLink = true }: { contactLink?: boolean }) {
   return (
     <Section id="faq">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-28 lg:self-start">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <SectionHeading
             align="left"
             eyebrow="FAQ"

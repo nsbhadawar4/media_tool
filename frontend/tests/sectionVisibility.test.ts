@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { homeBlocks, isSectionOn, sectionForPath } from '../lib/content/sections';
 import { resolveCatalog } from '../lib/content/catalog';
 import { buildCatalogSeed } from '../lib/content/catalogManifest';
-import { LEGAL_LINKS, MARKETING_NAV, linksFor, navForViewer } from '../components/marketing/nav';
+import { LEGAL_LINKS, MARKETING_NAV, linksFor, navForViewer, withLandingSections } from '../components/marketing/nav';
 import { USER_NAV_GROUPS, liveNavItems, openNavGroups } from '../components/admin/navItems';
 import type { CatalogEntry, PublicCatalog } from '../lib/api/content';
 
@@ -28,7 +28,7 @@ const labels = (links: readonly { label: string }[]) => links.map((l) => l.label
 const keys = (c: PublicCatalog | null) => homeBlocks(c).map((b) => b.key);
 
 test('defaults: every section on except Pricing; Contact is a page, not a home block', () => {
-  assert.deepEqual(keys(null), ['hero', 'highlights', 'features', 'media', 'documents', 'how-it-works', 'security', 'reviews', 'faq', 'cta']);
+  assert.deepEqual(keys(null), ['hero', 'highlights', 'features', 'media', 'documents', 'classes', 'how-it-works', 'security', 'reviews', 'faq', 'cta']);
   assert.deepEqual(keys(seeded()), keys(null), 'a freshly seeded catalog matches the code defaults');
   assert.equal(isSectionOn(null, 'pricing'), false);
   assert.equal(isSectionOn(null, 'contact'), true);
@@ -48,7 +48,7 @@ test('home page: hidden sections drop out, in the administrator’s order', () =
   let c = off(seeded(), 'faq');
   c = set(c, 'pricing', { isVisible: true, order: 0 });
   c = off(c, 'kid-games');
-  assert.deepEqual(keys(c), ['pricing', 'hero', 'highlights', 'features', 'media', 'documents', 'how-it-works', 'security', 'reviews', 'cta']);
+  assert.deepEqual(keys(c), ['pricing', 'hero', 'highlights', 'features', 'media', 'documents', 'classes', 'how-it-works', 'security', 'reviews', 'cta']);
 });
 
 test('home page: a section added in the admin panel renders as a custom block; Contact never does', () => {
@@ -77,20 +77,40 @@ test('Games and Kid Games are app pages: never home blocks, even while ON', () =
   assert.equal(isSectionOn(c, 'games'), true);
   assert.equal(isSectionOn(c, 'kid-games'), true);
   assert.ok(!keys(c).includes('games') && !keys(c).includes('kid-games'));
+  // Without knowing the page has their sections, Games and Kid Games lead to the app pages.
   assert.ok(!MARKETING_NAV.some((l) => l.href.includes('#games') || l.href.includes('#kid-games')), 'no links to home sections that do not exist');
+});
+
+test('Games and Kid Games scroll to their home page section when it is there — no lock, a plain link', () => {
+  const links = linksFor(MARKETING_NAV, seeded());
+  const both = navForViewer(withLandingSections(links, new Set(['games', 'kid-games'])), 'visitor');
+  assert.deepEqual(both.map((l) => [l.label, l.href, Boolean(l.signIn)]), [
+    ['Home', '/', false],
+    ['Features', '/#features', false],
+    ['Games', '/#games', false],
+    ['Kid Games', '/#kid-games', false],
+    ['FAQ', '/#faq', false],
+  ]);
+  assert.deepEqual(both.map((l) => l.anchor), ['home', 'features', 'games', 'kid-games', 'faq'], 'each link names the section it highlights');
+  // Only the Class 1–5 section on the page: Kid Games scrolls there, Games still leads to its page.
+  const kidOnly = navForViewer(withLandingSections(links, new Set(['kid-games'])), 'visitor');
+  assert.equal(kidOnly.find((l) => l.key === 'kid-games')!.href, '/#kid-games');
+  assert.equal(kidOnly.find((l) => l.key === 'games')!.href, '/login?from=/games');
+  // Admins keep in-page links (they are sections of the public site, not the user app).
+  assert.deepEqual(navForViewer(withLandingSections(links, new Set(['games', 'kid-games'])), 'admin').map((l) => l.label), ['Home', 'Features', 'Games', 'Kid Games', 'FAQ']);
 });
 
 test('header links for who is looking: visitors sign in first, users go straight in, admins don’t get them', () => {
   const links = linksFor(MARKETING_NAV, seeded());
   const hrefs = (v: 'visitor' | 'user' | 'admin') => navForViewer(links, v).map((l) => [l.label, l.href, Boolean(l.signIn)]);
   assert.deepEqual(hrefs('visitor'), [
-    ['Home', '/#top', false],
+    ['Home', '/', false],
     ['Features', '/#features', false],
     ['Games', '/login?from=/games', true],
     ['Kid Games', '/login?from=/kid-games', true],
     ['FAQ', '/#faq', false],
   ]);
-  assert.deepEqual(hrefs('user').map(([, href]) => href), ['/#top', '/#features', '/games', '/kid-games', '/#faq']);
+  assert.deepEqual(hrefs('user').map(([, href]) => href), ['/', '/#features', '/games', '/kid-games', '/#faq']);
   assert.deepEqual(hrefs('admin').map(([label]) => label), ['Home', 'Features', 'FAQ']);
   // A switched-off section takes its link away for everyone.
   assert.ok(!navForViewer(linksFor(MARKETING_NAV, off(seeded(), 'games')), 'visitor').some((l) => l.label === 'Games'));

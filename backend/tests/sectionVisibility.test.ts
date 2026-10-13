@@ -75,7 +75,7 @@ after(async () => {
 
 test('every public section is seeded, Contact included; Pricing starts off', async () => {
   const keys = (await ContentItem.find({ type: 'section' }).sort({ order: 1 }).lean()).map((s) => s.key);
-  assert.deepEqual(keys, ['hero', 'highlights', 'features', 'media', 'documents', 'games', 'kid-games', 'how-it-works', 'security', 'reviews', 'pricing', 'faq', 'cta', 'contact', 'footer']);
+  assert.deepEqual(keys, ['hero', 'highlights', 'features', 'media', 'documents', 'classes', 'games', 'kid-games', 'how-it-works', 'security', 'reviews', 'pricing', 'faq', 'cta', 'contact', 'footer']);
   assert.equal(on(await publicSection('pricing')), false);
   assert.equal(on(await publicSection('faq')), true);
   assert.equal(on(await publicSection('contact')), true);

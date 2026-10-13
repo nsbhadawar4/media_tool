@@ -37,6 +37,7 @@ import healthRoutes from '../src/routes/healthRoutes';
 import kidGameRoutes from '../src/routes/kidGameRoutes';
 import reviewRoutes from '../src/routes/reviewRoutes';
 import contentRoutes from '../src/routes/contentRoutes';
+import settingsRoutes from '../src/routes/settingsRoutes';
 
 const PASSWORD = 'audit-password-123';
 
@@ -81,6 +82,7 @@ const MOUNTS: ReadonlyArray<[string, Router]> = [
   ['/kid-games', kidGameRoutes],
   ['/reviews', reviewRoutes],
   ['/content', contentRoutes],
+  ['/settings', settingsRoutes],
 ];
 
 /** Reachable without a session, by design. Everything else must answer 401 when signed out. */
@@ -100,6 +102,8 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/health/',
   'GET /api/reviews/public',
   'GET /api/content/catalog',
+  // The site's theme rules (light / dark allowed, default): no private data.
+  'GET /api/settings/appearance',
 ]);
 
 interface Endpoint {

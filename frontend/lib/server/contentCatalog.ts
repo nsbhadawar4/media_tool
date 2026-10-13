@@ -14,7 +14,7 @@ const TIMEOUT_MS = 3000;
  * Read over HTTP rather than by importing the backend: a page and the /api route are bundled
  * separately, and two copies of the backend in one process clash on their shared Mongoose models.
  */
-async function apiOrigin(): Promise<string | null> {
+export async function apiOrigin(): Promise<string | null> {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '').replace(/\/api$/, '');
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;

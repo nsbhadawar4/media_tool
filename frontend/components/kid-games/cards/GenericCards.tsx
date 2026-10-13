@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { ArrowRight, BookOpenCheck, GraduationCap, Layers, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpenCheck, Layers, Sparkles } from 'lucide-react';
 import type { CatalogCourse } from '@/lib/api/content';
 import type { ClassView, SubjectView } from '@/lib/content/catalog';
+import { ClassCourseCard } from './ClassCourseCard';
 
 /**
  * Cards for learning content that exists only in the database — a class or subject an
@@ -39,30 +40,20 @@ function Art({ thumbnailUrl, children }: { thumbnailUrl: string | null; children
   );
 }
 
-export function GenericClassCard({ view, index }: { view: ClassView; index: number }) {
+/** A class an administrator added (e.g. "Class 6"): its own thumbnail, or the class colours. Same shared card. */
+export function GenericClassCard({ view, index, subjects }: { view: ClassView; index: number; subjects?: number }) {
   return (
-    <article style={{ ...anyClassStyle(view.level), ...stagger(index) }} className="kg-class-card kg-enter group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
-      <Link href={`/kid-games/${view.key}`} aria-label={`${view.title}: ${view.description}`} className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)" />
-      <Art thumbnailUrl={view.thumbnailUrl}>
-        <span className="absolute left-4 top-3.5 rounded-full bg-black/25 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white backdrop-blur-sm">{view.title}</span>
-        {!view.thumbnailUrl && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/30 bg-white/15 shadow-lg backdrop-blur-sm">
-              <GraduationCap aria-hidden className="h-7 w-7 text-white" strokeWidth={1.9} />
-            </span>
-          </span>
-        )}
-      </Art>
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-lg font-bold leading-7 tracking-tight text-foreground">{view.description || view.title}</h3>
-        <p className="text-sm text-muted">Courses and activities</p>
-        <div aria-hidden className="min-h-5 flex-1" />
-        <span className="kg-btn kg-cta inline-flex h-12 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold">
-          Start Learning
-          <ArrowRight aria-hidden className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-        </span>
-      </div>
-    </article>
+    <ClassCourseCard
+      level={view.level}
+      title={view.title}
+      description={view.description || undefined}
+      image={view.thumbnailUrl}
+      href={`/kid-games/${view.key}`}
+      linkLabel={`${view.title}: ${view.description}`}
+      facts={subjects ? [{ label: `${subjects} ${subjects === 1 ? 'subject' : 'subjects'}` }] : []}
+      cta="Start Learning"
+      index={index}
+    />
   );
 }
 

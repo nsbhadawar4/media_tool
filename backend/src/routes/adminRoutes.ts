@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireAdmin } from '../middleware/auth';
+import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
+import { updateAppearanceSchema } from '../validators/settingsValidators';
 import { validate } from '../middleware/validate';
 import {
   listUsers,
@@ -65,6 +67,10 @@ const router = Router();
 
 // Both guards on the whole router: a route added later cannot forget one of them.
 router.use(requireAuth, requireAdmin);
+
+// Site settings (appearance): read with its history, saved and audited.
+router.get('/settings/appearance', getAdminAppearance);
+router.patch('/settings/appearance', validate({ body: updateAppearanceSchema }), updateAppearance);
 
 router.get('/stats', validate({ query: adminStatsQuerySchema }), getAdminStats);
 router.get('/activity', validate({ query: listActivityQuerySchema }), listActivity);

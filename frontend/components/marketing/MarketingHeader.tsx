@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
-import { Lock, Menu, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Menu, X } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { cn } from '@/utils/cn';
 import type { MarketingLink } from './nav';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 /**
  * The public site's header: sticky, solid once the page has scrolled, with a full-screen
@@ -64,11 +66,12 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
     };
   }, []);
 
-  // The section in view lights up its link. Only on the home page, where the sections are.
+  // The section in view lights up its link. Only on the home page, where the sections are; each
+  // link names its section (`anchor`: home, features, games, kid-games, faq).
   const [active, setActive] = useState<string | null>(null);
   useEffect(() => {
     if (window.location.pathname !== '/') return;
-    const ids = nav.map((item) => item.href.split('#')[1]).filter(Boolean);
+    const ids = nav.map((item) => item.anchor).filter((id): id is string => Boolean(id));
     const targets = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
     if (targets.length === 0) return;
     const visible = new Map<string, number>();
@@ -85,7 +88,7 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
     targets.forEach((t) => observer.observe(t));
     return () => observer.disconnect();
   }, [nav]);
-  const isActive = (href: string) => active !== null && href.endsWith(`#${active}`);
+  const isActive = (item: MarketingLink) => active !== null && item.anchor === active;
 
   /**
    * The sliding indicator behind the current link. Moved by writing its style directly (no
@@ -98,7 +101,7 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
     const indicator = indicatorRef.current;
     if (!navEl || !indicator) return;
     const place = () => {
-      const link = active ? navEl.querySelector<HTMLElement>(`a[href$="#${active}"]`) : null;
+      const link = active ? navEl.querySelector<HTMLElement>(`a[data-anchor="${active}"]`) : null;
       if (!link) {
         indicator.style.opacity = '0';
         return;
@@ -115,6 +118,21 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
 
   const close = () => setIsOpen(false);
 
+  /**
+   * Home (and the logo) on the home page itself: back to the top, smoothly (the page's own
+   * scroll-behavior, so reduced motion is respected), with a clean "/" in the address bar and a
+   * history entry like any other in-page link. Anywhere else it is an ordinary link to "/".
+   */
+  const pathname = usePathname();
+  const toTop = (e: MouseEvent<HTMLAnchorElement>) => {
+    close();
+    if (pathname !== '/' || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    if (window.location.hash) window.history.pushState(null, '', '/');
+    window.scrollTo({ top: 0 });
+  };
+  const onNavClick = (item: MarketingLink) => (e: MouseEvent<HTMLAnchorElement>) => (item.key === 'home' ? toTop(e) : close());
+
   return (
     <header
       className={cn(
@@ -124,12 +142,12 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
         // No backdrop-filter either — it would make the header the containing block of the
         // full-screen mobile menu below, which is position: fixed.
         isScrolled || isOpen
-          ? 'border-border bg-background shadow-[0_8px_24px_-12px_rgba(0,0,0,0.8)]'
+          ? 'border-border bg-background shadow-(--mk-header-shadow)'
           : 'border-transparent bg-transparent',
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/#top" onClick={close} className="group flex shrink-0 items-center gap-2.5" aria-label="media_tool home">
+        <Link href="/" onClick={toTop} className="group flex shrink-0 items-center gap-2.5" aria-label="media_tool home">
           <Logo className="h-8 w-8 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105" />
           <span className="text-[15px] font-semibold tracking-tight text-foreground">media_tool</span>
         </Link>
@@ -138,22 +156,24 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
           <span ref={indicatorRef} aria-hidden className="mk-nav-indicator pointer-events-none absolute left-0 top-1 h-[calc(100%-0.5rem)] rounded-full opacity-0" />
           {nav.map((item) => (
             <Link
-              key={item.href}
+              key={item.key}
               href={item.href}
-              title={item.signIn ? `Sign in to open ${item.label}` : undefined}
-              aria-current={isActive(item.href) ? 'location' : undefined}
+              data-anchor={item.anchor}
+              onClick={onNavClick(item)}
+              aria-current={isActive(item) ? 'location' : undefined}
               className={cn(
                 'relative rounded-full px-3.5 py-1.5 text-[13px] font-medium text-foreground-soft transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
-                isActive(item.href) && 'text-foreground',
+                isActive(item) && 'text-foreground',
               )}
             >
               {item.label}
-              {item.signIn && <SignInMark />}
             </Link>
           ))}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* Light / dark — hidden when the administrator allows one theme only. */}
+          <ThemeToggle className="h-10 w-10" />
           {/* Login and Get Started, as administrators switched, ordered and labelled them. */}
           {buttons.map((item) => (
             <Link
@@ -191,13 +211,16 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
           <nav aria-label="Mobile" className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:px-6">
             {nav.map((item) => (
               <Link
-                key={item.href}
+                key={item.key}
                 href={item.href}
-                onClick={close}
-                className="flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
+                onClick={onNavClick(item)}
+                aria-current={isActive(item) ? 'location' : undefined}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+                  isActive(item) && 'bg-accent/10 text-foreground',
+                )}
               >
-                <span>{item.label}</span>
-                {item.signIn && <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-normal text-subtle"><Lock className="h-3.5 w-3.5" aria-hidden />Sign in to play</span>}
+                {item.label}
               </Link>
             ))}
             {buttons.length > 0 && (
@@ -222,15 +245,5 @@ export function MarketingHeader({ nav, buttons }: { nav: readonly MarketingLink[
         </div>
       )}
     </header>
-  );
-}
-
-/** A small lock after a link that goes through sign-in first; the label says so to screen readers. */
-function SignInMark() {
-  return (
-    <>
-      <Lock className="ml-1 inline h-3 w-3 -translate-y-px text-subtle" aria-hidden />
-      <span className="sr-only"> (sign in required)</span>
-    </>
   );
 }
