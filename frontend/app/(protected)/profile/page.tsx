@@ -121,7 +121,7 @@ function IdentityHeader({
   return (
     <>
       <section className="gradient-border overflow-hidden rounded-3xl border border-border bg-surface shadow-card">
-        <div className="h-24 bg-linear-to-r from-accent/25 via-accent/10 to-transparent sm:h-28" />
+        <div className="h-24 [background-image:radial-gradient(60%_140%_at_0%_0%,color-mix(in_srgb,var(--accent-2)_30%,transparent),transparent_70%),linear-gradient(to_right,color-mix(in_srgb,var(--accent)_22%,transparent),transparent)] [mask-image:linear-gradient(to_bottom,#000_35%,transparent)] sm:h-28" />
 
         <div className="px-5 pb-5 sm:px-7 sm:pb-6">
           {/* Pulled up over the band so the avatar straddles it, which is what makes the

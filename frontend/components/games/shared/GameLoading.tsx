@@ -66,7 +66,7 @@ export const GAME_LOADING_LAYOUTS: Record<GameLoadingLayout, string> = {
  */
 export function GameLoading({ variant, label = 'Loading game...', layout = 'inline', children }: GameLoadingProps) {
   const game = findGame(variant);
-  const glow = game?.colors[0] ?? '#7c5cff';
+  const glow = game?.colors[0] ?? '#10b981';
   return (
     <div
       role="status"

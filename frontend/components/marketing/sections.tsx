@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   FolderOpen,
   FolderTree,
   Gamepad2,
+  GraduationCap,
   Image as ImageIcon,
   KeyRound,
   LibraryBig,
@@ -29,6 +31,7 @@ import {
   Timer,
   Trash2,
   Trophy,
+  TrendingUp,
   Upload,
   UserPlus,
   Video,
@@ -42,7 +45,6 @@ import { LOGIN_PATH } from "@/lib/auth/routes";
 import { PricingCards } from "@/components/billing/PricingCards";
 import { cn } from "@/utils/cn";
 import { PhotoArt } from "./visuals";
-import { HeroPreview } from "./HeroPreview";
 
 /*
  * The public home page's sections. Server components only: the page ships no JavaScript for
@@ -247,96 +249,161 @@ const TRUST = [
   { icon: Sparkles, label: "Free plan, no card needed" },
 ] as const;
 
-/** `featuresLink`: false while the Features section is switched off (nothing to scroll to). */
-export function Hero({ featuresLink = true }: { featuresLink?: boolean }) {
+/** What the platform offers, in four words each — every one of them true of the app. */
+const HERO_FEATURES = [
+  { icon: Sparkles, label: "Interactive Learning" },
+  { icon: Gamepad2, label: "Fun Games & Activities" },
+  { icon: TrendingUp, label: "Progress Tracking" },
+  { icon: ShieldCheck, label: "Safe & Secure Platform" },
+] as const;
+
+/**
+ * The home page's first screen, education first (the Emerald Mint reference): "Learn by Class /
+ * Class 1 to 5" beside a student, the classes as a row of the shared cards, and what the platform
+ * offers. `classes`: the listed classes (empty while Kid Games is off — the row then doesn't
+ * show and "Explore Classes" becomes "Explore Features").
+ */
+export function Hero({ featuresLink = true, classes = [] }: { featuresLink?: boolean; classes?: readonly ClassView[] }) {
+  const hasClasses = classes.length > 0;
   return (
     <section
       id="home"
-      className="relative overflow-hidden px-4 pb-20 pt-12 sm:px-6 sm:pb-28 sm:pt-16 lg:px-8 lg:pb-32 lg:pt-20"
+      className="relative overflow-hidden px-4 pb-16 pt-10 sm:px-6 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-24 lg:pt-16"
     >
-      {/* Layered light, a fading grid and a horizon line — all decoration. */}
-      <div
-        aria-hidden
-        className="mk-hero-glow pointer-events-none absolute inset-0"
-      />
-      <div
-        aria-hidden
-        className="mk-aurora pointer-events-none absolute inset-0"
-      >
+      {/* Soft emerald light and a fading grid — decoration only. */}
+      <div aria-hidden className="mk-hero-glow mk-hero-fade pointer-events-none absolute inset-0" />
+      <div aria-hidden className="mk-aurora mk-hero-fade pointer-events-none absolute inset-0">
         <span />
         <span />
       </div>
-      <div
-        aria-hidden
-        className="mk-grid pointer-events-none absolute inset-0"
-      />
-      <div
-        aria-hidden
-        className="mk-horizon pointer-events-none absolute inset-x-0 bottom-0 h-px"
-      />
+      <div aria-hidden className="mk-grid pointer-events-none absolute inset-0" />
 
-      <div className="relative mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2 lg:gap-12 xl:gap-14">
-        <div className="text-center lg:text-left">
-          <p
-            style={{ "--i": 0 } as CSSProperties}
-            className="anim-rise mk-badge mk-shimmer relative inline-flex items-center gap-2 overflow-hidden rounded-full py-1 pl-1 pr-3.5 text-xs font-medium text-foreground-soft"
-          >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-accent-2">
-              <Sparkles className="h-3 w-3" />
-            </span>
-            Photos, videos, documents &amp; games
-            <span
-              aria-hidden
-              className="mk-pulse-dot ml-0.5 h-1.5 w-1.5 rounded-full bg-[#22d3ee]"
-            />
-          </p>
-          <h1
-            style={{ "--i": 1 } as CSSProperties}
-            className="anim-rise mt-7 text-[36px] font-semibold leading-[1.06] tracking-[-0.035em] text-foreground min-[400px]:text-[40px] sm:text-[56px] lg:text-[40px] xl:text-[50px] 2xl:text-[52px]"
-          >
-            <span className="sm:block">Everything You Create.</span>{" "}
-            <span className="sm:block">
-              One <span className="mk-text-gradient">Beautifully</span>
-            </span>{" "}
-            <span className="sm:block">
-              <span className="mk-text-gradient">Organized</span> Space.
-            </span>
-          </h1>
-          <p
-            style={{ "--i": 2 } as CSSProperties}
-            className="anim-rise mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted sm:text-lg lg:mx-0"
-          >
-            Photos, videos, documents and learning games — kept together in one
-            secure, private workspace that opens in any browser, on any device.
-          </p>
-          <div
-            style={{ "--i": 3 } as CSSProperties}
-            className="anim-rise mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start"
-          >
-            <PrimaryCta>Get Started free</PrimaryCta>
-            {featuresLink && (
-              <SecondaryCta href="/#features">Explore Features</SecondaryCta>
-            )}
+      <div className="relative mx-auto max-w-7xl">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-8">
+          <div className="text-center lg:text-left">
+            <p
+              style={{ "--i": 0 } as CSSProperties}
+              className="anim-rise mk-badge relative inline-flex items-center gap-2 overflow-hidden rounded-full py-1 pl-1 pr-3.5 text-xs font-medium text-foreground-soft"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-accent-2">
+                <Star className="h-3 w-3" fill="currentColor" />
+              </span>
+              Structured learning for Classes 1–5
+            </p>
+            <h1
+              style={{ "--i": 1 } as CSSProperties}
+              className="anim-rise mt-6 text-[40px] font-bold leading-[1.04] tracking-[-0.035em] text-foreground min-[400px]:text-[46px] sm:text-[60px] lg:text-[54px] xl:text-[64px]"
+            >
+              <span className="block">Learn by Class</span>
+              <span className="mk-text-gradient block">Class 1 to 5</span>
+            </h1>
+            <p
+              style={{ "--i": 2 } as CSSProperties}
+              className="anim-rise mx-auto mt-5 max-w-lg text-pretty text-base leading-relaxed text-muted sm:text-lg lg:mx-0"
+            >
+              Fun, engaging and structured learning for every young learner — with your photos, videos and documents kept safe in
+              the same private place.
+            </p>
+            <div
+              style={{ "--i": 3 } as CSSProperties}
+              className="anim-rise mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start"
+            >
+              {hasClasses ? (
+                <PrimaryCta href="/#kid-games">Explore Classes</PrimaryCta>
+              ) : (
+                <PrimaryCta>Get Started free</PrimaryCta>
+              )}
+              {hasClasses ? (
+                <SecondaryCta href="/signup">Create a free account</SecondaryCta>
+              ) : (
+                featuresLink && <SecondaryCta href="/#features">Explore Features</SecondaryCta>
+              )}
+            </div>
+            <ul
+              style={{ "--i": 4 } as CSSProperties}
+              className="anim-rise mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-[13px] text-muted lg:justify-start"
+            >
+              {TRUST.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-accent-2" strokeWidth={2} />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
+
+          {/* The student, in a soft emerald halo, with two floating notes. */}
+          <div style={{ "--i": 2 } as CSSProperties} className="anim-rise-scale relative mx-auto w-full max-w-[520px] lg:max-w-[560px]">
+            <div aria-hidden className="mk-hero-orb pointer-events-none absolute inset-[6%] rounded-full" />
+            <div className="relative aspect-square">
+              <Image
+                src="/images/classes/hero-student.svg"
+                alt="A smiling student with a backpack holding a stack of books"
+                fill
+                unoptimized
+                priority
+                sizes="(min-width: 1024px) 560px, 90vw"
+                className="object-contain"
+              />
+            </div>
+            <div aria-hidden className="mk-float mk-chip absolute left-0 top-[18%] hidden items-center gap-2.5 rounded-2xl px-3 py-2.5 sm:flex">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/15 text-accent-2">
+                <GraduationCap className="h-4 w-4" />
+              </span>
+              <span>
+                <span className="block text-[11px] font-semibold text-foreground">5 classes</span>
+                <span className="block text-[10px] text-subtle">Hindi · English · Maths</span>
+              </span>
+            </div>
+            <div aria-hidden className="mk-float-slow mk-chip absolute bottom-[14%] right-0 hidden items-center gap-2 rounded-2xl px-3 py-2.5 sm:flex">
+              <span className="flex items-center gap-0.5 text-[#f59e0b]">
+                {[0, 1, 2].map((i) => (
+                  <Star key={i} className="h-3.5 w-3.5" fill="currentColor" />
+                ))}
+              </span>
+              <span className="text-[11px] font-semibold text-foreground">Stars &amp; progress</span>
+            </div>
+          </div>
+        </div>
+
+        {/* The classes, straight away: the shared card, compact. */}
+        {hasClasses && (
           <ul
-            style={{ "--i": 4 } as CSSProperties}
-            className="anim-rise mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-[13px] text-muted lg:justify-start"
+            aria-label="Classes"
+            style={{ "--i": 5 } as CSSProperties}
+            className="anim-rise -mx-4 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-5"
           >
-            {TRUST.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-2">
-                <Icon className="h-4 w-4 text-accent-2" strokeWidth={2} />
-                {label}
+            {classes.map((c, i) => (
+              <li key={c.key} className="w-[44%] min-w-[150px] shrink-0 snap-start sm:w-auto sm:min-w-0">
+                <ClassCourseCard
+                  variant="compact"
+                  level={c.level}
+                  builtIn={c.isCode}
+                  title={c.title}
+                  image={c.isCode ? undefined : c.thumbnailUrl}
+                  href={`${LOGIN_PATH}?from=/kid-games/${c.key}`}
+                  linkLabel={`${c.title}: sign in to start learning`}
+                  index={i}
+                />
               </li>
             ))}
           </ul>
-        </div>
+        )}
 
-        <div
-          style={{ "--i": 3 } as CSSProperties}
-          className="anim-rise-scale relative px-2 sm:px-6 lg:px-0"
+        {/* What the platform offers, on one glass strip. */}
+        <ul
+          style={{ "--i": 6 } as CSSProperties}
+          className="anim-rise mk-glass-strip mt-8 grid grid-cols-2 gap-x-4 gap-y-4 rounded-3xl px-5 py-5 sm:px-7 lg:grid-cols-4"
         >
-          <HeroPreview />
-        </div>
+          {HERO_FEATURES.map(({ icon: Icon, label }) => (
+            <li key={label} className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
+                <Icon className="h-5 w-5" strokeWidth={1.9} />
+              </span>
+              <span className="text-sm font-semibold leading-tight text-foreground">{label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
@@ -431,7 +498,7 @@ export function Highlights() {
           </div>
           <BentoCaption
             icon={ImageIcon}
-            color="#a78bfa"
+            color="#34d399"
             title="Photos"
             body="JPEG, PNG, WebP, GIF and HEIC — with thumbnails and a full-screen viewer."
           />
@@ -551,7 +618,7 @@ const FEATURES: readonly {
     icon: Lock,
     title: "Private media library",
     body: "Every file belongs to one account and is checked on every request. Nobody else can open your library.",
-    color: "#a78bfa",
+    color: "#34d399",
   },
   {
     icon: FolderTree,
@@ -1038,7 +1105,7 @@ export function KidGamesSection({
               title={
                 <>
                   Learning that feels like{" "}
-                  <span className="bg-linear-to-r from-[#fbbf24] via-[#f472b6] to-[#a78bfa] bg-clip-text text-transparent">
+                  <span className="bg-linear-to-r from-[#fbbf24] via-[#f472b6] to-[#34d399] bg-clip-text text-transparent">
                     play
                   </span>
                 </>
@@ -1349,7 +1416,7 @@ export function SecuritySection() {
             >
               <IconTile
                 icon={item.icon}
-                color="#a78bfa"
+                color="#34d399"
                 className="h-10 w-10"
               />
               <h3 className="mt-5 text-base font-semibold text-foreground">

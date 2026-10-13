@@ -2038,6 +2038,13 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
   },
   {
     "type": "dashboard_widget",
+    "key": "learning",
+    "title": "Learning overview",
+    "description": "Classes, courses, games completed, this week, and the progress charts (needs Kid Games on).",
+    "order": 1.5
+  },
+  {
+    "type": "dashboard_widget",
     "key": "stats",
     "title": "Statistics",
     "description": "Totals for files, photos, videos and documents.",
@@ -2088,7 +2095,7 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
   {
     "type": "dashboard_widget",
     "key": "classes",
-    "title": "Learn by Class",
+    "title": "My Classes",
     "description": "Class 1–5 cards with the user’s progress (needs the Kid Games feature on).",
     "order": 9
   },

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist_Mono, Montserrat } from 'next/font/google';
+import { Geist_Mono, Sora } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/lib/theme/ThemeContext';
 // Runs before first paint: the administrator's allowed themes, then the visitor's own choice,
@@ -13,8 +13,10 @@ import { NavigationProgress } from '@/components/navigation/NavigationProgress';
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
 import { configuredSiteUrl } from '@/lib/site';
 
-const montserrat = Montserrat({
-  variable: '--font-montserrat',
+// Sora: the Emerald Mint theme's typeface — geometric and modern, close to Montserrat's
+// proportions, so layouts and truncation stay as they were.
+const sora = Sora({
+  variable: '--font-sora',
   subsets: ['latin'],
   display: 'swap',
 });
@@ -58,15 +60,15 @@ export const viewport: Viewport = {
   // Zoom is deliberately left enabled. Pinning maximumScale would make the app feel more
   // like a native shell and would also stop anyone who needs to magnify text.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f6f8' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+    { media: '(prefers-color-scheme: light)', color: '#f5fffb' },
+    { media: '(prefers-color-scheme: dark)', color: '#061a16' },
   ],
 };
 
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={`${montserrat.variable} ${geistMono.variable} h-full`}>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning className={`${sora.variable} ${geistMono.variable} h-full`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

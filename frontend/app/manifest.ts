@@ -18,8 +18,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     // Orientation is deliberately unlocked: a photo or a video is often worth turning the
     // phone for, and locking it to portrait would take that away.
-    background_color: '#6D5EF8',
-    theme_color: '#6D5EF8',
+    background_color: '#061A16',
+    theme_color: '#10B981',
     categories: ['photo', 'productivity', 'utilities'],
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

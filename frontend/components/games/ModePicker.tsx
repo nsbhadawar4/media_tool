@@ -13,7 +13,7 @@ export function ModePicker<T extends string>({
   options,
   value,
   onChange,
-  accent = '#7c5cff',
+  accent = '#10b981',
   'aria-label': ariaLabel,
 }: {
   options: readonly ModeOption<T>[];

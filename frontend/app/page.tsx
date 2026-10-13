@@ -105,7 +105,8 @@ function kidGamesProps(catalog: ResolvedCatalog) {
 }
 
 const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
-  hero: ({ on }) => <Hero featuresLink={on('features')} />,
+  // The classes come straight after the headline (while Kid Games, where they live, is on).
+  hero: ({ on, catalog, featureOn }) => <Hero featuresLink={on('features')} classes={featureOn('kid-games') ? catalog.classViews : []} />,
   highlights: () => <Highlights />,
   features: () => <Features />,
   media: () => <MediaSection />,

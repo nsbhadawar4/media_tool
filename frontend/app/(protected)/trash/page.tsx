@@ -206,6 +206,7 @@ export default function TrashPage() {
     <div>
       <PageHeader
         icon={Trash2}
+        eyebrow="Library"
         title="Trash"
         description="Deleted items stay here until you remove them by hand. Nothing is erased from storage on its own."
       />

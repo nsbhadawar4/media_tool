@@ -2,7 +2,7 @@
  * Full-cover "3… 2… 1… GO!" overlay. Pointer events pass through nothing: while it shows the
  * round has not started, so the board underneath should not be playable.
  */
-export function GameCountdown({ value, color = '#7c5cff' }: { value: string | number; color?: string }) {
+export function GameCountdown({ value, color = '#10b981' }: { value: string | number; color?: string }) {
   return (
     <div
       aria-live="assertive"

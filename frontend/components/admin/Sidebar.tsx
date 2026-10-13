@@ -84,7 +84,8 @@ export function SidebarContent({
   );
 
   return (
-    <div className="flex h-full flex-col bg-sidebar-bg text-sidebar-foreground">
+    // The admin panel's sidebar is always deep emerald — a business console beside the user app.
+    <div className={cn('app-sidebar flex h-full flex-col bg-sidebar-bg text-sidebar-foreground', isAdminArea && 'admin-sidebar')}>
       {/* Brand */}
       <div className={cn('flex h-[68px] shrink-0 items-center', collapsed ? 'justify-center px-2' : 'justify-between px-4')}>
         <Link
@@ -187,7 +188,7 @@ export function SidebarContent({
                     className={cn(
                       linkClass,
                       isActive
-                        ? 'text-sidebar-active'
+                        ? 'nav-active-pill text-sidebar-active'
                         : 'hover:bg-sidebar-hover hover:text-sidebar-active',
                     )}
                   >

@@ -114,18 +114,18 @@ test('Kid Games inherit: class, subject, a class’s subject and the game itself
 
 test('dashboard blocks: enabled ones in the administrator’s order; Games and Kid Games need their feature', () => {
   let c = seeded();
-  assert.deepEqual(resolveCatalog(c).dashboardWidgets, ['welcome', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'classes', 'recent-folders']);
+  assert.deepEqual(resolveCatalog(c).dashboardWidgets, ['welcome', 'learning', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'classes', 'recent-folders']);
   c = set(c, 'dashboardWidgets', 'recent-folders', { isEnabled: false });
-  c = set(c, 'dashboardWidgets', 'games', { order: 1.5 });
-  c = set(c, 'dashboardWidgets', 'kid-games', { order: 1.6 });
-  assert.deepEqual(resolveCatalog(c).dashboardWidgets, ['welcome', 'games', 'kid-games', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'classes']);
+  c = set(c, 'dashboardWidgets', 'games', { order: 1.2 });
+  c = set(c, 'dashboardWidgets', 'kid-games', { order: 1.3 });
+  assert.deepEqual(resolveCatalog(c).dashboardWidgets, ['welcome', 'games', 'kid-games', 'learning', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'classes']);
   c = set(c, 'sections', 'games', { isEnabled: false });
   assert.ok(!resolveCatalog(c).dashboardWidgets.includes('games'), 'feature off: the block goes too');
   assert.ok(resolveCatalog(c).dashboardWidgets.includes('kid-games'));
   // No catalog, or an API without dashboard blocks: the code layout.
-  assert.equal(resolveCatalog(null).dashboardWidgets.length, 10);
+  assert.equal(resolveCatalog(null).dashboardWidgets.length, 11);
   const older: PublicCatalog = { ...seeded(), dashboardWidgets: undefined };
-  assert.equal(resolveCatalog(older).dashboardWidgets.length, 10);
+  assert.equal(resolveCatalog(older).dashboardWidgets.length, 11);
 });
 
 test('header links: enabled, ordered, relabelled — destinations only from the code, never from data', () => {

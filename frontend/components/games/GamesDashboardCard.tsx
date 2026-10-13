@@ -16,7 +16,7 @@ export function GamesDashboardCard({ games, featured = () => false }: { games: r
         <div className="flex min-w-0 items-center gap-3">
           <span
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-card"
-            style={{ backgroundImage: 'linear-gradient(135deg, #f472b6, #8b5cf6)' }}
+            style={{ backgroundImage: 'linear-gradient(135deg, #f472b6, #10b981)' }}
           >
             <Gamepad2 className="h-5 w-5" />
           </span>

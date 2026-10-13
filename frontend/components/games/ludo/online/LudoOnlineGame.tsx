@@ -287,7 +287,7 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
     return () => window.removeEventListener('keydown', onKey);
   }, [canRoll, onRoll]);
 
-  const diceColor = activeColor ? COLOR_HEX[activeColor] : '#7c5cff';
+  const diceColor = activeColor ? COLOR_HEX[activeColor] : '#10b981';
   const activeName = activeColor ? (names[activeColor] ?? COLOR_NAME[activeColor]) : '';
   const banner = winner
     ? `${EMOJI[winner]} ${names[winner] ?? COLOR_NAME[winner]} wins`

@@ -36,7 +36,7 @@ const SOURCE = path.join(FRONTEND, 'public', 'brand', 'logo-mark.svg');
 const MASKABLE_SAFE_RATIO = 0.62;
 
 /** Brand accent, matching --accent in globals.css and the manifest's theme colour. */
-const BACKGROUND = '#6D5EF8';
+const BACKGROUND = '#10B981';
 
 async function renderSquare(svg, size) {
   return sharp(Buffer.from(svg)).resize(size, size, { fit: 'contain' }).png().toBuffer();

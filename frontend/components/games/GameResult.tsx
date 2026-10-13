@@ -29,7 +29,7 @@ const PIECES = Array.from({ length: 14 }, (_, i) => {
     cx: Math.round(Math.cos(angle) * dist),
     cy: Math.round(Math.sin(angle) * dist - 30),
     cr: (i % 2 ? 1 : -1) * (180 + i * 24),
-    color: ['#7c5cff', '#9b87ff', '#22c55e', '#f59e0b', '#38bdf8', '#ec4899'][i % 6]!,
+    color: ['#10b981', '#6ee7b7', '#22c55e', '#f59e0b', '#38bdf8', '#ec4899'][i % 6]!,
   };
 });
 

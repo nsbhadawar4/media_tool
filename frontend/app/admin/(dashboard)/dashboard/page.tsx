@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
               icon={Crown}
               segments={[
                 { label: 'Free', value: stats.users.byPlan.free, color: '#a1a1aa', icon: Users, detail: 'Includes not yet chosen' },
-                { label: 'Pro', value: stats.users.byPlan.pro, color: '#8b6dff', icon: Zap },
+                { label: 'Pro', value: stats.users.byPlan.pro, color: '#34d399', icon: Zap },
                 { label: 'Premium', value: stats.users.byPlan.premium, color: '#f59e0b', icon: Crown },
               ]}
             />
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
               icon={LogIn}
               segments={[
                 { label: 'Email', value: stats.users.byProvider.email, color: '#60a5fa', icon: Mail, detail: `+${stats.users.newThisWeekByProvider.email} this week` },
-                { label: 'Mobile', value: stats.users.byProvider.mobile, color: '#a78bfa', icon: Smartphone, detail: `+${stats.users.newThisWeekByProvider.mobile} this week` },
+                { label: 'Mobile', value: stats.users.byProvider.mobile, color: '#34d399', icon: Smartphone, detail: `+${stats.users.newThisWeekByProvider.mobile} this week` },
                 { label: 'Google', value: stats.users.byProvider.google, color: '#fbbf24', icon: Sparkles, detail: `+${stats.users.newThisWeekByProvider.google} this week` },
               ]}
             />

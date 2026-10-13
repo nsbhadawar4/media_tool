@@ -12,14 +12,26 @@ import { cn } from '@/utils/cn';
  * No hooks and no 'use client', so server components (the public home page) render it too.
  */
 
-/** Each built-in class's own illustration (public/images/classes) and second line. */
-const CLASS_LOOK: Record<number, { image: string; subtitle: string; alt: string }> = {
-  1: { image: '/images/classes/class-1.svg', subtitle: 'Foundation Learning', alt: 'A young child holding an alphabet block' },
-  2: { image: '/images/classes/class-2.svg', subtitle: 'Growing Skills', alt: 'A child reading an open storybook' },
-  3: { image: '/images/classes/class-3.svg', subtitle: 'Explore & Learn', alt: 'A child exploring with a magnifying glass and a plant' },
-  4: { image: '/images/classes/class-4.svg', subtitle: 'Build Your Knowledge', alt: 'A child with glasses solving maths in a notebook' },
-  5: { image: '/images/classes/class-5.svg', subtitle: 'Smart Learning', alt: 'A child learning on a tablet beside a stack of books' },
+/**
+ * Each built-in class's own photograph (public/images/classes, Unsplash License — see CREDITS.md
+ * there), its second line, and where the child sits in the frame so both crops keep the face.
+ * The children get older from Class 1 to Class 5.
+ */
+const CLASS_LOOK: Record<number, { image: string; subtitle: string; alt: string; focus: string }> = {
+  1: { image: '/images/classes/class-1.jpg', subtitle: 'Foundation', alt: 'A young girl reading a picture book at the table', focus: '40% 30%' },
+  2: { image: '/images/classes/class-2.jpg', subtitle: 'Building Skills', alt: 'A girl in a pink jumper writing in her book', focus: '50% 25%' },
+  3: { image: '/images/classes/class-3.jpg', subtitle: 'Explore & Learn', alt: 'A boy reading a large book in a library', focus: '40% 35%' },
+  4: { image: '/images/classes/class-4.jpg', subtitle: 'Grow Smarter', alt: 'A smiling boy with glasses doing homework at his desk', focus: '50% 25%' },
+  5: { image: '/images/classes/class-5.jpg', subtitle: 'Be Future Ready', alt: 'Students in school uniform writing in class', focus: '50% 35%' },
 };
+
+/**
+ * The photo treatment: an emerald-and-mint veil with a soft glow, tinted towards the class colour
+ * at the foot, so five different photographs read as one set in light and dark mode alike.
+ */
+function PhotoVeil() {
+  return <span aria-hidden className="kg-photo-veil pointer-events-none absolute inset-0" />;
+}
 
 /** Class colours (globals.css --kid-class-N); classes beyond 5 reuse the five in turn. */
 function classVars(level: number): CSSProperties {
@@ -42,11 +54,11 @@ export interface ClassCourseCardProps {
   /** The administrator's description, if any. */
   description?: string;
   /**
-   * The picture. Built-in classes use their own illustration unless one is given; an
+   * The picture. Built-in classes use their own photograph unless one is given; an
    * administrator-added class shows its thumbnail, or the class colours with an icon.
    */
   image?: string | null;
-  /** Use the built-in illustration for this level (Classes 1–5 implemented in the app). */
+  /** Use the built-in photograph for this level (Classes 1–5 implemented in the app). */
   builtIn?: boolean;
   /** Where the whole card leads. Without it the card is a picture (the admin preview). */
   href?: string;
@@ -60,6 +72,8 @@ export interface ClassCourseCardProps {
   /** Position in its grid, for the staggered entrance. */
   index?: number;
   className?: string;
+  /** compact: picture, class and its line only — the row of classes under the home page hero. */
+  variant?: 'full' | 'compact';
 }
 
 export function ClassCourseCard({
@@ -76,12 +90,48 @@ export function ClassCourseCard({
   cta = 'Explore',
   index = 0,
   className,
+  variant = 'full',
 }: ClassCourseCardProps) {
   const look = builtIn ? CLASS_LOOK[level] : undefined;
   const src = image || look?.image || null;
   const isLocal = Boolean(src?.startsWith('/'));
   const second = subtitle ?? look?.subtitle ?? 'Courses & activities';
   const percent = progress ? Math.max(0, Math.min(100, Math.round(progress.percent))) : null;
+
+  if (variant === 'compact') {
+    return (
+      <article
+        style={{ ...classVars(level), '--i': index } as CSSProperties}
+        className={cn('kg-course-card group relative flex h-full min-w-0 flex-col overflow-hidden rounded-3xl border border-border shadow-card', className)}
+      >
+        {href && (
+          <Link href={href} aria-label={linkLabel ?? `${title}: ${second}`} className="absolute inset-0 z-10 rounded-3xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)" />
+        )}
+        <div className="relative aspect-[5/4] shrink-0 overflow-hidden">
+          {src && isLocal ? (
+            <Image src={src} alt={look?.alt ?? ''} fill unoptimized={src.endsWith('.svg')} sizes="(min-width: 1024px) 260px, (min-width: 640px) 33vw, 70vw" className="kg-course-art object-cover" style={look ? { objectPosition: look.focus } : undefined} />
+          ) : src ? (
+            // eslint-disable-next-line @next/next/no-img-element -- an administrator's image from any https host
+            <img src={src} alt="" className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <div aria-hidden className="kg-course-art absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--kg) to-(--kg-2)">
+              <GraduationCap className="h-8 w-8 text-white" strokeWidth={1.8} />
+            </div>
+          )}
+          {src && <PhotoVeil />}
+        </div>
+        <div className="flex flex-1 items-center justify-between gap-2 p-3.5 sm:p-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-[15px] font-semibold tracking-tight text-foreground">{title}</h3>
+            <p className="truncate text-xs font-medium text-[color-mix(in_srgb,var(--kg)_68%,var(--foreground))]">{second}</p>
+          </div>
+          <span aria-hidden className="kg-course-cta flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-(--kg) to-(--kg-2) text-white">
+            <ArrowRight className="kg-course-cta-arrow h-4 w-4" />
+          </span>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
@@ -96,12 +146,21 @@ export function ClassCourseCard({
         />
       )}
 
-      {/* Picture: about half the card (the illustrations keep their subject inside a 4:3 crop). */}
+      {/* Picture: about half the card (each photo's focus point keeps the child inside a 4:3 crop). */}
       <div className="relative aspect-[4/3] shrink-0 overflow-hidden">
         {src ? (
           isLocal ? (
-            // Static SVG from /public: served as is (no optimiser needed), sized by the frame.
-            <Image src={src} alt={look?.alt ?? ''} fill unoptimized sizes="(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw" className="kg-course-art object-cover" priority={index < 3} />
+            // From /public: photographs go through the image optimiser; an SVG is served as is.
+            <Image
+              src={src}
+              alt={look?.alt ?? ''}
+              fill
+              unoptimized={src.endsWith('.svg')}
+              sizes="(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw"
+              className="kg-course-art object-cover"
+              style={look ? { objectPosition: look.focus } : undefined}
+              priority={index < 3}
+            />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element -- an administrator's image from any https host
             <img src={src} alt="" className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
@@ -117,8 +176,7 @@ export function ClassCourseCard({
             </span>
           </div>
         )}
-        {/* Soft fade at the foot of the picture, so it settles into the card. */}
-        <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-linear-to-t from-black/35 via-black/10 to-transparent" />
+        {src && <PhotoVeil />}
         <span className="kg-course-badge absolute left-4 top-4 rounded-full border border-white/30 bg-slate-900/40 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-[0_4px_14px_-6px_rgba(0,0,0,0.45)] backdrop-blur-md [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
           {builtIn ? `Class ${level}` : title}
         </span>

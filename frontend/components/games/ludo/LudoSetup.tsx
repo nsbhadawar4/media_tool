@@ -42,7 +42,7 @@ function Segment<T extends string | number>({
             className={cn(
               'min-h-12 rounded-xl border px-2 py-2 text-sm font-semibold transition duration-200 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
               value === o.value
-                ? 'border-accent bg-accent/15 text-foreground shadow-[0_0_0_3px_rgba(124,92,255,.18)]'
+                ? 'border-accent bg-accent/15 text-foreground shadow-[0_0_0_3px_rgba(16, 185, 129, .18)]'
                 : 'border-border bg-white/[0.03] text-muted hover:text-foreground',
             )}
           >

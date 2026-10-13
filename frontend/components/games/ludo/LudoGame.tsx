@@ -97,7 +97,7 @@ export default function LudoGame() {
           <button
             type="button"
             onClick={() => setView({ kind: 'online' })}
-            className="group flex min-h-16 w-full items-center gap-4 rounded-2xl border border-accent/50 bg-accent/10 px-5 py-3 text-left shadow-[0_0_30px_-14px_#7c5cff] transition duration-200 hover:bg-accent/15 active:scale-[0.98]"
+            className="group flex min-h-16 w-full items-center gap-4 rounded-2xl border border-accent/50 bg-accent/10 px-5 py-3 text-left shadow-[0_0_30px_-14px_#10b981] transition duration-200 hover:bg-accent/15 active:scale-[0.98]"
           >
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/20 text-accent-2">
               <Globe2 className="h-5 w-5" />

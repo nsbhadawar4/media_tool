@@ -76,8 +76,10 @@ export const SITE_SECTIONS: ReadonlyArray<SectionSeed> = [
  * in the administrator's order (/admin/content/dashboard); each key is a component in
  * app/(protected)/dashboard/page.tsx.
  */
-export const DASHBOARD_WIDGETS: ReadonlyArray<{ key: string; title: string; description: string }> = [
+export const DASHBOARD_WIDGETS: ReadonlyArray<{ key: string; title: string; description: string; order?: number }> = [
   { key: 'welcome', title: 'Welcome', description: 'Greeting with the upload and new-folder buttons.' },
+  // Right under the welcome (1.5: between Welcome and Statistics, also in existing databases).
+  { key: 'learning', title: 'Learning overview', description: 'Classes, courses, games completed, this week, and the progress charts (needs Kid Games on).', order: 1.5 },
   { key: 'stats', title: 'Statistics', description: 'Totals for files, photos, videos and documents.' },
   { key: 'quick-actions', title: 'Quick actions', description: 'Shortcuts: browse, upload, create a folder, games.' },
   { key: 'recent-files', title: 'Recent files', description: 'The latest uploads, with previews.' },
@@ -85,7 +87,7 @@ export const DASHBOARD_WIDGETS: ReadonlyArray<{ key: string; title: string; desc
   { key: 'storage', title: 'Storage', description: 'Space used, by kind of file.' },
   { key: 'games', title: 'Games', description: 'Tiles for every listed game (needs the Games feature on).' },
   { key: 'kid-games', title: 'Kid Games', description: 'Class progress and Continue Learning (needs the Kid Games feature on).' },
-  { key: 'classes', title: 'Learn by Class', description: 'Class 1–5 cards with the user’s progress (needs the Kid Games feature on).' },
+  { key: 'classes', title: 'My Classes', description: 'Class 1–5 cards with the user’s progress (needs the Kid Games feature on).' },
   { key: 'recent-folders', title: 'Recent folders', description: 'The newest top-level folders.' },
 ];
 
@@ -160,7 +162,9 @@ export function buildCatalogSeed(): ManifestEntry[] {
     description: game.description,
     order: i + 1,
   }));
-  const widgets = DASHBOARD_WIDGETS.map((w, i): ManifestEntry => ({ type: 'dashboard_widget', key: w.key, title: w.title, description: w.description, order: i + 1 }));
+  // Positions count the original nine; a block added later carries its own (fractional) place.
+  let n = 0;
+  const widgets = DASHBOARD_WIDGETS.map((w): ManifestEntry => ({ type: 'dashboard_widget', key: w.key, title: w.title, description: w.description, order: w.order ?? ++n }));
   const nav = NAV_ITEMS.map((n, i): ManifestEntry => ({ type: 'nav_item', key: n.key, title: n.title, description: n.description, order: i + 1 }));
   return [...sections, ...classes, ...subjects, ...classSubjects, ...kidGames, ...games, ...widgets, ...nav];
 }

@@ -96,7 +96,7 @@ test('defaults keep today’s behaviour: features off the landing page, every ga
   assert.ok(c.kidGames.every((g) => g.showOnLanding && !g.featured));
   assert.deepEqual(
     c.dashboardWidgets.map((w) => w.key),
-    ['welcome', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'classes', 'recent-folders'],
+    ['welcome', 'learning', 'stats', 'quick-actions', 'recent-files', 'recent-activity', 'storage', 'games', 'kid-games', 'classes', 'recent-folders'],
   );
   assert.ok(c.dashboardWidgets.every((w) => w.isEnabled));
   assert.deepEqual(c.navItems.map((n) => n.key), ['home', 'features', 'games', 'kid-games', 'faq', 'pricing', 'login', 'get-started']);
@@ -171,11 +171,11 @@ test('dashboard blocks: switched off they leave the catalog’s ON list; reorder
   const games = await item('dashboard_widget', 'games');
   const res = await call('POST', `/api/admin/content/items/${games._id}/move`, { direction: 'up' }, admin);
   assert.equal(res.status, 200);
-  assert.match((await lastAudit('content_reordered')).message, /Moved dashboard block “Games” from position 7 to position 6/);
+  assert.match((await lastAudit('content_reordered')).message, /Moved dashboard block “Games” from position 8 to position 7/);
   c = await catalog();
   const order = [...c.dashboardWidgets].sort((a, b) => a.order - b.order).map((w) => w.key);
-  assert.equal(order.indexOf('games'), 5);
-  assert.equal(order.indexOf('storage'), 6);
+  assert.equal(order.indexOf('games'), 6);
+  assert.equal(order.indexOf('storage'), 7);
   await call('POST', `/api/admin/content/items/${games._id}/move`, { direction: 'down' }, admin);
 });
 

@@ -17,7 +17,7 @@ test('every kind of content is present, and keys are unique per type', () => {
   const counts = Object.fromEntries(
     ['section', 'class', 'subject', 'class_subject', 'kid_game', 'game', 'dashboard_widget', 'nav_item'].map((t) => [t, seed.filter((e) => e.type === t).length]),
   );
-  assert.deepEqual(counts, { section: 16, class: 5, subject: 3, class_subject: 15, kid_game: 150, game: 7, dashboard_widget: 10, nav_item: 8 });
+  assert.deepEqual(counts, { section: 16, class: 5, subject: 3, class_subject: 15, kid_game: 150, game: 7, dashboard_widget: 11, nav_item: 8 });
   // Games and Kid Games start off the landing page; nothing else is seeded with that switch off.
   assert.deepEqual(seed.filter((e) => e.showOnLanding === false).map((e) => e.key), ['games', 'kid-games']);
   // Every built-in game carries the difficulty and mechanic its content was written for.

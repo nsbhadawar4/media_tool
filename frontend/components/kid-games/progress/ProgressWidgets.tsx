@@ -293,7 +293,7 @@ export function LearningJourney({ progress }: { progress: KidProgress }) {
         {/* Class progress */}
         <div className="kg-journey-card rounded-3xl border border-border p-4 shadow-card sm:p-5" style={classStyle(selected)}>
           <div className="mb-3 flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
               <BarChart3 aria-hidden className="h-5 w-5" />
             </span>
             <div>

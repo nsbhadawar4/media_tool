@@ -354,7 +354,7 @@ function Player({ game }: { game: LearningGame }) {
 
       {phase === 'play' && (
         <div className="flex flex-wrap items-center justify-center gap-1.5 pb-2.5 text-xs font-bold tabular-nums" aria-label="Game stats">
-          <span className="flex items-center gap-1 rounded-full bg-violet-500/12 px-2.5 py-1 text-violet-400" aria-label={`Score ${scoreNow}`}>
+          <span className="flex items-center gap-1 rounded-full bg-emerald-500/12 px-2.5 py-1 text-emerald-400" aria-label={`Score ${scoreNow}`}>
             Score <span key={`s${correct}`} className="kg-score-pop">{scoreNow}</span>
           </span>
           <span className="relative flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-1 text-amber-500" aria-label={`${xpNow} XP so far`}>

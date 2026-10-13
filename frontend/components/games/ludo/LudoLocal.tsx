@@ -311,7 +311,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   }, [state, active, canPick, validIds]);
 
   const winner = state?.winner ?? null;
-  const diceColor = activeColor ? COLOR_HEX[activeColor] : '#7c5cff';
+  const diceColor = activeColor ? COLOR_HEX[activeColor] : '#10b981';
 
   const banner = winner
     ? `${EMOJI[winner]} ${COLOR_NAME[winner]} wins`

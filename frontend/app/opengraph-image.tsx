@@ -25,7 +25,7 @@ export default async function OpenGraphImage() {
           justifyContent: 'space-between',
           padding: '72px 80px',
           background:
-            'radial-gradient(60% 80% at 100% 0%, rgba(124,58,237,0.55), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(192,132,252,0.25), transparent 70%), #09090b',
+            'radial-gradient(60% 80% at 100% 0%, rgba(16,185,129,0.5), transparent 60%), radial-gradient(50% 70% at 0% 100%, rgba(52,211,153,0.22), transparent 70%), #061a16',
           color: '#fafafa',
           fontFamily: 'sans-serif',
         }}
@@ -38,9 +38,9 @@ export default async function OpenGraphImage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 84, fontWeight: 700, letterSpacing: -3, lineHeight: 1.05 }}>
             <span>Your Digital World,&nbsp;</span>
-            <span style={{ color: '#c084fc' }}>Organized.</span>
+            <span style={{ color: '#34d399' }}>Organized.</span>
           </div>
-          <div style={{ fontSize: 32, color: '#a1a1aa', maxWidth: 900 }}>
+          <div style={{ fontSize: 32, color: '#a7f3d0', maxWidth: 900 }}>
             Photos, videos, documents and learning games — in one private place.
           </div>
         </div>

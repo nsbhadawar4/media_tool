@@ -46,7 +46,7 @@ function MarketingFooter({ nav, legal, viewer }: { nav: readonly MarketingLink[]
   return (
     <footer className="relative overflow-hidden px-4 pb-10 pt-16 sm:px-6 lg:px-8">
       <div aria-hidden className="mk-horizon pointer-events-none absolute inset-x-0 top-0 h-px opacity-60" />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(50%_100%_at_50%_0%,rgba(124,92,255,0.10),transparent)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-[radial-gradient(50%_100%_at_50%_0%,rgba(16, 185, 129, 0.10),transparent)]" />
       <div className="relative mx-auto max-w-7xl">
         <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div>

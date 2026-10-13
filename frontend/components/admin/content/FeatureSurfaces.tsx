@@ -118,7 +118,7 @@ export function FeatureSurfaces({ feature, label }: { feature: 'games' | 'kid-ga
                   description: `Users can still open ${label} from the menu while the feature is on.`,
                 })
           }
-          accent="#a78bfa"
+          accent="#34d399"
         />
       )}
 

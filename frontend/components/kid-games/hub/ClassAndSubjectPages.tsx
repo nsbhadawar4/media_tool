@@ -88,7 +88,7 @@ export function KidClassPage({ classSlug }: { classSlug: string }) {
           <div className="relative mt-6 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             <KidStat icon={Sparkles} label="Class XP" value={summary.xp.toLocaleString('en-IN')} tone="bg-amber-400/15 text-amber-500" />
             <KidStat icon={Flame} label="Daily Streak" value={dayCount(currentStreak(progress))} tone="bg-orange-500/15 text-orange-500" />
-            <KidStat icon={Trophy} label="Best Score" value={summary.bestScore ?? '—'} tone="bg-violet-500/15 text-violet-400" />
+            <KidStat icon={Trophy} label="Best Score" value={summary.bestScore ?? '—'} tone="bg-emerald-500/15 text-emerald-400" />
             <KidStat icon={Target} label="Completed" value={`${summary.completed} / ${summary.total}`} tone="bg-emerald-500/15 text-emerald-500" />
           </div>
         </section>
@@ -216,7 +216,7 @@ export function KidSubjectPage({ classSlug, subjectSlug }: { classSlug: string; 
           </div>
           <div className="relative mt-5 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
             <KidStat icon={Sparkles} label="XP earned" value={summary.xp.toLocaleString('en-IN')} tone="bg-amber-400/15 text-amber-500" />
-            <KidStat icon={Trophy} label="Best Score" value={summary.bestScore ?? '—'} tone="bg-violet-500/15 text-violet-400" />
+            <KidStat icon={Trophy} label="Best Score" value={summary.bestScore ?? '—'} tone="bg-emerald-500/15 text-emerald-400" />
             <KidStat icon={Flame} label="Daily Streak" value={dayCount(currentStreak(progress))} tone="bg-orange-500/15 text-orange-500" />
             <KidStat icon={Gamepad2} label="Completed" value={`${summary.completed} / ${summary.total}`} tone="bg-emerald-500/15 text-emerald-500" />
           </div>

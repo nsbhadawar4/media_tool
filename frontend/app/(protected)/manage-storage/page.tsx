@@ -46,7 +46,7 @@ const KINDS: Array<{ key: Kind; label: string; icon: LucideIcon; bar: string; do
   { key: 'image', label: 'Images', icon: ImageIcon, bar: 'bg-sky-500', dot: 'bg-sky-500', href: '/media' },
   { key: 'video', label: 'Videos', icon: Video, bar: 'bg-amber-500', dot: 'bg-amber-500', href: '/media' },
   { key: 'document', label: 'Documents', icon: FileText, bar: 'bg-emerald-500', dot: 'bg-emerald-500', href: '/documents' },
-  { key: 'other', label: 'Other files', icon: Package, bar: 'bg-violet-500', dot: 'bg-violet-500' },
+  { key: 'other', label: 'Other files', icon: Package, bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
 ];
 
 const SORTS: Array<{ label: string; value: SortOption }> = [

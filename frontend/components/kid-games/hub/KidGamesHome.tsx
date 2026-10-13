@@ -91,7 +91,7 @@ export function KidGamesHome() {
       <section className="gradient-border relative overflow-hidden rounded-4xl border border-border bg-surface p-5 shadow-card sm:p-8">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_120%_at_100%_0%,color-mix(in_srgb,var(--kid-hindi)_20%,transparent),transparent_60%),radial-gradient(45%_100%_at_50%_120%,color-mix(in_srgb,var(--kid-english)_18%,transparent),transparent_70%),radial-gradient(40%_90%_at_0%_0%,color-mix(in_srgb,var(--kid-math)_16%,transparent),transparent_70%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_120%_at_100%_0%,color-mix(in_srgb,var(--accent-2)_18%,transparent),transparent_60%),radial-gradient(45%_100%_at_50%_120%,color-mix(in_srgb,#2dd4bf_14%,transparent),transparent_70%),radial-gradient(40%_90%_at_0%_0%,color-mix(in_srgb,var(--accent)_12%,transparent),transparent_70%)]"
         />
         <KidFloatingShapes />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_minmax(0,400px)] lg:items-center">
@@ -102,7 +102,7 @@ export function KidGamesHome() {
             </p>
             <h1 className="flex flex-wrap items-center gap-x-3 text-[34px] font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
               <span>
-                Learn. Play. <span className="bg-linear-to-r from-(--kid-hindi) via-(--kid-english) to-(--kid-math) bg-clip-text text-transparent">Grow!</span>
+                Learn. Play. <span className="bg-linear-to-r from-accent via-accent-2 to-[#2dd4bf] bg-clip-text text-transparent">Grow!</span>
               </span>
               <Rocket aria-hidden className="kg-bob h-9 w-9 text-(--kid-hindi) sm:h-11 sm:w-11" />
             </h1>
@@ -131,7 +131,7 @@ export function KidGamesHome() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               <KidStat icon={Sparkles} label="Total XP" value={progress.xp.toLocaleString('en-IN')} tone="bg-amber-400/15 text-amber-500" />
               <KidStat icon={Flame} label="Daily Streak" value={dayCount(currentStreak(progress))} tone="bg-orange-500/15 text-orange-500" />
-              <KidStat icon={Trophy} label="Achievements" value={`${earned} / ${ACHIEVEMENTS.length}`} tone="bg-violet-500/15 text-violet-400" />
+              <KidStat icon={Trophy} label="Achievements" value={`${earned} / ${ACHIEVEMENTS.length}`} tone="bg-emerald-500/15 text-emerald-400" />
               <KidStat icon={Star} label="Completed" value={`${overall.completed} / ${overall.total}`} tone="bg-emerald-500/15 text-emerald-500" />
             </div>
           </div>

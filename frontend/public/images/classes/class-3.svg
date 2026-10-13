@@ -2,22 +2,22 @@
   <title>A curious child exploring with a magnifying glass, a growing plant and a science flask</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f1ecff"/><stop offset="1" stop-color="#e6e9fe"/>
+      <stop offset="0" stop-color="#ecfdf9"/><stop offset="1" stop-color="#ccfbf1"/>
     </linearGradient>
     <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="38"/></filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1e1b4b" flood-opacity="0.16"/></filter>
   </defs>
   <rect width="800" height="500" fill="url(#bg)"/>
-  <circle cx="140" cy="120" r="150" fill="#8b5cf6" opacity="0.28" filter="url(#soft)"/>
-  <circle cx="680" cy="380" r="170" fill="#6366f1" opacity="0.26" filter="url(#soft)"/>
+  <circle cx="140" cy="120" r="150" fill="#0d9488" opacity="0.28" filter="url(#soft)"/>
+  <circle cx="680" cy="380" r="170" fill="#2dd4bf" opacity="0.26" filter="url(#soft)"/>
   <circle cx="660" cy="90" r="70" fill="#ffffff" opacity="0.55" filter="url(#soft)"/>
-  <path d="M110 346 Q112.52 357.48 124 360 Q112.52 362.52 110 374 Q107.48 362.52 96 360 Q107.48 357.48 110 346Z" fill="#8b5cf6" opacity="0.75"/><path d="M700 139 Q701.98 148.02 711 150 Q701.98 151.98 700 161 Q698.02 151.98 689 150 Q698.02 148.02 700 139Z" fill="#6366f1" opacity="0.75"/><path d="M610 53 Q611.26 58.74 617 60 Q611.26 61.26 610 67 Q608.74 61.26 603 60 Q608.74 58.74 610 53Z" fill="#8b5cf6" opacity="0.75"/>
-  <circle cx="230" cy="70" r="5" fill="#6366f1" opacity="0.5"/><circle cx="560" cy="430" r="6" fill="#8b5cf6" opacity="0.45"/>
-  <circle cx="80" cy="230" r="4" fill="#8b5cf6" opacity="0.5"/><circle cx="745" cy="260" r="4" fill="#6366f1" opacity="0.5"/>
+  <path d="M110 346 Q112.52 357.48 124 360 Q112.52 362.52 110 374 Q107.48 362.52 96 360 Q107.48 357.48 110 346Z" fill="#0d9488" opacity="0.75"/><path d="M700 139 Q701.98 148.02 711 150 Q701.98 151.98 700 161 Q698.02 151.98 689 150 Q698.02 148.02 700 139Z" fill="#2dd4bf" opacity="0.75"/><path d="M610 53 Q611.26 58.74 617 60 Q611.26 61.26 610 67 Q608.74 61.26 603 60 Q608.74 58.74 610 53Z" fill="#0d9488" opacity="0.75"/>
+  <circle cx="230" cy="70" r="5" fill="#2dd4bf" opacity="0.5"/><circle cx="560" cy="430" r="6" fill="#0d9488" opacity="0.45"/>
+  <circle cx="80" cy="230" r="4" fill="#0d9488" opacity="0.5"/><circle cx="745" cy="260" r="4" fill="#2dd4bf" opacity="0.5"/>
   <g filter="url(#shadow)">
     <path d="M272 226 Q268 306 310 300 L410 300 Q452 306 448 226Z" fill="#2b1a12"/>
-    <path d="M232 500 Q230 376 300 356 L420 356 Q490 376 488 500Z" fill="#7c3aed"/>
-    <path d="M320 356 Q360 396 400 356" fill="#c4b5fd"/>
+    <path d="M232 500 Q230 376 300 356 L420 356 Q490 376 488 500Z" fill="#0d9488"/>
+    <path d="M320 356 Q360 396 400 356" fill="#99f6e4"/>
     <rect x="340" y="300" width="40" height="60" rx="16" fill="#e8bc9c"/>
     <circle cx="280" cy="246" r="16" fill="#f6d3b8"/><circle cx="440" cy="246" r="16" fill="#f6d3b8"/>
     <circle cx="360" cy="236" r="80" fill="#f6d3b8"/>
@@ -29,13 +29,13 @@
     <ellipse cx="308" cy="270" rx="13" ry="8" fill="#fb7185" opacity="0.35"/><ellipse cx="412" cy="270" rx="13" ry="8" fill="#fb7185" opacity="0.35"/>
     <path d="M340 276 Q360 294 380 276" stroke="#7c2d12" stroke-width="6" fill="none" stroke-linecap="round"/>
   </g>
-      <path d="M270 440 Q265 450 300 400" stroke="#7c3aed" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M452 440 Q466 415 520 330" stroke="#7c3aed" stroke-width="38" stroke-linecap="round" fill="none"/>
-      <g filter="url(#shadow)"><circle cx="560" cy="250" r="58" fill="#e0f2fe" fill-opacity="0.55" stroke="#4338ca" stroke-width="14"/><path d="M528 222 Q548 206 572 210" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
-      <rect x="512" y="296" width="22" height="80" rx="11" fill="#4338ca" transform="rotate(30 523 336)"/></g>
+      <path d="M270 440 Q265 450 300 400" stroke="#0d9488" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M452 440 Q466 415 520 330" stroke="#0d9488" stroke-width="38" stroke-linecap="round" fill="none"/>
+      <g filter="url(#shadow)"><circle cx="560" cy="250" r="58" fill="#e0f2fe" fill-opacity="0.55" stroke="#0f766e" stroke-width="14"/><path d="M528 222 Q548 206 572 210" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <rect x="512" y="296" width="22" height="80" rx="11" fill="#0f766e" transform="rotate(30 523 336)"/></g>
       <circle cx="520" cy="336" r="20" fill="#f6d3b8"/>
       <g filter="url(#shadow)"><path d="M250 410 L330 410 L320 470 L260 470Z" fill="#f97316"/><rect x="244" y="400" width="92" height="18" rx="6" fill="#fb923c"/>
       <path d="M290 400 Q290 360 290 340" stroke="#16a34a" stroke-width="6" fill="none"/><path d="M290 360 Q256 350 250 320 Q284 324 290 360Z" fill="#22c55e"/><path d="M290 348 Q318 330 330 302 Q298 306 290 348Z" fill="#4ade80"/></g>
       <circle cx="300" cy="404" r="20" fill="#f6d3b8"/>
-      <g transform="translate(120 120)" filter="url(#shadow)"><path d="M22 0 L46 0 L46 34 L70 84 Q74 96 60 96 L8 96 Q-6 96 -2 84 L22 34Z" fill="#ffffff"/><path d="M8 66 L60 66 L66 82 Q68 90 58 90 L10 90 Q0 90 2 82Z" fill="#a78bfa"/><circle cx="26" cy="76" r="4" fill="#ffffff"/><circle cx="42" cy="80" r="3" fill="#ffffff"/><rect x="18" y="-6" width="32" height="10" rx="4" fill="#6366f1"/></g>
-      <g transform="translate(650 120)" stroke="#6366f1" stroke-width="4" fill="none" opacity="0.8"><ellipse cx="0" cy="0" rx="46" ry="16"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(-60)"/><circle cx="0" cy="0" r="7" fill="#8b5cf6" stroke="none"/></g>
+      <g transform="translate(120 120)" filter="url(#shadow)"><path d="M22 0 L46 0 L46 34 L70 84 Q74 96 60 96 L8 96 Q-6 96 -2 84 L22 34Z" fill="#ffffff"/><path d="M8 66 L60 66 L66 82 Q68 90 58 90 L10 90 Q0 90 2 82Z" fill="#2dd4bf"/><circle cx="26" cy="76" r="4" fill="#ffffff"/><circle cx="42" cy="80" r="3" fill="#ffffff"/><rect x="18" y="-6" width="32" height="10" rx="4" fill="#0d9488"/></g>
+      <g transform="translate(650 120)" stroke="#0d9488" stroke-width="4" fill="none" opacity="0.8"><ellipse cx="0" cy="0" rx="46" ry="16"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(-60)"/><circle cx="0" cy="0" r="7" fill="#14b8a6" stroke="none"/></g>
 </svg>

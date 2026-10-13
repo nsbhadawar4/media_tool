@@ -103,49 +103,49 @@ function svg(p, body, title) {
 const scenes = {
   // Class 1 — playful beginnings: a child holding a big ABC block, more blocks and a crayon around.
   1: () => {
-    const p = { bg1: '#fff6e6', bg2: '#ffe6ef', a1: '#f59e0b', a2: '#ec4899' };
-    const k = { skin: '#f1c19b', skinShade: '#e0a87f', hair: 'pigtails', hairColor: '#4a2c1d', shirt: '#f59e0b', collar: '#fbbf24' };
+    const p = { bg1: '#effdf6', bg2: '#d1fae5', a1: '#10b981', a2: '#34d399' };
+    const k = { skin: '#f1c19b', skinShade: '#e0a87f', hair: 'pigtails', hairColor: '#4a2c1d', shirt: '#f59e0b', collar: '#fde68a' };
     const block = (x, y, s, c, letter, rot = 0) => `<g transform="rotate(${rot} ${x + s / 2} ${y + s / 2})" filter="url(#shadow)">
       <rect x="${x}" y="${y}" width="${s}" height="${s}" rx="${s * 0.16}" fill="${c}"/><rect x="${x + s * 0.1}" y="${y + s * 0.1}" width="${s * 0.8}" height="${s * 0.8}" rx="${s * 0.12}" fill="#ffffff" opacity="0.9"/>
       <text x="${x + s / 2}" y="${y + s * 0.7}" text-anchor="middle" font-family="Arial Rounded MT Bold, Arial, sans-serif" font-weight="800" font-size="${s * 0.56}" fill="${c}">${letter}</text></g>`;
     return svg(p, `${child(k)}
       ${arm(300, 420, 350, 392, k.shirt)}${arm(500, 420, 450, 392, k.shirt)}
-      ${block(338, 336, 124, '#ec4899', 'A')}${hand(338, 398, k.skin)}${hand(462, 398, k.skin)}
+      ${block(338, 336, 124, '#059669', 'A')}${hand(338, 398, k.skin)}${hand(462, 398, k.skin)}
       ${block(110, 150, 78, '#0ea5e9', 'B', -12)}${block(612, 210, 84, '#22c55e', 'C', 10)}${block(150, 270, 56, '#8b5cf6', '1', 8)}
       <g transform="rotate(-30 640 120)"><rect x="570" y="110" width="110" height="22" rx="6" fill="#f59e0b"/><path d="M680 110 L708 121 L680 132Z" fill="#fcd9a8"/><path d="M698 117 L708 121 L698 125Z" fill="#7c2d12"/></g>`, 'A young child holding a big alphabet block, surrounded by colourful learning blocks');
   },
   // Class 2 — reading and writing: a child reading an open storybook, letters floating up.
   2: () => {
-    const p = { bg1: '#e8f6fd', bg2: '#efeafe', a1: '#0ea5e9', a2: '#8b5cf6' };
+    const p = { bg1: '#eef9fe', bg2: '#d7f1fb', a1: '#0ea5e9', a2: '#22d3ee' };
     const k = { skin: '#8d5a3b', skinShade: '#7a4b30', hair: 'curly', hairColor: '#1f1410', shirt: '#0ea5e9', collar: '#7dd3fc' };
     const lines = (x, y) => [0, 1, 2, 3].map((i) => `<rect x="${x}" y="${y + i * 16}" width="${i === 3 ? 60 : 92}" height="6" rx="3" fill="#94a3b8" opacity="0.7"/>`).join('');
     return svg(p, `${child(k)}
       ${arm(296, 430, 330, 400, k.shirt)}${arm(504, 430, 470, 400, k.shirt)}
       <g filter="url(#shadow)"><path d="M262 360 Q330 340 400 362 L400 470 Q330 448 262 468Z" fill="#ffffff"/><path d="M538 360 Q470 340 400 362 L400 470 Q470 448 538 468Z" fill="#f8fafc"/>
       <path d="M400 362 L400 470" stroke="#cbd5e1" stroke-width="3"/>${lines(286, 382)}${lines(424, 382)}
-      <path d="M256 466 Q330 446 400 470 Q470 446 544 466 L544 476 Q470 456 400 480 Q330 456 256 476Z" fill="#8b5cf6"/></g>
+      <path d="M256 466 Q330 446 400 470 Q470 446 544 466 L544 476 Q470 456 400 480 Q330 456 256 476Z" fill="#0891b2"/></g>
       ${hand(270, 428, k.skin)}${hand(530, 428, k.skin)}
-      ${['a', 'b', 'c', 'ह', 'अ'].map((l, i) => `<text x="${[150, 650, 212, 590, 108][i]}" y="${[140, 176, 250, 286, 330][i]}" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="${[54, 48, 38, 44, 40][i]}" fill="${i % 2 ? '#8b5cf6' : '#0ea5e9'}" opacity="0.8" transform="rotate(${[-10, 8, 6, -6, 10][i]} ${[150, 650, 212, 590, 108][i]} ${[140, 176, 250, 286, 330][i]})">${l}</text>`).join('')}
-      <g transform="translate(560 300)"><rect x="0" y="0" width="92" height="60" rx="18" fill="#ffffff" filter="url(#shadow)"/><path d="M18 58 L10 78 L34 60Z" fill="#ffffff"/><circle cx="28" cy="30" r="6" fill="#0ea5e9"/><circle cx="46" cy="30" r="6" fill="#8b5cf6"/><circle cx="64" cy="30" r="6" fill="#0ea5e9"/></g>`, 'A child reading an open storybook, with letters floating around');
+      ${['a', 'b', 'c', 'ह', 'अ'].map((l, i) => `<text x="${[150, 650, 212, 590, 108][i]}" y="${[140, 176, 250, 286, 330][i]}" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="${[54, 48, 38, 44, 40][i]}" fill="${i % 2 ? '#0891b2' : '#0ea5e9'}" opacity="0.8" transform="rotate(${[-10, 8, 6, -6, 10][i]} ${[150, 650, 212, 590, 108][i]} ${[140, 176, 250, 286, 330][i]})">${l}</text>`).join('')}
+      <g transform="translate(560 300)"><rect x="0" y="0" width="92" height="60" rx="18" fill="#ffffff" filter="url(#shadow)"/><path d="M18 58 L10 78 L34 60Z" fill="#ffffff"/><circle cx="28" cy="30" r="6" fill="#0ea5e9"/><circle cx="46" cy="30" r="6" fill="#22d3ee"/><circle cx="64" cy="30" r="6" fill="#0ea5e9"/></g>`, 'A child reading an open storybook, with letters floating around');
   },
   // Class 3 — exploring and discovering: magnifying glass, a sprouting plant and a science flask.
   3: () => {
-    const p = { bg1: '#f1ecff', bg2: '#e6e9fe', a1: '#8b5cf6', a2: '#6366f1' };
-    const k = { skin: '#f6d3b8', skinShade: '#e8bc9c', hair: 'bob', hairColor: '#2b1a12', shirt: '#7c3aed', collar: '#c4b5fd', hx: 360 };
+    const p = { bg1: '#ecfdf9', bg2: '#ccfbf1', a1: '#0d9488', a2: '#2dd4bf' };
+    const k = { skin: '#f6d3b8', skinShade: '#e8bc9c', hair: 'bob', hairColor: '#2b1a12', shirt: '#0d9488', collar: '#99f6e4', hx: 360 };
     return svg(p, `${child(k)}
       ${arm(270, 440, 300, 400, k.shirt)}${arm(452, 440, 520, 330, k.shirt)}
-      <g filter="url(#shadow)"><circle cx="560" cy="250" r="58" fill="#e0f2fe" fill-opacity="0.55" stroke="#4338ca" stroke-width="14"/><path d="M528 222 Q548 206 572 210" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
-      <rect x="512" y="296" width="22" height="80" rx="11" fill="#4338ca" transform="rotate(30 523 336)"/></g>
+      <g filter="url(#shadow)"><circle cx="560" cy="250" r="58" fill="#e0f2fe" fill-opacity="0.55" stroke="#0f766e" stroke-width="14"/><path d="M528 222 Q548 206 572 210" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+      <rect x="512" y="296" width="22" height="80" rx="11" fill="#0f766e" transform="rotate(30 523 336)"/></g>
       ${hand(520, 336, k.skin)}
       <g filter="url(#shadow)"><path d="M250 410 L330 410 L320 470 L260 470Z" fill="#f97316"/><rect x="244" y="400" width="92" height="18" rx="6" fill="#fb923c"/>
       <path d="M290 400 Q290 360 290 340" stroke="#16a34a" stroke-width="6" fill="none"/><path d="M290 360 Q256 350 250 320 Q284 324 290 360Z" fill="#22c55e"/><path d="M290 348 Q318 330 330 302 Q298 306 290 348Z" fill="#4ade80"/></g>
       ${hand(300, 404, k.skin)}
-      <g transform="translate(120 120)" filter="url(#shadow)"><path d="M22 0 L46 0 L46 34 L70 84 Q74 96 60 96 L8 96 Q-6 96 -2 84 L22 34Z" fill="#ffffff"/><path d="M8 66 L60 66 L66 82 Q68 90 58 90 L10 90 Q0 90 2 82Z" fill="#a78bfa"/><circle cx="26" cy="76" r="4" fill="#ffffff"/><circle cx="42" cy="80" r="3" fill="#ffffff"/><rect x="18" y="-6" width="32" height="10" rx="4" fill="#6366f1"/></g>
-      <g transform="translate(650 120)" stroke="#6366f1" stroke-width="4" fill="none" opacity="0.8"><ellipse cx="0" cy="0" rx="46" ry="16"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(-60)"/><circle cx="0" cy="0" r="7" fill="#8b5cf6" stroke="none"/></g>`, 'A curious child exploring with a magnifying glass, a growing plant and a science flask');
+      <g transform="translate(120 120)" filter="url(#shadow)"><path d="M22 0 L46 0 L46 34 L70 84 Q74 96 60 96 L8 96 Q-6 96 -2 84 L22 34Z" fill="#ffffff"/><path d="M8 66 L60 66 L66 82 Q68 90 58 90 L10 90 Q0 90 2 82Z" fill="#2dd4bf"/><circle cx="26" cy="76" r="4" fill="#ffffff"/><circle cx="42" cy="80" r="3" fill="#ffffff"/><rect x="18" y="-6" width="32" height="10" rx="4" fill="#0d9488"/></g>
+      <g transform="translate(650 120)" stroke="#0d9488" stroke-width="4" fill="none" opacity="0.8"><ellipse cx="0" cy="0" rx="46" ry="16"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(60)"/><ellipse cx="0" cy="0" rx="46" ry="16" transform="rotate(-60)"/><circle cx="0" cy="0" r="7" fill="#14b8a6" stroke="none"/></g>`, 'A curious child exploring with a magnifying glass, a growing plant and a science flask');
   },
   // Class 4 — studying and problem solving: a child with glasses, notebook of sums, pencil, board.
   4: () => {
-    const p = { bg1: '#e4f8fb', bg2: '#e4ecfd', a1: '#06b6d4', a2: '#2563eb' };
+    const p = { bg1: '#fff8ec', bg2: '#fde9cf', a1: '#f59e0b', a2: '#f97316' };
     const k = { skin: '#c68a5e', skinShade: '#b27a50', hair: 'sidepart', hairColor: '#1c1917', shirt: '#2563eb', collar: '#93c5fd', glasses: true };
     return svg(p, `
       <g transform="translate(92 74)" filter="url(#shadow)"><rect width="230" height="150" rx="18" fill="#0f3d4a"/><rect x="10" y="10" width="210" height="130" rx="12" fill="#134e5e"/>
@@ -162,11 +162,11 @@ const scenes = {
   },
   // Class 5 — confident and prepared: a child with a tablet, a stack of books and a trophy.
   5: () => {
-    const p = { bg1: '#ffeaee', bg2: '#fff3df', a1: '#f43f5e', a2: '#f59e0b' };
+    const p = { bg1: '#fff1f5', bg2: '#fde2ec', a1: '#e11d48', a2: '#f472b6' };
     const k = { skin: '#e9b48e', skinShade: '#d89f78', hair: 'ponytail', hairColor: '#3b2416', shirt: '#e11d48', collar: '#fda4af', hx: 420 };
     const book = (x, y, w, c) => `<rect x="${x}" y="${y}" width="${w}" height="30" rx="6" fill="${c}"/><rect x="${x + 8}" y="${y + 8}" width="${w - 16}" height="4" rx="2" fill="#ffffff" opacity="0.7"/>`;
     return svg(p, `
-      <g filter="url(#shadow)">${book(96, 440, 170, '#2563eb')}${book(110, 410, 150, '#f59e0b')}${book(100, 380, 160, '#16a34a')}${book(118, 350, 130, '#8b5cf6')}</g>
+      <g filter="url(#shadow)">${book(96, 440, 170, '#2563eb')}${book(110, 410, 150, '#f59e0b')}${book(100, 380, 160, '#16a34a')}${book(118, 350, 130, '#10b981')}</g>
       <g transform="translate(150 230)" filter="url(#shadow)"><path d="M0 0 L70 0 L66 46 Q60 78 35 80 Q10 78 4 46Z" fill="#f59e0b"/><path d="M0 10 Q-26 12 -20 34 Q-14 50 6 48" stroke="#f59e0b" stroke-width="8" fill="none"/><path d="M70 10 Q96 12 90 34 Q84 50 64 48" stroke="#f59e0b" stroke-width="8" fill="none"/><rect x="25" y="80" width="20" height="22" fill="#d97706"/><rect x="8" y="100" width="54" height="16" rx="4" fill="#b45309"/><path d="M35 18 L40 30 L53 31 L43 39 L46 52 L35 45 L24 52 L27 39 L17 31 L30 30Z" fill="#fef3c7"/></g>
       ${child(k)}
       ${arm(320, 440, 360, 404, k.shirt)}${arm(520, 440, 486, 404, k.shirt)}
@@ -177,6 +177,50 @@ const scenes = {
       <g transform="translate(580 116) rotate(-10)" filter="url(#shadow)"><path d="M0 30 L60 0 L120 30 L60 60Z" fill="#1f2937"/><path d="M28 44 L28 74 Q60 92 92 74 L92 44 L60 60Z" fill="#374151"/><path d="M120 30 L120 70" stroke="#f59e0b" stroke-width="4"/><circle cx="120" cy="74" r="7" fill="#f59e0b"/></g>`, 'A confident child learning on a tablet, with a stack of books, a trophy and a graduation cap');
   },
 };
+
+/** A leaf: an almond shape with a centre vein, rotated about its base. */
+const leaf = (x, y, s, rot, c) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="${c}"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g>`;
+
+/**
+ * The landing page hero (720×720): an older student (Classes 4–5) in a green hoodie with a
+ * backpack, holding a stack of books, among soft leaves and a "Learn · Play · Grow" note.
+ */
+function heroScene() {
+  const S = 720;
+  const k = { skin: '#d79c74', skinShade: '#c4885f', hair: 'sidepart', hairColor: '#1c1310', shirt: '#059669', collar: '#34d399' };
+  const book = (x, y, w, c) => `<rect x="${x}" y="${y}" width="${w}" height="34" rx="7" fill="${c}"/><rect x="${x + 10}" y="${y + 10}" width="${w - 20}" height="5" rx="2.5" fill="#ffffff" opacity="0.7"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" role="img" aria-label="A smiling student with a backpack holding a stack of books">
+  <title>A smiling student with a backpack holding a stack of books</title>
+  <defs>
+    <radialGradient id="halo" cx="0.5" cy="0.55" r="0.5"><stop offset="0" stop-color="#a7f3d0" stop-opacity="0.95"/><stop offset="0.6" stop-color="#d1fae5" stop-opacity="0.55"/><stop offset="1" stop-color="#ecfdf5" stop-opacity="0"/></radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#064e3b" flood-opacity="0.18"/></filter>
+    <!-- The figure fades out at the bottom instead of ending on a hard edge. -->
+    <linearGradient id="fadeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0.7" stop-color="#ffffff"/><stop offset="0.83" stop-color="#000000"/></linearGradient>
+    <mask id="fade" maskUnits="userSpaceOnUse" x="0" y="0" width="${S}" height="${S}"><rect width="${S}" height="${S}" fill="url(#fadeGrad)"/></mask>
+  </defs>
+  <!-- No halo of its own: the page draws a theme-aware glow behind it (.mk-hero-orb). -->
+  ${leaf(110, 470, 1.25, -38, '#34d399')}${leaf(150, 520, 0.9, -70, '#10b981')}${leaf(610, 460, 1.3, 36, '#10b981')}${leaf(585, 540, 0.85, 72, '#6ee7b7')}
+  ${leaf(140, 190, 0.55, -20, '#6ee7b7')}${leaf(520, 250, 0.45, 30, '#34d399')}
+  <g transform="translate(36 120) scale(0.88)" mask="url(#fade)">
+    <!-- backpack behind the shoulders -->
+    <path d="M250 420 Q240 320 300 300 L500 300 Q560 320 550 420 L550 600 L250 600Z" fill="#065f46" filter="url(#shadow)"/>
+    ${child({ ...k, hy: 236 })}
+    <!-- straps -->
+    <path d="M318 360 Q300 430 312 520" stroke="#064e3b" stroke-width="22" fill="none" stroke-linecap="round"/>
+    <path d="M482 360 Q500 430 488 520" stroke="#064e3b" stroke-width="22" fill="none" stroke-linecap="round"/>
+    <!-- hood -->
+    <path d="M320 352 Q400 400 480 352" stroke="#047857" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <g filter="url(#shadow)">${book(300, 450, 200, '#f59e0b')}${book(312, 418, 176, '#0ea5e9')}${book(296, 386, 208, '#10b981')}</g>
+    ${hand(304, 470, k.skin)}${hand(496, 470, k.skin)}
+  </g>
+  <g transform="translate(560 120) rotate(-8)" font-family="'Segoe Script', 'Comic Sans MS', cursive" font-weight="700" fill="#10b981">
+    <text x="0" y="0" font-size="40">Learn</text><text x="18" y="48" font-size="40">Play</text><text x="6" y="96" font-size="40">Grow</text>
+  </g>
+  ${sparkle(90, 330, 14, '#10b981')}${sparkle(660, 330, 12, '#34d399')}${sparkle(470, 70, 9, '#10b981')}
+</svg>
+`;
+}
+fs.writeFileSync(path.join(OUT, 'hero-student.svg'), heroScene());
 
 for (const [n, make] of Object.entries(scenes)) {
   fs.writeFileSync(path.join(OUT, `class-${n}.svg`), make());

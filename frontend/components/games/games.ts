@@ -27,7 +27,7 @@ export const GAMES: readonly GameMeta[] = [
     category: 'Multiplayer',
     difficulty: 'Easy',
     playTime: '1 min',
-    colors: ['#38bdf8', '#6366f1'],
+    colors: ['#38bdf8', '#2563eb'],
     instructions: [
       'Two teams race to fill their tank in 60 seconds. Play the bot or a friend on the same screen.',
       'Dip your bucket in the well to scoop water, carry it across, then pour it into your tank.',
@@ -43,7 +43,7 @@ export const GAMES: readonly GameMeta[] = [
     category: 'Puzzle',
     difficulty: 'Medium',
     playTime: '2–3 min',
-    colors: ['#a855f7', '#ec4899'],
+    colors: ['#ec4899', '#f43f5e'],
     instructions: [
       'All cards start face down. Tap a card to flip it.',
       'Flip two cards: if they match, they stay open.',
@@ -91,7 +91,7 @@ export const GAMES: readonly GameMeta[] = [
     category: 'Puzzle',
     difficulty: 'Hard',
     playTime: '3–5 min',
-    colors: ['#7c5cff', '#22d3ee'],
+    colors: ['#0f766e', '#22d3ee'],
     instructions: [
       'Tap a tile next to the empty square to slide it across.',
       'On a keyboard, use the arrow keys.',

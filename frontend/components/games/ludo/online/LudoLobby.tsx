@@ -55,7 +55,7 @@ function RoomCode({ code, onToast }: { code: string; onToast: LudoRoomApi['toast
     <div className="flex flex-col items-center gap-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-subtle">Room code</p>
       <div
-        className="flex items-center justify-center gap-1.5 rounded-2xl border border-border-strong bg-background/60 px-3 py-3 shadow-[0_0_40px_-18px_#7c5cff] sm:gap-2"
+        className="flex items-center justify-center gap-1.5 rounded-2xl border border-border-strong bg-background/60 px-3 py-3 shadow-[0_0_40px_-18px_#10b981] sm:gap-2"
         aria-label={`Room code ${code.split('').join(' ')}`}
       >
         {code.padEnd(ROOM_CODE_LENGTH, ' ').split('').map((ch, i) => (

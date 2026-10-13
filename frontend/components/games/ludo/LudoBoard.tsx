@@ -249,7 +249,7 @@ export function LudoBoard({ state, anim, active, validIds, selectable, burst, re
       className="ludo-appear relative aspect-square w-full rounded-[26px] p-[1.6%]"
       style={{
         background: 'linear-gradient(145deg, #2b3170, #12142c)',
-        boxShadow: '0 30px 60px -24px rgba(0,0,0,.85), 0 0 60px -26px #7c5cff, inset 0 1px 0 rgba(255,255,255,.12)',
+        boxShadow: '0 30px 60px -24px rgba(0,0,0,.85), 0 0 60px -26px #10b981, inset 0 1px 0 rgba(255,255,255,.12)',
       }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-[16px] ring-2 ring-amber-400/70">

@@ -2,18 +2,18 @@
   <title>A child reading an open storybook, with letters floating around</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e8f6fd"/><stop offset="1" stop-color="#efeafe"/>
+      <stop offset="0" stop-color="#eef9fe"/><stop offset="1" stop-color="#d7f1fb"/>
     </linearGradient>
     <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="38"/></filter>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1e1b4b" flood-opacity="0.16"/></filter>
   </defs>
   <rect width="800" height="500" fill="url(#bg)"/>
   <circle cx="140" cy="120" r="150" fill="#0ea5e9" opacity="0.28" filter="url(#soft)"/>
-  <circle cx="680" cy="380" r="170" fill="#8b5cf6" opacity="0.26" filter="url(#soft)"/>
+  <circle cx="680" cy="380" r="170" fill="#22d3ee" opacity="0.26" filter="url(#soft)"/>
   <circle cx="660" cy="90" r="70" fill="#ffffff" opacity="0.55" filter="url(#soft)"/>
-  <path d="M110 346 Q112.52 357.48 124 360 Q112.52 362.52 110 374 Q107.48 362.52 96 360 Q107.48 357.48 110 346Z" fill="#0ea5e9" opacity="0.75"/><path d="M700 139 Q701.98 148.02 711 150 Q701.98 151.98 700 161 Q698.02 151.98 689 150 Q698.02 148.02 700 139Z" fill="#8b5cf6" opacity="0.75"/><path d="M610 53 Q611.26 58.74 617 60 Q611.26 61.26 610 67 Q608.74 61.26 603 60 Q608.74 58.74 610 53Z" fill="#0ea5e9" opacity="0.75"/>
-  <circle cx="230" cy="70" r="5" fill="#8b5cf6" opacity="0.5"/><circle cx="560" cy="430" r="6" fill="#0ea5e9" opacity="0.45"/>
-  <circle cx="80" cy="230" r="4" fill="#0ea5e9" opacity="0.5"/><circle cx="745" cy="260" r="4" fill="#8b5cf6" opacity="0.5"/>
+  <path d="M110 346 Q112.52 357.48 124 360 Q112.52 362.52 110 374 Q107.48 362.52 96 360 Q107.48 357.48 110 346Z" fill="#0ea5e9" opacity="0.75"/><path d="M700 139 Q701.98 148.02 711 150 Q701.98 151.98 700 161 Q698.02 151.98 689 150 Q698.02 148.02 700 139Z" fill="#22d3ee" opacity="0.75"/><path d="M610 53 Q611.26 58.74 617 60 Q611.26 61.26 610 67 Q608.74 61.26 603 60 Q608.74 58.74 610 53Z" fill="#0ea5e9" opacity="0.75"/>
+  <circle cx="230" cy="70" r="5" fill="#22d3ee" opacity="0.5"/><circle cx="560" cy="430" r="6" fill="#0ea5e9" opacity="0.45"/>
+  <circle cx="80" cy="230" r="4" fill="#0ea5e9" opacity="0.5"/><circle cx="745" cy="260" r="4" fill="#22d3ee" opacity="0.5"/>
   <g filter="url(#shadow)">
     
     <path d="M272 500 Q270 376 340 356 L460 356 Q530 376 528 500Z" fill="#0ea5e9"/>
@@ -31,8 +31,8 @@
       <path d="M296 430 Q293 445 330 400" stroke="#0ea5e9" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M504 430 Q507 445 470 400" stroke="#0ea5e9" stroke-width="38" stroke-linecap="round" fill="none"/>
       <g filter="url(#shadow)"><path d="M262 360 Q330 340 400 362 L400 470 Q330 448 262 468Z" fill="#ffffff"/><path d="M538 360 Q470 340 400 362 L400 470 Q470 448 538 468Z" fill="#f8fafc"/>
       <path d="M400 362 L400 470" stroke="#cbd5e1" stroke-width="3"/><rect x="286" y="382" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="286" y="398" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="286" y="414" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="286" y="430" width="60" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="424" y="382" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="424" y="398" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="424" y="414" width="92" height="6" rx="3" fill="#94a3b8" opacity="0.7"/><rect x="424" y="430" width="60" height="6" rx="3" fill="#94a3b8" opacity="0.7"/>
-      <path d="M256 466 Q330 446 400 470 Q470 446 544 466 L544 476 Q470 456 400 480 Q330 456 256 476Z" fill="#8b5cf6"/></g>
+      <path d="M256 466 Q330 446 400 470 Q470 446 544 466 L544 476 Q470 456 400 480 Q330 456 256 476Z" fill="#0891b2"/></g>
       <circle cx="270" cy="428" r="20" fill="#8d5a3b"/><circle cx="530" cy="428" r="20" fill="#8d5a3b"/>
-      <text x="150" y="140" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="54" fill="#0ea5e9" opacity="0.8" transform="rotate(-10 150 140)">a</text><text x="650" y="176" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="48" fill="#8b5cf6" opacity="0.8" transform="rotate(8 650 176)">b</text><text x="212" y="250" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="38" fill="#0ea5e9" opacity="0.8" transform="rotate(6 212 250)">c</text><text x="590" y="286" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="44" fill="#8b5cf6" opacity="0.8" transform="rotate(-6 590 286)">ह</text><text x="108" y="330" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="40" fill="#0ea5e9" opacity="0.8" transform="rotate(10 108 330)">अ</text>
-      <g transform="translate(560 300)"><rect x="0" y="0" width="92" height="60" rx="18" fill="#ffffff" filter="url(#shadow)"/><path d="M18 58 L10 78 L34 60Z" fill="#ffffff"/><circle cx="28" cy="30" r="6" fill="#0ea5e9"/><circle cx="46" cy="30" r="6" fill="#8b5cf6"/><circle cx="64" cy="30" r="6" fill="#0ea5e9"/></g>
+      <text x="150" y="140" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="54" fill="#0ea5e9" opacity="0.8" transform="rotate(-10 150 140)">a</text><text x="650" y="176" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="48" fill="#0891b2" opacity="0.8" transform="rotate(8 650 176)">b</text><text x="212" y="250" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="38" fill="#0ea5e9" opacity="0.8" transform="rotate(6 212 250)">c</text><text x="590" y="286" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="44" fill="#0891b2" opacity="0.8" transform="rotate(-6 590 286)">ह</text><text x="108" y="330" font-family="Arial, Noto Sans Devanagari, sans-serif" font-weight="800" font-size="40" fill="#0ea5e9" opacity="0.8" transform="rotate(10 108 330)">अ</text>
+      <g transform="translate(560 300)"><rect x="0" y="0" width="92" height="60" rx="18" fill="#ffffff" filter="url(#shadow)"/><path d="M18 58 L10 78 L34 60Z" fill="#ffffff"/><circle cx="28" cy="30" r="6" fill="#0ea5e9"/><circle cx="46" cy="30" r="6" fill="#22d3ee"/><circle cx="64" cy="30" r="6" fill="#0ea5e9"/></g>
 </svg>

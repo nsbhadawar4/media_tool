@@ -30,8 +30,8 @@ const MODES: Array<{ value: ThemeMode; label: string; hint: string; icon: typeof
 function ThemePreview({ theme, active }: { theme: Theme; active: boolean }) {
   const c =
     theme === 'light'
-      ? { bg: '#f6f6f8', surface: '#ffffff', border: '#e4e4ea', text: '#18181b', muted: '#a1a1aa', accent: '#6d4aff' }
-      : { bg: '#07070a', surface: '#16161d', border: 'rgba(255,255,255,0.1)', text: '#f6f6f8', muted: '#52525b', accent: '#7c5cff' };
+      ? { bg: '#f5fffb', surface: '#ffffff', border: '#d1fae5', text: '#0f172a', muted: '#94a3b8', accent: '#059669' }
+      : { bg: '#061a16', surface: '#0f2922', border: 'rgba(167,243,208,0.14)', text: '#f8fafc', muted: '#3d5a52', accent: '#10b981' };
   return (
     <figure className={cn('flex flex-col gap-2 rounded-2xl border p-2 transition', active ? 'border-accent/60 ring-1 ring-accent/30' : 'border-border opacity-60')}>
       <div aria-hidden className="flex h-24 gap-1.5 overflow-hidden rounded-xl p-2" style={{ background: c.bg }}>

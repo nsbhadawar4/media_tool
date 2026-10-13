@@ -28,9 +28,9 @@ export function Logo({ className }: { className?: string }) {
           whichever mounted last silently claim the other's fill.
         */}
         <linearGradient id="logo-tile" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#8B7BFF" />
-          <stop offset="0.55" stopColor="#6D5EF8" />
-          <stop offset="1" stopColor="#5B4CE8" />
+          <stop offset="0" stopColor="#34D399" />
+          <stop offset="0.55" stopColor="#10B981" />
+          <stop offset="1" stopColor="#047857" />
         </linearGradient>
       </defs>
 
@@ -38,7 +38,7 @@ export function Logo({ className }: { className?: string }) {
       <rect x="21" y="12.5" width="22" height="4" rx="2" fill="#FFFFFF" opacity="0.4" />
       <rect x="16" y="18" width="32" height="4" rx="2" fill="#FFFFFF" opacity="0.65" />
       <rect x="11" y="24" width="42" height="27" rx="6" fill="#FFFFFF" />
-      <path d="M26.3 31 L26.3 44 L37.8 37.5 Z" fill="#5B4CE8" />
+      <path d="M26.3 31 L26.3 44 L37.8 37.5 Z" fill="#047857" />
     </svg>
   );
 }

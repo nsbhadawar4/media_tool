@@ -180,10 +180,10 @@ export default function NumberPuzzle() {
                   className={cn(
                     'flex h-full w-full items-center justify-center rounded-xl border text-3xl font-semibold tabular-nums shadow-card transition-[box-shadow,border-color,background-color] duration-200 sm:text-4xl',
                     inPlaceNow
-                      ? 'border-sky-300/40 bg-linear-to-br from-sky-500 to-violet-500 text-white'
+                      ? 'border-sky-300/40 bg-linear-to-br from-sky-500 to-emerald-500 text-white'
                       : 'border-border-strong bg-surface-elevated text-foreground',
                     canMove && !won && 'border-sky-300/40 shadow-[0_0_18px_-6px_#38bdf8] hover:bg-surface-hover',
-                    lastMoved === tile && !won && 'ring-2 ring-violet-400/60',
+                    lastMoved === tile && !won && 'ring-2 ring-emerald-400/60',
                     won && 'np-win',
                   )}
                 >
