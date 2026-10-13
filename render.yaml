@@ -1,0 +1,30 @@
+# Render Blueprint for the realtime Ludo server (realtime/), the one part of the app that can't run
+# on Vercel: it holds WebSocket connections and keeps live rooms in memory, so it needs a
+# long-running Node process. The Next.js app and its API stay on Vercel.
+#
+# Render → New → Blueprint → pick this repository. After it is live, set NEXT_PUBLIC_REALTIME_URL
+# in Vercel to this service's https URL and redeploy there. Full steps: realtime/README.md.
+services:
+  - type: web
+    name: media-tool-realtime
+    runtime: node
+    # Closest Render region to the app's users (India).
+    region: singapore
+    plan: free
+    # Installs only the realtime workspace (and the shared ludo-core rules it links to) —
+    # not the Next.js app. Verified: ~40 packages.
+    buildCommand: npm ci --workspace media-tool-realtime --include-workspace-root=false
+    startCommand: npm run start --workspace media-tool-realtime
+    healthCheckPath: /health
+    # Rooms live in memory on one process: keep a single instance (no autoscaling).
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      # Browser origins allowed to connect, comma-separated, no trailing slash. Add a custom
+      # domain here too if players use one. Change it in the Render dashboard at any time.
+      - key: ALLOWED_ORIGINS
+        value: https://media-tool.vercel.app
+      # PORT is injected by Render; the server reads it.

@@ -61,6 +61,13 @@ function realtimeOrigins(): string {
 }
 const realtime = realtimeOrigins();
 
+// A production build without the realtime address ships online Ludo as "Not set up": NEXT_PUBLIC_
+// values are inlined at build time, so setting the variable later needs a redeploy. Say so in the
+// build log, where it can be caught. (Not an error: the rest of the app works without it.)
+if (process.env.VERCEL_ENV === 'production' && !process.env.NEXT_PUBLIC_REALTIME_URL?.trim()) {
+  console.warn('[ludo] NEXT_PUBLIC_REALTIME_URL is not set: online Ludo will show "Not set up". Set it in Vercel and redeploy (realtime/README.md).');
+}
+
 /**
  * Google Identity Services ("Continue with Google"): its script, the button and sign-in popup
  * frames, and its stylesheet. Listed by exact path prefix rather than allowing all of google.com.

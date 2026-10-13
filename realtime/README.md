@@ -64,7 +64,7 @@ Any host that runs a persistent Node process and supports WebSockets works. Free
 Render (free web service), Fly.io, Railway (trial credit). The service just needs:
 
 - Root directory: the repo root (it imports `packages/ludo-core` from the workspace)
-- Build: `npm install`
+- Build: `npm ci --workspace media-tool-realtime --include-workspace-root=false`
 - Start: `npm run start --workspace media-tool-realtime`
 - Health check path: `/health`
 - Env: `NODE_ENV=production`, `ALLOWED_ORIGINS=https://<your vercel domain>`
@@ -75,9 +75,15 @@ before it was set keeps showing "Not set up" until it is rebuilt.
 
 ### Render, step by step
 
+Quickest: Render → New → **Blueprint** → this repository. `render.yaml` at the repo root
+creates the service with everything below (Singapore region, free plan, one instance); only
+step 8 (Vercel) remains. Or by hand:
+
 1. New → Web Service → connect this repository.
 2. Root directory: leave empty (repo root). Runtime: Node (20+).
-3. Build command: `npm install`
+3. Build command: `npm ci --workspace media-tool-realtime --include-workspace-root=false`
+   (installs only this server and `ludo-core`, ~40 packages; plain `npm install` also works but
+   installs the whole Next.js app too)
 4. Start command: `npm run start --workspace media-tool-realtime`
 5. Health check path: `/health`
 6. Environment: `NODE_ENV=production`, `ALLOWED_ORIGINS=https://media-tool.vercel.app`
