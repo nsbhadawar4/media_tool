@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PROGRESS_YARD,
   currentPlayer,
+  extraTurnMessage,
   getValidMoves,
   tokenCell,
   type GameEvent,
@@ -125,7 +126,7 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
             schedule(() => setBurst(null), 700);
             schedule(() => setReturning(new Set()), 650);
           } else if (e.reachedHome) play('success');
-          if (e.extraTurn && !e.won) setNote('Rolled a 6! Roll again');
+          if (e.extraTurn && !e.won) setNote(extraTurnMessage(e.bonus ?? ['six']));
           setBusy('idle');
           done();
         }, e.progressSteps.length * STEP_MS + 40);

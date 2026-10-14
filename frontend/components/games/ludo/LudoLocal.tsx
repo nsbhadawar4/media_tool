@@ -12,10 +12,11 @@ import { LudoBoard, type AnimOverride, type BurstFx } from './LudoBoard';
 import { LudoDice } from './LudoDice';
 import { LudoPlayerPanel } from './LudoPlayerPanel';
 import { LudoRules } from './LudoRules';
+import { GameConfirmDialog } from '../GameLeave';
 import { LudoSetup } from './LudoSetup';
 import { LudoWinner } from './LudoWinner';
 import { COLOR_HEX, COLOR_NAME, PROGRESS_YARD, SEATS, tokenCell } from './ludoLayout';
-import { applyMove, applyRoll, createGame, currentPlayer, getValidMoves, rollDie } from './ludoEngine';
+import { applyMove, applyRoll, createGame, currentPlayer, extraTurnMessage, getValidMoves, rollDie } from './ludoEngine';
 import { LUDO_CSS, ROLL_MS, STEP_MS } from './ludoStyles';
 import { clearLudoSession, saveLudoSession, type PersistedLocalGame } from './persistence';
 import type { BotLevel, Controller, GameMode, GameState, PlayerColor, PlayerCount } from './ludoTypes';
@@ -57,6 +58,8 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const [tally, setTally] = useState(restore?.tally ?? { moves: 0, captures: 0 });
   const [seconds, setSeconds] = useState(restore?.seconds ?? 0);
   const [rulesOpen, setRulesOpen] = useState(false);
+  // Restart and Setup both end the game in progress, so each asks first (never on a single tap).
+  const [confirming, setConfirming] = useState<'restart' | 'setup' | null>(null);
 
   const busyRef = useRef<Busy>('idle');
   const burstId = useRef(0);
@@ -237,7 +240,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
           setSeconds(Math.round((performance.now() - startedAt.current) / 1000));
           play('win');
         } else if (events.extraTurn) {
-          setNote('Rolled a 6! Roll again');
+          setNote(extraTurnMessage(events.bonus));
         }
         setBusy('idle');
       }, events.progressSteps.length * STEP_MS + 40);
@@ -258,7 +261,8 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
 
   // Bots take their turns on a short delay so the player can follow what happened.
   useEffect(() => {
-    if (!state || !isBotTurn || busy !== 'idle' || state.phase === 'over' || !config) return;
+    // Paused while a Restart / Setup confirmation is open, so Cancel finds the game exactly as it was.
+    if (!state || !isBotTurn || busy !== 'idle' || state.phase === 'over' || !config || confirming) return;
     const id = window.setTimeout(
       () => {
         if (state.phase === 'roll') roll();
@@ -267,7 +271,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
       state.phase === 'roll' ? 600 + Math.random() * 300 : 500 + Math.random() * 400,
     );
     return () => window.clearTimeout(id);
-  }, [state, isBotTurn, busy, config, roll, moveToken]);
+  }, [state, isBotTurn, busy, config, roll, moveToken, confirming]);
 
   // Space / Enter rolls for the person whose turn it is.
   useEffect(() => {
@@ -296,10 +300,10 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const soleMove = state && state.phase === 'move' && validIds.length === 1 ? validIds[0]! : null;
   const autoMoving = soleMove !== null && !isBotTurn;
   useEffect(() => {
-    if (soleMove === null || isBotTurn || busy !== 'idle') return;
+    if (soleMove === null || isBotTurn || busy !== 'idle' || confirming) return;
     const id = window.setTimeout(() => moveToken(soleMove), 450);
     return () => window.clearTimeout(id);
-  }, [soleMove, isBotTurn, busy, moveToken]);
+  }, [soleMove, isBotTurn, busy, moveToken, confirming]);
 
   const hints = useMemo(() => {
     if (!state || !active || !canPick || state.die === null) return [];
@@ -334,7 +338,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
 
   const controls = (
     <GameControls>
-      <Button variant="secondary" onClick={() => config && startGame(config)} disabled={!state} className="gap-2">
+      <Button variant="secondary" onClick={() => setConfirming('restart')} disabled={!state} className="gap-2">
         <RotateCcw className="h-4 w-4" />
         Restart
       </Button>
@@ -342,7 +346,14 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         <BookOpen className="h-4 w-4" />
         Rules
       </Button>
-      <Button variant="ghost" onClick={toSetup} disabled={!state} aria-label="Change players and mode" className="gap-2">
+      {/* Ends this game and returns to player selection, so a game in progress asks first. */}
+      <Button
+        variant="ghost"
+        onClick={() => (state && !state.winner ? setConfirming('setup') : toSetup())}
+        disabled={!state}
+        aria-label="Change players and mode"
+        className="gap-2"
+      >
         <SlidersHorizontal className="h-4 w-4" />
         <span className="max-sm:hidden">Setup</span>
       </Button>
@@ -411,6 +422,33 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
       )}
 
       <LudoRules open={rulesOpen} onClose={() => setRulesOpen(false)} />
+
+      {confirming === 'restart' && (
+        <GameConfirmDialog
+          icon={RotateCcw}
+          title="Restart Game?"
+          message="Are you sure you want to restart this game? Your current progress will be lost."
+          confirmLabel="Restart Game"
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            setConfirming(null);
+            if (configRef.current) startGame(configRef.current);
+          }}
+        />
+      )}
+      {confirming === 'setup' && (
+        <GameConfirmDialog
+          icon={SlidersHorizontal}
+          title="Change players?"
+          message="This ends the current game and goes back to player selection. Your current progress will be lost."
+          confirmLabel="End game"
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            setConfirming(null);
+            toSetup();
+          }}
+        />
+      )}
 
       {winner && busy === 'idle' && (
         <LudoWinner

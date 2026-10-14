@@ -10,14 +10,15 @@ import {
   progressSteps,
   tokenCell,
 } from './layout';
-import type { Capture, GameState, MoveEvents, MoveResult, Player, PlayerColor, PlayerCount, RollResult } from './types';
+import type { BonusReason, Capture, GameState, MoveEvents, MoveResult, Player, PlayerColor, PlayerCount, RollResult } from './types';
 
 /**
  * Pure Ludo rules. No React, no hidden randomness: dice come from an injected rng.
  *
  *  - A token leaves the yard only on a 6, landing on its colour's start cell.
  *  - Progress: -1 yard, 0..50 main loop, 51..56 home column, 57 finished. An exact roll is needed to finish.
- *  - Extra turn on a 6 only (not on capture / reaching home). Three sixes in a row forfeit the turn.
+ *  - Extra turn (exactly one, whatever the combination) after rolling a 6, capturing an opponent's token,
+ *    or bringing a token home — unless that move wins the game. Three sixes in a row forfeit the turn.
  *  - Captures: landing on a non-safe loop cell holding exactly ONE token of an opponent colour sends it to
  *    its yard. Two or more same-coloured tokens on a non-safe cell form a BLOCK and cannot be captured
  *    (the mover may still land there; the cell is then shared). Safe cells (4 start squares + 4 star
@@ -129,8 +130,13 @@ export function applyMove(state: GameState, tokenId: number): MoveResult {
     }),
   }));
 
+  // Decided from this move's own result (never from earlier state). One bonus turn at most, however
+  // many reasons apply; a winning move ends the game instead.
   const won = finishedCount(players[state.current]!) === TOKENS_PER_PLAYER;
-  const extraTurn = die === 6 && !won;
+  const bonus: BonusReason[] = won
+    ? []
+    : [...(die === 6 ? (['six'] as const) : []), ...(captures.length > 0 ? (['capture'] as const) : []), ...(to === PROGRESS_FINISHED ? (['home'] as const) : [])];
+  const extraTurn = bonus.length > 0;
   const steps = progressSteps(from, to);
   const events: MoveEvents = {
     color: mover.color,
@@ -144,12 +150,23 @@ export function applyMove(state: GameState, tokenId: number): MoveResult {
     reachedHome: to === PROGRESS_FINISHED,
     won,
     extraTurn,
+    bonus,
   };
 
+  // The one place the turn is decided after a move: game over, same player again, or the next player.
+  // A bonus turn keeps the six count (so a third six still forfeits); a non-six roll already reset it.
   const base: GameState = { ...state, players, die: null };
   let next: GameState;
   if (won) next = { ...base, phase: 'over', winner: mover.color };
   else if (extraTurn) next = { ...base, phase: 'roll' };
   else next = advanceTurn(base);
   return { state: next, events };
+}
+
+/** What to tell the player who earned another turn (capture beats home beats six). */
+export function extraTurnMessage(bonus: readonly BonusReason[] | undefined): string {
+  if (!bonus || bonus.length === 0) return '';
+  if (bonus.includes('capture')) return 'Captured! Roll again';
+  if (bonus.includes('home')) return 'Token home! Roll again';
+  return 'Rolled a 6! Roll again';
 }

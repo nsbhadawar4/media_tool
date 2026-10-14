@@ -126,7 +126,7 @@ export const GAMES: readonly GameMeta[] = [
     colors: ['#ef4444', '#3b82f6'],
     instructions: [
       'Choose 2–4 players, local multiplayer or against Easy, Medium or Hard bots.',
-      'Roll the dice. A 6 brings a token out of base, and a 6 earns another roll.',
+      'Roll the dice. A 6 brings a token out of base. A 6, a capture or a token reaching home earns one more roll.',
       'Tap a glowing token to move it. Landing on a lone opponent sends it back to base, except on star and start squares.',
       'Get all four tokens into the centre with an exact roll to win.',
     ],

@@ -248,6 +248,46 @@ describe('rooms', () => {
     await until(() => all[0]!.room!.status === 'lobby');
   });
 
+  it('bonus turns: a six, a capture or a token home keeps the turn once; anything else passes it exactly once', async () => {
+    const { all } = await lobby(2);
+    await startGame(all);
+    await call(all[1]!, 'room:leave'); // the server plays that seat, so a full game runs quickly
+    await until(() => all[0]!.room!.players.some((p) => p.left));
+    const me = all[0]!;
+    for (let i = 0; i < 4000 && !me.events.some((e) => e.type === 'GAME_WON'); i++) {
+      const g = me.events.at(-1)?.state ?? me.room!.game!.state;
+      if (g.players[g.current]!.color === me.room!.players[0]!.color) {
+        if (g.phase === 'roll') await call(me, 'game:roll');
+        else if (g.die !== null) await call(me, 'game:move', { tokenId: getValidMoves(g, g.die)[0] });
+      }
+      await sleep(30);
+    }
+    const ev = me.events;
+    assert.ok(ev.some((e) => e.type === 'GAME_WON'), 'game should reach a winner');
+    let homes = 0;
+    ev.forEach((e, i) => {
+      if (e.type !== 'TOKEN_MOVED') return;
+      const next = ev[i + 1];
+      const bonus = e.bonus ?? [];
+      // The reasons come from this move's own result.
+      assert.equal(bonus.includes('capture'), e.captures.length > 0 && !e.won);
+      assert.equal(bonus.includes('home'), e.reachedHome && !e.won);
+      assert.equal(e.extraTurn, bonus.length > 0);
+      homes += e.reachedHome ? 1 : 0;
+      if (e.won) {
+        assert.equal(next?.type, 'GAME_WON');
+      } else if (e.extraTurn) {
+        assert.equal(e.state.players[e.state.current]!.color, e.color, 'same player rolls again');
+        assert.equal(e.state.phase, 'roll');
+        assert.notEqual(next?.type, 'TURN_CHANGED', 'no turn change after a bonus move');
+      } else {
+        assert.equal(next?.type, 'TURN_CHANGED', 'the turn passes once');
+        assert.notEqual(ev[i + 2]?.type, 'TURN_CHANGED', 'and only once');
+      }
+    });
+    assert.ok(homes >= 4, 'tokens reached home during the game');
+  });
+
   it('host closes the room; joining it afterwards says it is gone; abandoned rooms are swept', async () => {
     const { host, others, code } = await lobby(2);
     assert.equal((await call(others[0]!, 'room:close')).error, 'Only the host can close the room.');

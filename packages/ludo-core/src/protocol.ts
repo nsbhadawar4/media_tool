@@ -1,4 +1,4 @@
-import type { Capture, GameState, PlayerColor } from './types';
+import type { BonusReason, Capture, GameState, PlayerColor } from './types';
 
 /** Characters for room codes: no O, 0, I, 1 or L, which read alike. */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -52,6 +52,8 @@ export type GameEvent =
       captures: Capture[];
       reachedHome: boolean;
       extraTurn: boolean;
+      /** Why the extra turn was earned (absent from servers older than this field). */
+      bonus?: BonusReason[];
       won: boolean;
       state: GameState;
     }

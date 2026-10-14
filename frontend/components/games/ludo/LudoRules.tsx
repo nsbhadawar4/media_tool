@@ -2,7 +2,7 @@ import { Modal } from '@/components/ui/Modal';
 
 const RULES = [
   'Take turns rolling the dice. You need a 6 to bring a token out of base onto your start square.',
-  'Rolling a 6 gives you another roll. Three 6s in a row lose the turn.',
+  'Rolling a 6, capturing an opponent token or bringing a token home gives you one more roll (just one, even if several happen together). Three 6s in a row lose the turn.',
   'Pick a glowing token to move that many squares clockwise. If no token can move, the turn passes.',
   'Landing on a lone opponent token sends it back to its base. Two or more tokens of one colour on a square form a block and cannot be captured.',
   'Star squares and start squares are safe: nobody can be captured there.',

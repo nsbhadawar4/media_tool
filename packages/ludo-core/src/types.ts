@@ -39,6 +39,9 @@ export interface Capture {
   cell: Cell;
 }
 
+/** Why a move earned another turn. */
+export type BonusReason = 'six' | 'capture' | 'home';
+
 export interface MoveEvents {
   color: PlayerColor;
   tokenId: number;
@@ -53,6 +56,8 @@ export interface MoveEvents {
   reachedHome: boolean;
   won: boolean;
   extraTurn: boolean;
+  /** Every reason this move earned the (single) extra turn; empty when the turn passes or the game is won. */
+  bonus: BonusReason[];
 }
 
 export interface MoveResult {

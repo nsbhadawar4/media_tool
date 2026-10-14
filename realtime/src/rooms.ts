@@ -545,6 +545,7 @@ export class RoomManager {
       captures: events.captures,
       reachedHome: events.reachedHome,
       extraTurn: events.extraTurn,
+      bonus: events.bonus,
       won: events.won,
       state,
     });

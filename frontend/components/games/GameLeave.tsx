@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigationRouter } from '@/lib/navigation/progress';
-import { LogOut } from 'lucide-react';
+import { LogOut, type LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 export interface GameLeaveConfig {
@@ -14,8 +14,21 @@ export interface GameLeaveConfig {
 
 const LeaveContext = createContext<(() => void) | null>(null);
 
-/** Confirmation dialog: dark glass panel, fades and rises in. Escape or the backdrop cancels. */
-function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => void }) {
+export interface GameConfirmDialogProps {
+  icon: LucideIcon;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * A game's confirmation dialog (quit, restart, …): dark glass panel, fades and rises in. The safe
+ * choice (Cancel) has focus; Escape or the backdrop cancels. Clicks never reach the game behind it.
+ */
+export function GameConfirmDialog({ icon: Icon, title, message, confirmLabel, cancelLabel = 'Cancel', onCancel, onConfirm }: GameConfirmDialogProps) {
   const titleId = useId();
   const descId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -37,7 +50,7 @@ function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => 
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" onKeyDown={onKeyDown}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()}>
       <div aria-hidden className="quit-overlay absolute inset-0 bg-black/65" onClick={onCancel} />
       <div
         role="dialog"
@@ -47,13 +60,13 @@ function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => 
         className="quit-panel relative w-full max-w-sm rounded-3xl border border-border-strong bg-surface-elevated/95 p-6 text-center shadow-pop"
       >
         <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/12 text-rose-300">
-          <LogOut className="h-5 w-5" />
+          <Icon className="h-5 w-5" />
         </span>
         <h2 id={titleId} className="text-balance text-xl font-semibold tracking-tight text-foreground">
-          Are you sure you want to quit the game?
+          {title}
         </h2>
         <p id={descId} className="mt-2 text-sm text-muted">
-          Your current game progress will be lost if you quit.
+          {message}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
@@ -62,19 +75,32 @@ function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => 
             onClick={onCancel}
             className="min-h-12 rounded-xl border border-border-strong bg-white/[0.04] text-sm font-semibold tracking-wider text-foreground transition duration-200 hover:bg-white/[0.08] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            CANCEL
+            {cancelLabel.toUpperCase()}
           </button>
           <button
             ref={quitRef}
             type="button"
-            onClick={onQuit}
+            onClick={onConfirm}
             className="min-h-12 rounded-xl border border-rose-400/40 bg-rose-500/90 text-sm font-semibold tracking-wider text-white transition duration-200 hover:bg-rose-500 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
           >
-            QUIT GAME
+            {confirmLabel.toUpperCase()}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function QuitDialog({ onCancel, onQuit }: { onCancel: () => void; onQuit: () => void }) {
+  return (
+    <GameConfirmDialog
+      icon={LogOut}
+      title="Are you sure you want to quit the game?"
+      message="Your current game progress will be lost if you quit."
+      confirmLabel="Quit game"
+      onCancel={onCancel}
+      onConfirm={onQuit}
+    />
   );
 }
 
