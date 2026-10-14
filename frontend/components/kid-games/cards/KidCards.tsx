@@ -41,7 +41,27 @@ function ArtDots() {
  * One built-in class (1–5) on the hub, with the child's real progress: games completed, stars and
  * XP. The look is the shared ClassCourseCard, the same card the public site and the admin preview use.
  */
-export function ClassCard({ level, summary, index, title, tagline, subjects }: { level: ClassLevel; summary: ProgressSummary; index: number; title?: string; tagline?: string; subjects?: number }) {
+export function ClassCard({
+  level,
+  summary,
+  index,
+  title,
+  subtitle,
+  tagline,
+  image,
+  subjects,
+}: {
+  level: ClassLevel;
+  summary: ProgressSummary;
+  index: number;
+  title?: string;
+  /** The administrator's display title; the built-in line otherwise. */
+  subtitle?: string;
+  tagline?: string;
+  /** The administrator's picture; the built-in photograph otherwise. */
+  image?: string | null;
+  subjects?: number;
+}) {
   // The administrator's title / description, when set; the built-in ones otherwise.
   const info = { ...CLASS_INFO[level], tagline: tagline || CLASS_INFO[level].tagline };
   const label = title || `Class ${level}`;
@@ -51,6 +71,8 @@ export function ClassCard({ level, summary, index, title, tagline, subjects }: {
       level={level}
       builtIn
       title={label}
+      subtitle={subtitle || undefined}
+      image={image}
       description={info.tagline}
       href={`/kid-games/${info.slug}`}
       linkLabel={`${label}: ${info.tagline}. ${summary.completed} of ${summary.total} games completed, ${summary.xp} XP.`}

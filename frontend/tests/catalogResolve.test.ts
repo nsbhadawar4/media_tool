@@ -115,9 +115,15 @@ test('a class subject switched off removes exactly that: Class 2 Maths, not Clas
 test('a hidden class subject is unlisted but still opens; subjects keep their admin order per class', () => {
   const c = seeded();
   c.classSubjects = patch(c.classSubjects, 'class-1-hindi', { isVisible: false });
-  c.subjects = patch(c.subjects, 'math', { order: 0 });
+  // The class's own order is its links' (set in Manage Courses)…
+  c.classSubjects = patch(c.classSubjects, 'class-1-math', { order: 0 });
   const r = resolveCatalog(c);
   assert.deepEqual(r.subjectsFor(1).map((s) => s.key), ['math', 'english']);
+  // …and the subjects' shared order settles ties.
+  const tie = seeded();
+  tie.classSubjects = tie.classSubjects.map((l) => (l.classLevel === 2 ? { ...l, order: 1 } : l));
+  tie.subjects = patch(tie.subjects, 'math', { order: 0 });
+  assert.deepEqual(resolveCatalog(tie).subjectsFor(2).map((s) => s.key), ['math', 'hindi', 'english']);
   assert.equal(r.isPairAvailable(1, 'hindi'), true);
   assert.equal(r.listedGames(1, 'hindi').length, 0);
 });
@@ -156,4 +162,41 @@ test('without a catalog, the hierarchy is the code one', () => {
   assert.deepEqual(r.subjectsFor(1).map((s) => s.key), ['hindi', 'english', 'math']);
   assert.equal(r.classBySlug('class-6'), null);
   assert.equal(r.isPairAvailable(2, 'math'), true);
+});
+
+test('Manage Courses: the managed classes are the list — hidden ones leave it, edits and new classes show', () => {
+  const cat = seeded();
+  // Class 1 edited (title, display title, picture, long text), Class 2 hidden, Class 6 added with Science.
+  cat.classes = patch(cat.classes, 'class-1', { title: 'Little Learners', subtitle: 'Fun Foundations', details: 'Letters and numbers.', thumbnailUrl: '/api/content/images/' + 'a'.repeat(32) + '.webp' });
+  cat.classes = patch(cat.classes, 'class-2', { isVisible: false });
+  cat.classes.push(entry({ key: 'class-6', title: 'Class 6', classLevel: 6, order: 6, subtitle: 'Think Big' }));
+  cat.subjects.push(entry({ key: 'science', title: 'Science', order: 4 }));
+  cat.classSubjects.push(entry({ key: 'class-6-science', classLevel: 6, subject: 'science', order: 1 }));
+  const r = resolveCatalog(cat);
+
+  // What the home page and the dashboard list: visible classes in order — no Class 2, with Class 6.
+  assert.deepEqual(r.classViews.map((c) => c.level), [1, 3, 4, 5, 6]);
+  const one = r.classViews[0]!;
+  assert.equal(one.title, 'Little Learners');
+  assert.equal(one.subtitle, 'Fun Foundations');
+  assert.equal(one.details, 'Letters and numbers.');
+  assert.match(one.thumbnailUrl!, /^\/api\/content\/images\//);
+  // A hidden class still opens by its link (the class page, and the administrator's preview).
+  assert.equal(r.classBySlug('class-2')?.level, 2);
+  // The added class carries its subjects (it has no built-in games yet).
+  assert.equal(r.classViews.at(-1)!.isCode, false);
+  assert.deepEqual(r.subjectsFor(6).map((s) => s.key), ['science']);
+  // Archived (absent) classes are gone everywhere.
+  cat.classes = cat.classes.filter((c) => c.key !== 'class-6');
+  assert.equal(resolveCatalog(cat).classBySlug('class-6'), null);
+});
+
+test('subjects follow each class’s own order, set in Manage Courses', () => {
+  const cat = seeded();
+  assert.deepEqual(resolveCatalog(cat).subjectsFor(3).map((s) => s.key), ['hindi', 'english', 'math']);
+  cat.classSubjects = patch(patch(cat.classSubjects, 'class-3-math', { order: 0 }), 'class-3-hindi', { order: 9 });
+  const r = resolveCatalog(cat);
+  assert.deepEqual(r.subjectsFor(3).map((s) => s.key), ['math', 'english', 'hindi']);
+  // Other classes keep theirs.
+  assert.deepEqual(r.subjectsFor(1).map((s) => s.key), ['hindi', 'english', 'math']);
 });

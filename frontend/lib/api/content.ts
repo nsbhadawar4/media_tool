@@ -4,7 +4,11 @@ import { api } from './client';
 export interface CatalogEntry {
   key: string;
   title: string;
+  /** Classes: the line under the title on their card (absent from older APIs). */
+  subtitle?: string;
   description: string;
+  /** Classes: the longer text on their own page (absent from older APIs). */
+  details?: string;
   order: number;
   classLevel: number | null;
   subject: string | null;

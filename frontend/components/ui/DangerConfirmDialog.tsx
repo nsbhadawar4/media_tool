@@ -17,6 +17,8 @@ interface DangerConfirmDialogProps {
   confirmationPhrase: string;
   confirmLabel?: string;
   isLoading?: boolean;
+  /** The red line under the consequences. Defaults to the permanent-deletion warning; null omits it (e.g. a restorable archive). */
+  warning?: ReactNode;
 }
 
 /**
@@ -36,6 +38,7 @@ export function DangerConfirmDialog({
   confirmationPhrase,
   confirmLabel = 'Delete forever',
   isLoading = false,
+  warning = 'This removes the files from storage for good. It cannot be undone, and the trash cannot bring them back.',
 }: DangerConfirmDialogProps) {
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +75,7 @@ export function DangerConfirmDialog({
 
       <div className="mt-4 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-foreground">
         {consequences}
-        <p className="mt-2 text-xs font-medium text-danger">
-          This removes the files from storage for good. It cannot be undone, and the trash
-          cannot bring them back.
-        </p>
+        {warning && <p className="mt-2 text-xs font-medium text-danger">{warning}</p>}
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">

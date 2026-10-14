@@ -12,7 +12,7 @@ export const CONTENT_CATALOG_KEY = ['content', 'catalog'] as const;
  * server has answered or failed — screens that must not briefly show something an administrator
  * has switched off (opening a game) wait for it; lists simply update.
  */
-export function useContentCatalog(): ResolvedCatalog & { settled: boolean } {
+export function useContentCatalog(): ResolvedCatalog & { settled: boolean; isError: boolean; refetch: () => void } {
   const query = useQuery({
     queryKey: CONTENT_CATALOG_KEY,
     queryFn: async () => (await contentApi.catalog()).data,
@@ -20,5 +20,5 @@ export function useContentCatalog(): ResolvedCatalog & { settled: boolean } {
     retry: 1,
   });
   const resolved = useMemo(() => resolveCatalog(query.data), [query.data]);
-  return { ...resolved, settled: !query.isLoading };
+  return { ...resolved, settled: !query.isLoading, isError: query.isError && !query.data, refetch: () => void query.refetch() };
 }

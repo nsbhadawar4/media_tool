@@ -102,6 +102,8 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/health/',
   'GET /api/reviews/public',
   'GET /api/content/catalog',
+  // Pictures administrators uploaded for classes: shown on the public home page.
+  'GET /api/content/images/:id',
   // The site's theme rules (light / dark allowed, default): no private data.
   'GET /api/settings/appearance',
 ]);

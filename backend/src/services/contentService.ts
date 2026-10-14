@@ -127,7 +127,11 @@ async function migrateSurfaceFields(): Promise<number> {
 export interface PublicCatalogEntry {
   key: string;
   title: string;
+  /** Classes: the line under the title ("Foundation"); empty when not set. */
+  subtitle: string;
   description: string;
+  /** Classes: the longer text on their own page; empty when not set. */
+  details: string;
   order: number;
   classLevel: number | null;
   subject: string | null;
@@ -208,7 +212,9 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
     value[GROUP[r.type]].push({
       key: r.key,
       title: r.title,
+      subtitle: r.subtitle ?? '',
       description: r.description,
+      details: r.details ?? '',
       order: r.order,
       classLevel: r.classLevel ?? null,
       subject: r.subject ?? null,

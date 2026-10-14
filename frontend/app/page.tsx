@@ -92,6 +92,8 @@ interface Ctx {
  * for the landing page is reflected in the counts.
  */
 function kidGamesProps(catalog: ResolvedCatalog) {
+  // Without the managed catalog there is nothing to list (the block then stays out).
+  if (!catalog.fromServer) return { classes: [], subjects: [], totalGames: 0 };
   const classes = catalog.classViews.filter((c) => catalog.landingKidGames(c.level).length > 0);
   const keys = [...new Set(classes.flatMap((c) => catalog.subjectsFor(c.level).map((s) => s.key)))];
   const subjects = keys
@@ -106,7 +108,8 @@ function kidGamesProps(catalog: ResolvedCatalog) {
 
 const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   // The classes come straight after the headline (while Kid Games, where they live, is on).
-  hero: ({ on, catalog, featureOn }) => <Hero featuresLink={on('features')} classes={featureOn('kid-games') ? catalog.classViews : []} />,
+  // Classes come only from the managed catalog: none are shown from code when it can't be read.
+  hero: ({ on, catalog, featureOn }) => <Hero featuresLink={on('features')} classes={featureOn('kid-games') && catalog.fromServer ? catalog.classViews : []} />,
   highlights: () => <Highlights />,
   features: () => <Features />,
   media: () => <MediaSection />,
@@ -116,6 +119,7 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   classes: ({ catalog, featureOn }) =>
     featureOn('kid-games') ? (
       <LearnByClassSection
+        status={catalog.fromServer ? 'ready' : 'error'}
         classes={catalog.classViews.map((c) => ({ ...c, games: catalog.listedGames(c.level).length, subjects: catalog.subjectsFor(c.level).length }))}
       />
     ) : null,

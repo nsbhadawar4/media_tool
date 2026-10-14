@@ -135,3 +135,19 @@ export const uploadAvatarImage = multer({
   },
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 }).single('avatar');
+
+/**
+ * A class picture for Manage Courses, held in memory: it is re-encoded to WebP straight away and
+ * only that result is stored, so the original never needs a temp file of its own.
+ */
+export const uploadContentImageFile = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (_req, file, cb) => {
+    if (!(IMAGE_MIME_TYPES as readonly string[]).includes(file.mimetype)) {
+      cb(AppError.badRequest('Choose a JPG, PNG, WebP or GIF image'));
+      return;
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+}).single('image');

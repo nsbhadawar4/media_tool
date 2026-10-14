@@ -33,9 +33,15 @@ export function adminCrumbs(pathname: string): Crumb[] {
   if (parts[0] !== 'admin') return [];
   const crumbs: Crumb[] = [{ label: 'Admin', href: '/admin/dashboard' }];
   let href = '/admin';
+  // Manage Courses (/admin/courses) holds classes; /admin/content/courses holds lesson courses.
+  const classes = parts[1] === 'courses';
   for (let i = 1; i < parts.length; i++) {
     const segment = parts[i];
     href += `/${segment}`;
+    if (classes) {
+      crumbs.push({ label: i === 1 ? 'Manage Courses' : segment === 'new' ? 'Add Class' : 'Edit Class', href });
+      continue;
+    }
     // /admin/content/dashboard manages the users' dashboard, not this one.
     const label = parts[i - 1] === 'content' && segment === 'dashboard' ? 'User dashboard' : LABELS[segment];
     crumbs.push({ label: label ?? DETAIL[parts[i - 1]] ?? 'Details', href });

@@ -46,6 +46,7 @@ export function GenericClassCard({ view, index, subjects }: { view: ClassView; i
     <ClassCourseCard
       level={view.level}
       title={view.title}
+      subtitle={view.subtitle || undefined}
       description={view.description || undefined}
       image={view.thumbnailUrl}
       href={`/kid-games/${view.key}`}

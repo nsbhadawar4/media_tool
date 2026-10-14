@@ -101,6 +101,10 @@ const CONTENT_SECURITY_POLICY = Object.entries(isProduction ? PRODUCTION_CSP : D
   .join('; ');
 
 const nextConfig: NextConfig = {
+  // Classes are managed in Manage Courses; the old list's address still works.
+  async redirects() {
+    return [{ source: '/admin/content/classes', destination: '/admin/courses', permanent: false }];
+  },
   async headers() {
     return [
       {

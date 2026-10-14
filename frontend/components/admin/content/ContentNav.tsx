@@ -6,10 +6,10 @@ import { cn } from '@/utils/cn';
 import { CONTENT_TYPES, COURSES_INFO, NAV_ORDER, OVERVIEW_ICON } from './contentTypes';
 
 const PAGES = [
-  ...CONTENT_TYPES.map((t) => ({ slug: t.slug, label: t.label, icon: t.icon })),
+  ...CONTENT_TYPES.map((t): { slug: string; href?: string; label: string; icon: typeof t.icon } => ({ slug: t.slug, href: t.href, label: t.label, icon: t.icon })),
   { slug: COURSES_INFO.slug, label: COURSES_INFO.label, icon: COURSES_INFO.icon },
 ].sort((a, b) => NAV_ORDER.indexOf(a.slug) - NAV_ORDER.indexOf(b.slug));
-const LINKS = [{ href: '/admin/content', label: 'Overview', icon: OVERVIEW_ICON }, ...PAGES.map((p) => ({ href: `/admin/content/${p.slug}`, label: p.label, icon: p.icon }))];
+const LINKS = [{ href: '/admin/content', label: 'Overview', icon: OVERVIEW_ICON }, ...PAGES.map((p) => ({ href: p.href ?? `/admin/content/${p.slug}`, label: p.label, icon: p.icon }))];
 
 /** The section switcher across every content page; scrolls sideways on small screens. */
 export function ContentNav() {

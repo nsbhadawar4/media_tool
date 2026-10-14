@@ -77,13 +77,15 @@ function serializeUpdatedBy(value: UpdatedBy) {
   return { id: value._id.toString(), name: value.name ?? null, email: value.email ?? null };
 }
 
-function serializeItem(item: IContentItem) {
+export function serializeItem(item: IContentItem) {
   return {
     id: item._id.toString(),
     type: item.type,
     key: item.key,
     title: item.title,
+    subtitle: item.subtitle ?? '',
     description: item.description,
+    details: item.details ?? '',
     classLevel: item.classLevel ?? null,
     subject: item.subject ?? null,
     thumbnailUrl: item.thumbnailUrl ?? null,
@@ -105,7 +107,7 @@ function serializeItem(item: IContentItem) {
 }
 
 /** Writes one audit entry for a catalog change ("Hid game “Snake” from the user dashboard"). */
-function auditItem(req: Request, action: ActivityAction, item: IContentItem, verb: string, metadata: Record<string, unknown> = {}, suffix = '') {
+export function auditItem(req: Request, action: ActivityAction, item: IContentItem, verb: string, metadata: Record<string, unknown> = {}, suffix = '') {
   return logActivity(req, {
     action,
     targetType: 'content',
@@ -251,8 +253,10 @@ export const createContent = asyncHandler(async (req: Request, res: Response) =>
     classLevel: input.classLevel ?? null,
     subject: input.subject ?? null,
   };
+  const classText = input.type === 'class' ? { subtitle: input.subtitle ?? '', details: input.details ?? '' } : {};
   const item = await ContentItem.create({
     ...fields,
+    ...classText,
     thumbnailUrl: input.thumbnailUrl ?? null,
     glyph: input.type === 'subject' ? (input.glyph ?? null) : null,
     difficulty: input.type === 'kid_game' ? (input.difficulty ?? 'easy') : null,
@@ -288,6 +292,7 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
     throw AppError.badRequest('Only Kid Games have a class, subject, difficulty, game type or course');
   }
   if (item.type !== 'subject' && given('glyph')) throw AppError.badRequest('Only subjects have a glyph');
+  if (item.type !== 'class' && (given('subtitle') || given('details'))) throw AppError.badRequest('Only classes have a subtitle and details');
   if (given('showOnLanding') && !takesLanding(item)) throw AppError.badRequest('Only games, Kid Games and the Games / Kid Games sections have a home page setting');
   if (given('featured') && !takesFeatured(item)) throw AppError.badRequest('Only games and Kid Games can be featured');
   if (FIXED_CONTENT_TYPES.includes(item.type) && (given('thumbnailUrl') || given('isVisible'))) {
@@ -313,7 +318,7 @@ export const updateContent = asyncHandler(async (req: Request, res: Response) =>
   }
 
   const before = { isEnabled: item.isEnabled, isVisible: item.isVisible, showOnLanding: item.showOnLanding ?? true, featured: item.featured ?? false };
-  const editable = ['title', 'description', 'thumbnailUrl', 'glyph', 'classLevel', 'subject', 'difficulty', 'gameType'] as const;
+  const editable = ['title', 'subtitle', 'description', 'details', 'thumbnailUrl', 'glyph', 'classLevel', 'subject', 'difficulty', 'gameType'] as const;
   const edited: string[] = editable.filter((f) => given(f) && input[f] !== item[f]);
   for (const f of editable) if (given(f)) (item as unknown as Record<string, unknown>)[f] = input[f];
   if (given('courseId')) {

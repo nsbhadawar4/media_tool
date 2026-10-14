@@ -19,12 +19,16 @@ export interface IContentItem extends Document {
   /** Stable code identifier: section id, class slug, subject id, Kid Game id or game slug. */
   key: string;
   title: string;
+  /** Classes: the short line under the title on their card ("Foundation"). */
+  subtitle: string;
   description: string;
+  /** Classes: the longer text on their own page. */
+  details: string;
   /** Classes: their level. Kid Games: the class they belong to. */
   classLevel: number | null;
   /** Kid Games and class ↔ subject links: the subject key. */
   subject: string | null;
-  /** An image shown with the entry (http(s) only). */
+  /** An image shown with the entry: an http(s) link, or an uploaded image (/api/content/images/…). */
   thumbnailUrl: string | null;
   /** Subjects: a short mark shown on their card, e.g. "A B C". */
   glyph: string | null;
@@ -58,7 +62,9 @@ const contentItemSchema = new Schema<IContentItem>(
     type: { type: String, enum: CONTENT_TYPES, required: true },
     key: { type: String, required: true, trim: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
+    subtitle: { type: String, default: '', trim: true, maxlength: 60 },
     description: { type: String, default: '', trim: true, maxlength: 500 },
+    details: { type: String, default: '', trim: true, maxlength: 2000 },
     classLevel: { type: Number, default: null, min: 1, max: 12 },
     subject: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },

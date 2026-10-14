@@ -27,6 +27,14 @@ export const API_BASE_URL = configuredBaseUrl
     ? ''
     : 'http://localhost:5000';
 
+/**
+ * An image address as stored (an http(s) link, or an upload served by the API at /api/content/…)
+ * made usable by the browser: uploads live on the API's origin, which is another port in development.
+ */
+export function resolveAssetUrl(src: string): string {
+  return src.startsWith('/api/') ? `${API_BASE_URL}${src}` : src;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly details?: unknown;
@@ -104,9 +112,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const payload = isJson ? ((await response.json()) as ApiResponse<T>) : null;
 
   if (!response.ok || !payload || payload.success === false) {
-    const message = payload && payload.success === false ? payload.error.message : `Request failed (${response.status})`;
-    const details = payload && payload.success === false ? payload.error.details : undefined;
-    const code = payload && payload.success === false ? payload.error.code : undefined;
+    // Read defensively: a proxy or platform error page may answer JSON without the API's error shape.
+    const failure = payload && payload.success === false ? (payload as { error?: { message?: string; details?: unknown; code?: string }; message?: string }) : null;
+    const message = failure?.error?.message || failure?.message || `Request failed (${response.status})`;
+    const details = failure?.error?.details;
+    const code = failure?.error?.code;
     throw new ApiError(message, response.status, details, code);
   }
 

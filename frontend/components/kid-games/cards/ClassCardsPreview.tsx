@@ -11,6 +11,10 @@ import { ClassCourseCard } from './ClassCourseCard';
  */
 export function ClassCardsPreview() {
   const catalog = useContentCatalog();
+  // The live catalog only: never the code's defaults while it loads or if it can't be read.
+  if (!catalog.fromServer) {
+    return <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted">{catalog.settled ? 'Unable to load classes.' : 'Loading classes…'}</p>;
+  }
   if (catalog.classViews.length === 0) {
     return <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted">No class is visible to users right now.</p>;
   }
@@ -25,8 +29,9 @@ export function ClassCardsPreview() {
             level={view.level}
             builtIn={view.isCode}
             title={view.title}
+            subtitle={view.subtitle || undefined}
             description={view.description || undefined}
-            image={view.isCode ? undefined : view.thumbnailUrl}
+            image={view.thumbnailUrl}
             facts={[
               ...(subjects ? [{ label: `${subjects} ${subjects === 1 ? 'subject' : 'subjects'}` }] : []),
               ...(games ? [{ label: `${games} ${games === 1 ? 'game' : 'games'}` }] : []),

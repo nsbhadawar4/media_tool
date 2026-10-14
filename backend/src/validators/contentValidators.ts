@@ -48,6 +48,18 @@ const httpUrl = z
   .url('Enter a full link, starting with https://')
   .refine((u) => /^https?:\/\//i.test(u), 'Links must start with http:// or https://');
 
+/** An image an administrator uploaded (served by GET /api/content/images/:name). */
+export const CONTENT_IMAGE_PATH = /^\/api\/content\/images\/[a-f0-9]{32}\.webp$/;
+/** An entry's picture: a web link, or one of the uploaded images. */
+export const imageRef = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((u) => CONTENT_IMAGE_PATH.test(u) || /^https?:\/\/[^\s]+$/i.test(u), 'Upload an image or enter a link starting with https://')
+  .refine((u) => CONTENT_IMAGE_PATH.test(u) || httpUrl.safeParse(u).success, 'Enter a full link, starting with https://');
+export const subtitle = z.string().trim().max(60, 'Keep the display title to 60 characters');
+export const details = z.string().trim().max(2000, 'Keep the description to 2000 characters');
+
 const difficulty = z.enum(DIFFICULTIES);
 const gameType = z.enum(GAME_TYPES);
 const glyph = z.string().trim().max(12, 'Keep it short (12 characters)');
@@ -58,10 +70,14 @@ export const createContentSchema = z
     /** Classes and class ↔ subject links get theirs from the class number / subject instead. */
     key: key.optional(),
     title,
+    /** Classes only. */
+    subtitle: subtitle.optional(),
     description: description.default(''),
+    /** Classes only. */
+    details: details.optional(),
     classLevel: classLevel.optional(),
     subject: key.optional(),
-    thumbnailUrl: httpUrl.nullable().optional(),
+    thumbnailUrl: imageRef.nullable().optional(),
     glyph: glyph.nullable().optional(),
     difficulty: difficulty.optional(),
     gameType: gameType.optional(),
@@ -84,20 +100,25 @@ export const createContentSchema = z
     if (!needsSubject && v.subject !== undefined) issue('subject', 'Only class subjects and Kid Games have a subject');
     if (v.type !== 'kid_game' && (v.difficulty || v.gameType || v.courseId)) issue('difficulty', 'Only Kid Games have a difficulty, game type or course');
     if (v.type !== 'subject' && v.glyph) issue('glyph', 'Only subjects have a glyph');
+    if (v.type !== 'class' && (v.subtitle || v.details)) issue('subtitle', 'Only classes have a display title and details');
   });
 export type CreateContentInput = z.infer<typeof createContentSchema>;
 
 export const updateContentSchema = z
   .object({
     title: title.optional(),
+    /** Classes only. */
+    subtitle: subtitle.optional(),
     description: description.optional(),
+    /** Classes only. */
+    details: details.optional(),
     isEnabled: z.boolean().optional(),
     isVisible: z.boolean().optional(),
     /** Feature sections, arcade games and Kid Games (checked per type by the controller). */
     showOnLanding: z.boolean().optional(),
     /** Arcade games and Kid Games. */
     featured: z.boolean().optional(),
-    thumbnailUrl: httpUrl.nullable().optional(),
+    thumbnailUrl: imageRef.nullable().optional(),
     glyph: glyph.nullable().optional(),
     // Kid Games added in the admin panel only (a code game's are fixed by its content):
     classLevel: classLevel.optional(),

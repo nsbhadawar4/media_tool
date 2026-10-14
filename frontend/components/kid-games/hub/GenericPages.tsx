@@ -1,6 +1,8 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { BookOpen, BookOpenCheck, GraduationCap } from 'lucide-react';
+import { ClassPictureThumb } from '../cards/ClassCourseCard';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import type { ClassView, SubjectView } from '@/lib/content/catalog';
 import { useKidProgress } from '@/lib/kid-games/progress';
@@ -38,18 +40,37 @@ export function CoursesSection({ level, subject, emptyHint }: { level: number; s
   );
 }
 
-function Hero({ eyebrow, title, description, icon: Icon }: { eyebrow: string; title: string; description: string; icon: typeof GraduationCap }) {
+function Hero({
+  eyebrow,
+  title,
+  description,
+  details,
+  icon: Icon,
+  media,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  /** The class's longer text, when an administrator wrote one. */
+  details?: string;
+  icon: typeof GraduationCap;
+  /** A picture in place of the icon (a class's photo). */
+  media?: ReactNode;
+}) {
   return (
     <section className="kg-wash relative overflow-hidden rounded-4xl border border-border bg-surface p-5 shadow-card sm:p-8">
       <KidFloatingShapes />
       <div className="relative flex items-center gap-4">
-        <span aria-hidden className="kg-gradient kg-bob flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white shadow-lift sm:h-20 sm:w-20">
-          <Icon className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={1.75} />
-        </span>
-        <div>
+        {media ?? (
+          <span aria-hidden className="kg-gradient kg-bob flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white shadow-lift sm:h-20 sm:w-20">
+            <Icon className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={1.75} />
+          </span>
+        )}
+        <div className="min-w-0">
           <p className="kg-text text-xs font-bold uppercase tracking-[0.16em]">{eyebrow}</p>
           <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{title}</h1>
           {description && <p className="text-sm text-muted sm:text-base">{description}</p>}
+          {details && <p className="mt-2 max-w-3xl whitespace-pre-line text-sm leading-relaxed text-foreground-soft">{details}</p>}
         </div>
       </div>
     </section>
@@ -64,7 +85,14 @@ export function GenericClassPage({ view }: { view: ClassView }) {
     <div style={anyClassStyle(view.level)} className="space-y-8">
       <div>
         <KidBackLink href="/kid-games" label="All classes" />
-        <Hero eyebrow={view.title} title="Let's Learn & Play!" description={view.description} icon={GraduationCap} />
+        <Hero
+          eyebrow={view.subtitle ? `Class ${view.level} · ${view.subtitle}` : `Class ${view.level}`}
+          title={view.title}
+          description={view.description}
+          details={view.details}
+          icon={GraduationCap}
+          media={<ClassPictureThumb level={view.level} image={view.thumbnailUrl} title={view.title} builtIn={false} className="h-16 w-16 sm:h-20 sm:w-20" />}
+        />
       </div>
       <section aria-labelledby="kg-subjects">
         <h2 id="kg-subjects" className="mb-4 flex items-center gap-2 text-lg font-bold tracking-tight text-foreground sm:text-xl">

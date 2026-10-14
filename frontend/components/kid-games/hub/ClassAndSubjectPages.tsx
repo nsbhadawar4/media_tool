@@ -14,6 +14,7 @@ import { CoursesSection, GenericClassPage, GenericSubjectPage } from './GenericP
 import { currentStreak, nextInSubject, summarise, useKidProgress } from '@/lib/kid-games/progress';
 import type { ClassLevel, Difficulty, Subject } from '@/lib/kid-games/types';
 import { KidGameCard, SubjectCard } from '../cards/KidCards';
+import { ClassPictureThumb, builtInSubtitle } from '../cards/ClassCourseCard';
 import { classStyle, subjectStyle } from '../theme';
 import { KidBackLink, KidEmptyState, KidFloatingShapes, KidProgressBar, KidProgressRing, KidStars, KidStat } from '../shared/KidUi';
 import { ProgressLoadError } from './ProgressLoadError';
@@ -57,14 +58,18 @@ export function KidClassPage({ classSlug }: { classSlug: string }) {
         <section className="kg-wash relative overflow-hidden rounded-4xl border border-border bg-surface p-5 shadow-card sm:p-8">
           <KidFloatingShapes />
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            {/* The class as administrators set it in Manage Courses: picture, title and texts. */}
             <div className="flex items-center gap-4">
-              <span aria-hidden className="kg-gradient kg-bob flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white shadow-lift sm:h-20 sm:w-20">
-                <info.icon className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={1.75} />
-              </span>
-              <div>
-                <p className="kg-text text-xs font-bold uppercase tracking-[0.16em]">Class {level}</p>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Let&apos;s Learn &amp; Play!</h1>
-                <p className="text-sm text-muted sm:text-base">{info.tagline} • 30 games in Hindi, English and Maths</p>
+              <ClassPictureThumb level={level} image={view.thumbnailUrl} title={view.title} builtIn className="kg-bob h-16 w-16 sm:h-20 sm:w-20" />
+              <div className="min-w-0">
+                <p className="kg-text text-xs font-bold uppercase tracking-[0.16em]">
+                  Class {level} · {view.subtitle || builtInSubtitle(level)}
+                </p>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{view.title}</h1>
+                <p className="text-sm text-muted sm:text-base">
+                  {view.description || info.tagline} • {summary.total} games in {subjects.map((s) => s.title).join(', ')}
+                </p>
+                {view.details && <p className="mt-2 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-foreground-soft">{view.details}</p>}
               </div>
             </div>
             <div className="flex items-center gap-4 rounded-3xl border border-border bg-surface-elevated/80 p-4 shadow-card">

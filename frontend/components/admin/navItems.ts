@@ -87,6 +87,8 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
     label: 'Manage',
     items: [
       { href: '/admin/users', label: 'Users', icon: Users },
+      // The classes (with their subjects) on the website, the user dashboard and Kid Games.
+      { href: '/admin/courses', label: 'Manage Courses', icon: GraduationCap },
       { href: '/admin/activity', label: 'User activity', icon: Activity },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },
@@ -102,9 +104,8 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/admin/content/dashboard', label: 'User dashboard', icon: LayoutDashboard },
       { href: '/admin/content/games', label: 'Games', icon: Gamepad2 },
       { href: '/admin/content/kid-games', label: 'Kid Games', icon: Puzzle },
-      { href: '/admin/content/classes', label: 'Classes', icon: GraduationCap },
       { href: '/admin/content/subjects', label: 'Subjects', icon: Library },
-      { href: '/admin/content/courses', label: 'Courses', icon: BookOpenCheck },
+      { href: '/admin/content/courses', label: 'Lesson courses', icon: BookOpenCheck },
       { href: '/admin/content/navigation', label: 'Navigation', icon: Navigation },
     ],
   },

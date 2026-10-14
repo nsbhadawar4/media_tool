@@ -380,9 +380,10 @@ export function Hero({ featuresLink = true, classes = [] }: { featuresLink?: boo
                   level={c.level}
                   builtIn={c.isCode}
                   title={c.title}
-                  image={c.isCode ? undefined : c.thumbnailUrl}
-                  href={`${LOGIN_PATH}?from=/kid-games/${c.key}`}
-                  linkLabel={`${c.title}: sign in to start learning`}
+                  subtitle={c.subtitle || undefined}
+                  image={c.thumbnailUrl}
+                  href={`/classes/${c.key}`}
+                  linkLabel={`Explore ${c.title}`}
                   index={i}
                 />
               </li>
@@ -1244,8 +1245,7 @@ export interface LandingClass extends ClassView {
   subjects: number;
 }
 
-export function LearnByClassSection({ classes }: { classes: readonly LandingClass[] }) {
-  if (classes.length === 0) return null;
+export function LearnByClassSection({ classes, status = 'ready' }: { classes: readonly LandingClass[]; status?: 'ready' | 'error' }) {
   return (
     // #kid-games: the header's "Kid Games" link lands on these Class 1–5 cards.
     <Section id="kid-games">
@@ -1256,8 +1256,21 @@ export function LearnByClassSection({ classes }: { classes: readonly LandingClas
             Learn by <Highlight>Class</Highlight>
           </>
         }
-        description="Fun, engaging and structured learning for Classes 1–5."
+        description="Fun, engaging and structured learning, class by class."
       />
+      {status === 'error' ? (
+        <div className="mx-auto mt-12 max-w-md rounded-3xl border border-border bg-surface/70 p-8 text-center shadow-card sm:mt-14">
+          <p className="text-base font-semibold text-foreground">Unable to load classes</p>
+          <p className="mt-1.5 text-sm text-muted">Please try again in a moment.</p>
+          <Link href="/#kid-games" className="btn-primary mt-5 inline-flex h-11 items-center rounded-xl px-5 text-sm font-semibold text-accent-foreground">
+            Try Again
+          </Link>
+        </div>
+      ) : classes.length === 0 ? (
+        <p className="mx-auto mt-12 max-w-md rounded-3xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted sm:mt-14">
+          No visible classes are available right now.
+        </p>
+      ) : (
       <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 sm:mt-14">
         {classes.map((c, i) => (
           <ClassCourseCard
@@ -1265,19 +1278,21 @@ export function LearnByClassSection({ classes }: { classes: readonly LandingClas
             level={c.level}
             builtIn={c.isCode}
             title={c.title}
+            subtitle={c.subtitle || undefined}
             description={c.description || undefined}
-            image={c.isCode ? undefined : c.thumbnailUrl}
-            href={`${LOGIN_PATH}?from=/kid-games/${c.key}`}
-            linkLabel={`${c.title}: sign in to start learning`}
+            image={c.thumbnailUrl}
+            href={`/classes/${c.key}`}
+            linkLabel={`Explore ${c.title}`}
             facts={[
               ...(c.subjects > 0 ? [{ label: `${c.subjects} ${c.subjects === 1 ? "subject" : "subjects"}` }] : []),
               ...(c.games > 0 ? [{ label: `${c.games} ${c.games === 1 ? "game" : "games"}` }] : []),
             ]}
-            cta="Start Learning"
+            cta="Explore Class"
             index={i}
           />
         ))}
       </div>
+      )}
     </Section>
   );
 }

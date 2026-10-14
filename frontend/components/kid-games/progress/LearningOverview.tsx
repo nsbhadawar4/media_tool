@@ -14,7 +14,8 @@ import type { ClassLevel } from '@/lib/kid-games/types';
 export function LearningOverview() {
   const progress = useKidProgress();
   const catalog = useContentCatalog();
-  const classes = catalog.classViews.filter((c) => c.isCode);
+  // Only the managed catalog's classes (none while it can't be read).
+  const classes = catalog.fromServer ? catalog.classViews.filter((c) => c.isCode) : [];
   const week = weekStrip(progress).map((d) => ({ ...d, games: Object.values(progress.days[d.key] ?? {}).reduce((n, v) => n + (v || 0), 0) }));
   const thisWeek = week.reduce((n, d) => n + d.games, 0);
   const overall = summarise(progress);
@@ -30,7 +31,7 @@ export function LearningOverview() {
           Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
-            <StatCard index={0} icon={GraduationCap} label="Classes" value={String(catalog.classViews.length)} hint="Open to you" />
+            <StatCard index={0} icon={GraduationCap} label="Classes" value={catalog.fromServer ? String(catalog.classViews.length) : '—'} hint="Open to you" />
             <StatCard index={1} icon={BookOpenCheck} label="Courses" value={String(catalog.coursesFor().length)} hint="Lessons to follow" color="#06b6d4" />
             <StatCard index={2} icon={Trophy} label="Games completed" value={`${overall.completed}`} hint={`of ${overall.total} learning games`} color="#f59e0b" />
             <StatCard index={3} icon={CalendarDays} label="This week" value={`${thisWeek}`} hint={thisWeek === 1 ? 'game played' : 'games played'} color="#34d399" />

@@ -118,8 +118,8 @@ test('admin and user navigation stay separate; the admin panel links every manag
     '/admin/activity',
     '/admin/reviews',
     '/admin/content',
+    '/admin/courses',
     '/admin/content/sections',
-    '/admin/content/classes',
     '/admin/content/subjects',
     '/admin/content/courses',
     '/admin/content/games',
@@ -134,8 +134,11 @@ test('admin and user navigation stay separate; the admin panel links every manag
   assert.ok(user.every((h) => !h.startsWith('/admin')), 'no admin pages in the user nav');
   // The content overview lights up on its own page only; its sub-pages have their own entries.
   assert.equal(isNavItemActive('/admin/content', '/admin/content', true), true);
-  assert.equal(isNavItemActive('/admin/content/classes', '/admin/content', true), false);
-  assert.equal(isNavItemActive('/admin/content/classes', '/admin/content/classes'), true);
+  assert.equal(isNavItemActive('/admin/content/subjects', '/admin/content', true), false);
+  assert.equal(isNavItemActive('/admin/content/subjects', '/admin/content/subjects'), true);
+  // Manage Courses lights up on its editor pages too.
+  assert.equal(isNavItemActive('/admin/courses/new', '/admin/courses'), true);
+  assert.equal(isNavItemActive('/admin/courses/3', '/admin/courses'), true);
 });
 
 test('admin breadcrumbs name every admin page, and only admin pages', () => {
@@ -151,6 +154,9 @@ test('admin breadcrumbs name every admin page, and only admin pages', () => {
   assert.deepEqual(labels('/admin/content/courses/new'), ['Admin', 'Content', 'Courses', 'New course']);
   assert.deepEqual(labels('/admin/content/courses/6a1b2c3d4e5f60718293a4b5'), ['Admin', 'Content', 'Courses', 'Edit course']);
   assert.deepEqual(adminCrumbs('/admin/content/classes').map((c) => c.href), ['/admin/dashboard', '/admin/content', '/admin/content/classes']);
+  assert.deepEqual(labels('/admin/courses'), ['Admin', 'Manage Courses']);
+  assert.deepEqual(labels('/admin/courses/new'), ['Admin', 'Manage Courses', 'Add Class']);
+  assert.deepEqual(labels('/admin/courses/6'), ['Admin', 'Manage Courses', 'Edit Class']);
   assert.deepEqual(adminCrumbs('/dashboard'), []);
   assert.deepEqual(adminCrumbs('/administrator'), []);
 });

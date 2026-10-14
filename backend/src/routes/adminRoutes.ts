@@ -3,6 +3,26 @@ import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
 import { updateAppearanceSchema } from '../validators/settingsValidators';
 import { validate } from '../middleware/validate';
+import { uploadContentImageFile } from '../middleware/upload';
+import {
+  archiveClass,
+  createClass,
+  getClass,
+  listClasses,
+  restoreClass,
+  setClassOrder,
+  setClassVisibility,
+  updateClass,
+  uploadContentImage,
+} from '../controllers/adminClassController';
+import {
+  classLevelParamSchema,
+  classOrderSchema,
+  classVisibilitySchema,
+  createClassSchema,
+  listClassesQuerySchema,
+  updateClassSchema,
+} from '../validators/classValidators';
 import {
   listUsers,
   getUser,
@@ -118,5 +138,17 @@ router.patch('/content/courses/:id', validate({ ...contentId, body: updateCourse
 router.post('/content/courses/:id/move', validate({ ...contentId, body: moveSchema }), moveCourse);
 router.delete('/content/courses/:id', validate(contentId), archiveCourse);
 router.post('/content/courses/:id/restore', validate(contentId), restoreCourse);
+
+// Manage Courses: each class with its subjects, on the same catalog entries as above.
+const classLevel = { params: classLevelParamSchema };
+router.get('/classes', validate({ query: listClassesQuerySchema }), listClasses);
+router.post('/classes', validate({ body: createClassSchema }), createClass);
+router.post('/classes/images', uploadContentImageFile, uploadContentImage);
+router.get('/classes/:level', validate(classLevel), getClass);
+router.patch('/classes/:level', validate({ ...classLevel, body: updateClassSchema }), updateClass);
+router.patch('/classes/:level/visibility', validate({ ...classLevel, body: classVisibilitySchema }), setClassVisibility);
+router.patch('/classes/:level/order', validate({ ...classLevel, body: classOrderSchema }), setClassOrder);
+router.delete('/classes/:level', validate(classLevel), archiveClass);
+router.post('/classes/:level/restore', validate(classLevel), restoreClass);
 
 export default router;

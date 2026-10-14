@@ -4,8 +4,9 @@ import { connection } from 'next/server';
 import type { PublicCatalog } from '@/lib/api/content';
 import { configuredSiteUrl } from '@/lib/site';
 
-/** Longest a page waits for the catalog before falling back to the code defaults. */
+/** How long one attempt waits for the catalog; a slow first answer (a cold API) gets one longer retry. */
 const TIMEOUT_MS = 3000;
+const RETRY_TIMEOUT_MS = 6000;
 
 /**
  * Where this deployment's API answers, from trusted configuration only — never from a request's
@@ -39,9 +40,13 @@ export const getServerCatalog = cache(async (): Promise<PublicCatalog | null> =>
   try {
     const origin = await apiOrigin();
     if (!origin) throw new Error('no trusted API origin configured (set NEXT_PUBLIC_SITE_URL)');
-    const res = await fetch(`${origin}/api/content/catalog`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return ((await res.json()) as { data: PublicCatalog }).data;
+    const read = async (timeout: number) => {
+      const res = await fetch(`${origin}/api/content/catalog`, { cache: 'no-store', signal: AbortSignal.timeout(timeout) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return ((await res.json()) as { data: PublicCatalog }).data;
+    };
+    // A cold start (database connecting, catalog seeding) can miss the first window: try once more.
+    return await read(TIMEOUT_MS).catch(() => read(RETRY_TIMEOUT_MS));
   } catch (err) {
     // The page still renders (code defaults); say why, so a broken catalog isn't silent.
     console.warn(`[content] catalog unavailable, using the code defaults: ${err instanceof Error ? err.message : String(err)}`);

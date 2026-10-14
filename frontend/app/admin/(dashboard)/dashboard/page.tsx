@@ -39,6 +39,7 @@ import { RecentActivity } from '@/components/admin/dashboard/RecentActivity';
 import { PendingReviews } from '@/components/admin/dashboard/PendingReviews';
 import { ADMIN_REVIEW_STATS_KEY } from '@/components/reviews/admin/AdminReviewsView';
 import { formatBytes } from '@/utils/format';
+import { CoursesSummaryCard } from '@/components/admin/courses/CoursesSummaryCard';
 import { ClassCardsPreview } from '@/components/kid-games/cards/ClassCardsPreview';
 import { cn } from '@/utils/cn';
 
@@ -203,10 +204,11 @@ export default function AdminDashboardPage() {
             <h2 id="learn-by-class-heading" className="text-base font-semibold tracking-tight text-foreground">Learn by Class</h2>
             <p className="text-xs text-muted">The class cards visitors and users see, as they are now</p>
           </div>
-          <Link href="/admin/content/classes" className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-            Manage classes
+          <Link href="/admin/courses" className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-accent transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            Manage Courses
           </Link>
         </div>
+        <CoursesSummaryCard />
         <ClassCardsPreview />
       </section>
 

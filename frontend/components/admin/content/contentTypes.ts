@@ -6,6 +6,8 @@ export interface ContentTypeInfo {
   type: ContentType;
   /** URL segment under /admin/content. */
   slug: string;
+  /** Where its page lives when that isn't /admin/content/{slug} (classes: Manage Courses). */
+  href?: string;
   label: string;
   singular: string;
   icon: LucideIcon;
@@ -71,6 +73,7 @@ export const CONTENT_TYPES: readonly ContentTypeInfo[] = [
   {
     type: 'class',
     slug: 'classes',
+    href: '/admin/courses',
     label: 'Classes',
     singular: 'class',
     icon: GraduationCap,

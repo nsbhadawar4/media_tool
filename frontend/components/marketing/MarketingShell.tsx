@@ -36,7 +36,7 @@ const ACCOUNT_LINKS: Record<Viewer, ReadonlyArray<{ href: string; label: string 
   admin: [{ href: ADMIN_HOME_PATH, label: 'Admin dashboard' }],
 };
 
-async function currentViewer(): Promise<Viewer> {
+export async function currentViewer(): Promise<Viewer> {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!token) return 'visitor';
   return roleHintFromToken(token) === 'admin' ? 'admin' : 'user';

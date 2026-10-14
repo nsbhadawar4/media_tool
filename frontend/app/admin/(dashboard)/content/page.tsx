@@ -19,7 +19,7 @@ export default function AdminContentPage() {
 
   const cards = [
     ...[...CONTENT_TYPES].sort((a, b) => NAV_ORDER.indexOf(a.slug) - NAV_ORDER.indexOf(b.slug)).map((t) => ({
-      href: `/admin/content/${t.slug}`,
+      href: t.href ?? `/admin/content/${t.slug}`,
       label: t.label,
       description: t.description,
       icon: t.icon,

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { ArrowRight, GraduationCap } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { resolveAssetUrl } from '@/lib/api/client';
 
 /**
  * The one card for a learning class (Class 1–5, and any class an administrator adds), used
@@ -26,6 +27,22 @@ const CLASS_LOOK: Record<number, { image: string; subtitle: string; alt: string;
 };
 
 /**
+ * A class's picture wherever it is shown: the administrator's image, else the built-in photograph
+ * (Classes 1–5), else none. `local`: a file in /public (for next/image); otherwise a usable URL.
+ */
+export function classPicture(level: number, image: string | null | undefined, title: string, builtIn: boolean) {
+  const look = builtIn ? CLASS_LOOK[level] : undefined;
+  if (image) return { src: image.startsWith('/api/') || !image.startsWith('/') ? resolveAssetUrl(image) : image, local: image.startsWith('/') && !image.startsWith('/api/'), alt: `${title} picture`, focus: undefined };
+  if (look) return { src: look.image, local: true, alt: look.alt, focus: look.focus };
+  return null;
+}
+
+/** The built-in second line of Classes 1–5 ("Foundation"), if this is one. */
+export function builtInSubtitle(level: number): string | undefined {
+  return CLASS_LOOK[level]?.subtitle;
+}
+
+/**
  * The photo treatment: an emerald-and-mint veil with a soft glow, tinted towards the class colour
  * at the foot, so five different photographs read as one set in light and dark mode alike.
  */
@@ -34,7 +51,7 @@ function PhotoVeil() {
 }
 
 /** Class colours (globals.css --kid-class-N); classes beyond 5 reuse the five in turn. */
-function classVars(level: number): CSSProperties {
+export function classVars(level: number): CSSProperties {
   const slot = ((Math.max(1, level) - 1) % 5) + 1;
   return { '--kg': `var(--kid-class-${slot})`, '--kg-2': `var(--kid-class-${slot}-2)` } as CSSProperties;
 }
@@ -93,8 +110,12 @@ export function ClassCourseCard({
   variant = 'full',
 }: ClassCourseCardProps) {
   const look = builtIn ? CLASS_LOOK[level] : undefined;
-  const src = image || look?.image || null;
-  const isLocal = Boolean(src?.startsWith('/'));
+  // An administrator's picture wins; a built-in class falls back to its own photograph.
+  const stored = image || look?.image || null;
+  // Files in /public go through next/image; uploads (/api/content/images/…) and links load as they are.
+  const isLocal = Boolean(stored?.startsWith('/') && !stored.startsWith('/api/'));
+  const src = stored && !isLocal ? resolveAssetUrl(stored) : stored;
+  const alt = image ? `${title} picture` : (look?.alt ?? '');
   const second = subtitle ?? look?.subtitle ?? 'Courses & activities';
   const percent = progress ? Math.max(0, Math.min(100, Math.round(progress.percent))) : null;
 
@@ -109,10 +130,10 @@ export function ClassCourseCard({
         )}
         <div className="relative aspect-[5/4] shrink-0 overflow-hidden">
           {src && isLocal ? (
-            <Image src={src} alt={look?.alt ?? ''} fill unoptimized={src.endsWith('.svg')} sizes="(min-width: 1024px) 260px, (min-width: 640px) 33vw, 70vw" className="kg-course-art object-cover" style={look ? { objectPosition: look.focus } : undefined} />
+            <Image src={src} alt={alt} fill unoptimized={src.endsWith('.svg')} sizes="(min-width: 1024px) 260px, (min-width: 640px) 33vw, 70vw" className="kg-course-art object-cover" style={look && !image ? { objectPosition: look.focus } : undefined} />
           ) : src ? (
             // eslint-disable-next-line @next/next/no-img-element -- an administrator's image from any https host
-            <img src={src} alt="" className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+            <img src={src} alt={alt} className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
           ) : (
             <div aria-hidden className="kg-course-art absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--kg) to-(--kg-2)">
               <GraduationCap className="h-8 w-8 text-white" strokeWidth={1.8} />
@@ -153,17 +174,17 @@ export function ClassCourseCard({
             // From /public: photographs go through the image optimiser; an SVG is served as is.
             <Image
               src={src}
-              alt={look?.alt ?? ''}
+              alt={alt}
               fill
               unoptimized={src.endsWith('.svg')}
               sizes="(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw"
               className="kg-course-art object-cover"
-              style={look ? { objectPosition: look.focus } : undefined}
+              style={look && !image ? { objectPosition: look.focus } : undefined}
               priority={index < 3}
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element -- an administrator's image from any https host
-            <img src={src} alt="" className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+            <img src={src} alt={alt} className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
           )
         ) : (
           <div aria-hidden className="kg-course-art absolute inset-0 bg-linear-to-br from-(--kg) to-(--kg-2)">
@@ -241,5 +262,24 @@ export function ClassCourseCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * A class's picture as a small rounded tile (class page headers): the administrator's image or the
+ * built-in photograph, with the class colours behind it; null when the class has neither.
+ */
+export function ClassPictureThumb({ level, image, title, builtIn, className }: { level: number; image: string | null | undefined; title: string; builtIn: boolean; className?: string }) {
+  const picture = classPicture(level, image, title, builtIn);
+  if (!picture) return null;
+  return (
+    <span style={classVars(level)} className={cn('relative block shrink-0 overflow-hidden rounded-2xl bg-linear-to-br from-(--kg) to-(--kg-2) shadow-lift ring-2 ring-white/40', className)}>
+      {picture.local ? (
+        <Image src={picture.src} alt={picture.alt} fill sizes="96px" className="object-cover" style={picture.focus ? { objectPosition: picture.focus } : undefined} />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- an uploaded or linked picture
+        <img src={picture.src} alt={picture.alt} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
+      )}
+    </span>
   );
 }

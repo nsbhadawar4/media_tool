@@ -29,7 +29,11 @@ export interface ClassView {
   level: number;
   key: string;
   title: string;
+  /** The line under the title ("Foundation"); empty for the built-in default. */
+  subtitle: string;
   description: string;
+  /** The longer text on the class's page; empty when not set. */
+  details: string;
   thumbnailUrl: string | null;
   /** Classes 1–5: the app has games and artwork for them. */
   isCode: boolean;
@@ -98,7 +102,7 @@ const isCodeLevel = (level: number) => (CLASS_LEVELS as readonly number[]).inclu
 const isCodeSubject = (key: string) => (SUBJECTS as readonly string[]).includes(key);
 
 function codeClassView(level: ClassLevel): ClassView {
-  return { level, key: CLASS_INFO[level].slug, title: `Class ${level}`, description: CLASS_INFO[level].tagline, thumbnailUrl: null, isCode: true };
+  return { level, key: CLASS_INFO[level].slug, title: `Class ${level}`, subtitle: '', description: CLASS_INFO[level].tagline, details: '', thumbnailUrl: null, isCode: true };
 }
 function codeSubjectView(subject: Subject): SubjectView {
   const info = SUBJECT_INFO[subject];
@@ -192,7 +196,9 @@ export function resolveCatalog(catalog: PublicCatalog | null | undefined): Resol
     level: entry.classLevel!,
     key: entry.key,
     title: entry.title,
+    subtitle: entry.subtitle ?? '',
     description: entry.description,
+    details: entry.details ?? '',
     thumbnailUrl: entry.thumbnailUrl,
     isCode: isCodeLevel(entry.classLevel!),
   });
@@ -246,10 +252,11 @@ export function resolveCatalog(catalog: PublicCatalog | null | undefined): Resol
       const entry = level ? classes.get(level) : undefined;
       return entry?.isEnabled ? toClassView(entry) : null;
     },
+    // In the class's own order (its links, set in Manage Courses), then the subjects' shared order.
     subjectsFor: (level) =>
       catalog.subjects
         .filter((s) => isPairListed(level, s.key))
-        .sort((a, b) => a.order - b.order)
+        .sort((a, b) => (link(level, a.key)?.order ?? 0) - (link(level, b.key)?.order ?? 0) || a.order - b.order)
         .map(toSubjectView),
     subjectView: (key) => {
       const entry = subjects.get(key);

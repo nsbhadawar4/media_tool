@@ -236,6 +236,8 @@ response details are in [`backend/README.md`](backend/README.md).
 | Trash | `GET /trash`, `GET /trash/:id/deletion-preview`, `POST /trash/:id/restore`, `DELETE /trash/:id/permanent` (needs `{"confirm":"DELETE PERMANENTLY"}`) |
 | Dashboard / Activity / Search | `GET /dashboard/stats`, `GET /dashboard/recent`, `GET /activity`, `GET /search?q=` |
 | Admin (admin role only) | `GET /admin/stats`, `GET /admin/users`, `GET /admin/users/:id`, `PATCH /admin/users/:id/status`, `DELETE /admin/users/:id` |
+| Classes (admin role only) | `GET /admin/classes`, `GET /admin/classes/:level`, `POST /admin/classes`, `PATCH /admin/classes/:level`, `PATCH /admin/classes/:level/visibility`, `PATCH /admin/classes/:level/order`, `DELETE /admin/classes/:level` (archive), `POST /admin/classes/:level/restore`, `POST /admin/classes/images` — see [§12](#12-courseclass-management) |
+| Content (no login needed) | `GET /content/catalog`, `GET /content/images/:name` |
 | Health | `GET /api/health` |
 
 ### How an upload travels
@@ -364,3 +366,51 @@ media_tool/
 1. This is setup for ludo runtime management.
 https://dashboard.render.com
 https://media-tool-realtime.onrender.com/health
+
+---
+
+## 12. Course/Class Management
+
+Classes (Class 1–5, and any an administrator adds) live in **one place**: the content catalog
+in MongoDB (`contentitems`). There is no separate class collection and no hard-coded class
+list on any page. Classes 1–5 are seeded into it on first start and edited there like any other.
+
+| Catalog entry | What it is |
+|---|---|
+| `type: 'class'`, key `class-N` | A class: number (`classLevel`), title, display title (`subtitle`), short description, long description (`details`), image (`thumbnailUrl`), display order, `isVisible` / `isEnabled`, `archivedAt` |
+| `type: 'subject'` | A subject shared by every class (name, description, mark) |
+| `type: 'class_subject'` | "Class N offers this subject", with its order and visibility in that class |
+
+**Flows**
+
+- **Admin → Manage Courses** (`/admin/courses`, in the admin sidebar): every class, including
+  hidden and archived ones, with search, filters and sorting. *Add Class* / *Edit*
+  (`/admin/courses/new`, `/admin/courses/N`) edit the class, its image, its subjects (add,
+  rename, reorder, hide, remove), visibility and display order in one save. *Hide* / *Show* and
+  *Delete* are confirmed first; delete **archives** (soft delete) and *Restore* brings a class back
+  with its subjects. The class number is fixed after creation, because games, subject links and
+  every learner's progress are tied to it. The admin dashboard shows a live Courses summary.
+- **Public** (signed out): the landing page's *Learn by Class* section lists the visible classes
+  from the catalog (`GET /api/content/catalog`); each card opens `/classes/class-N` (picture,
+  descriptions, subjects, game counts), whose button leads on to sign-in.
+- **Users** (signed in): the dashboard's *My Classes* and the Kid Games hub list the same visible
+  classes with the learner's own progress; a card opens `/kid-games/class-N`.
+
+**Rules**
+
+- *Visible* classes are listed everywhere; *hidden* ones are listed only in Manage Courses, but still
+  open by direct link (which is how *Preview* works); *archived* ones are gone everywhere.
+- Every write goes through `/api/admin/classes`, behind `requireAuth` + `requireAdmin` (role read
+  from the session, never from the request), validated with Zod, and recorded in the activity log.
+  Normal users get 403 and signed-out callers 401.
+- Images are re-encoded to 1200×900 WebP and stored through the configured storage provider
+  (`local`, `r2`, `s3` or `gridfs`) under `content/images/`; the API serves them publicly at
+  `/api/content/images/<random>.webp`. The editor shrinks large photos in the browser first, so
+  uploads stay under the 4.5 MB request limit on Vercel.
+- Learning games exist in code for Hindi, English and Maths in Classes 1–5. A class or subject an
+  administrator adds shows its subjects (and any lesson courses) with "Games coming soon".
+
+**Code**: `backend/src/controllers/adminClassController.ts`, `backend/src/validators/classValidators.ts`,
+`frontend/components/admin/courses/`, `frontend/app/admin/(dashboard)/courses/`,
+`frontend/app/classes/[slug]/`, `frontend/lib/content/catalog.ts`. Tests:
+`backend/tests/classManagement.test.ts`, `frontend/tests/catalogResolve.test.ts`.
