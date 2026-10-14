@@ -108,21 +108,23 @@ function kidGamesProps(catalog: ResolvedCatalog) {
 
 const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   // The classes come straight after the headline (while Kid Games, where they live, is on).
-  // Classes come only from the managed catalog: none are shown from code when it can't be read.
-  hero: ({ on, catalog, featureOn }) => <Hero featuresLink={on('features')} classes={featureOn('kid-games') && catalog.fromServer ? catalog.classViews : []} />,
+  // Classes come only from the managed catalog (none from code when it can't be read), and what
+  // shows is decided in Manage Courses — visible classes — not by the Kid Games feature switch.
+  hero: ({ on, catalog }) => <Hero featuresLink={on('features')} classes={catalog.fromServer ? catalog.classViews : []} />,
   highlights: () => <Highlights />,
   features: () => <Features />,
   media: () => <MediaSection />,
   documents: () => <DocumentsSection />,
   // Learn by Class: every listed class, the same data and card as the app. Its pages belong to
   // Kid Games, so it shows only while that feature is on.
-  classes: ({ catalog, featureOn }) =>
-    featureOn('kid-games') ? (
-      <LearnByClassSection
-        status={catalog.fromServer ? 'ready' : 'error'}
-        classes={catalog.classViews.map((c) => ({ ...c, games: catalog.listedGames(c.level).length, subjects: catalog.subjectsFor(c.level).length }))}
-      />
-    ) : null,
+  // The visible classes from Manage Courses (this block has its own switch on the Landing page
+  // settings). Game counts only while Kid Games, where the games are played, is open.
+  classes: ({ catalog, featureOn }) => (
+    <LearnByClassSection
+      status={catalog.fromServer ? 'ready' : 'error'}
+      classes={catalog.classViews.map((c) => ({ ...c, games: featureOn('kid-games') ? catalog.listedGames(c.level).length : 0, subjects: catalog.subjectsFor(c.level).length }))}
+    />
+  ),
   // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);
   // each lists only the games switched on for the landing page. Empty, the block isn't rendered.
   games: ({ catalog }) => <GamesSection games={catalog.landingArcadeGames} />,

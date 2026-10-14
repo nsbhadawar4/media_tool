@@ -40,15 +40,25 @@ export default async function PublicClassPage({ params }: Params) {
   if (!raw) return <ClassUnavailable slug={slug} />;
   const catalog = resolveCatalog(raw);
   const view = catalog.classBySlug(slug);
-  if (!view || !catalog.isSectionOn('kid-games')) notFound();
+  // Any class switched on in Manage Courses opens here, whatever the Kid Games switch says; that
+  // switch only decides whether the class can be played in Kid Games after signing in.
+  if (!view) notFound();
+  const kidGamesOpen = catalog.isSectionOn('kid-games');
 
   const viewer = await currentViewer();
   const signedIn = viewer !== 'visitor';
-  const learnHref = signedIn ? `/kid-games/${view.key}` : `${LOGIN_PATH}?from=/kid-games/${view.key}`;
+  const learnHref = kidGamesOpen
+    ? signedIn
+      ? `/kid-games/${view.key}`
+      : `${LOGIN_PATH}?from=/kid-games/${view.key}`
+    : signedIn
+      ? '/dashboard'
+      : '/signup';
+  const learnLabel = kidGamesOpen ? (signedIn ? 'Start learning' : 'Sign in to start learning') : signedIn ? 'Go to your dashboard' : 'Create a free account';
   const subjects = catalog.subjectsFor(view.level).map((s) => ({
     ...s,
-    games: catalog.listedGames(view.level, s.key).length,
-    courses: catalog.coursesFor(view.level, s.key).length,
+    games: kidGamesOpen ? catalog.listedGames(view.level, s.key).length : 0,
+    courses: kidGamesOpen ? catalog.coursesFor(view.level, s.key).length : 0,
   }));
   const games = subjects.reduce((n, s) => n + s.games, 0);
   const picture = classPicture(view.level, view.thumbnailUrl, view.title, view.isCode);
@@ -103,10 +113,10 @@ export default async function PublicClassPage({ params }: Params) {
               </ul>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link href={learnHref} className="mk-btn-primary btn-primary inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-accent-foreground">
-                  {signedIn ? 'Start learning' : 'Sign in to start learning'}
+                  {learnLabel}
                   <ArrowRight aria-hidden className="h-4 w-4" />
                 </Link>
-                {!signedIn && (
+                {!signedIn && kidGamesOpen && (
                   <Link href="/signup" className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-surface px-6 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
                     Create a free account
                   </Link>
@@ -133,7 +143,7 @@ export default async function PublicClassPage({ params }: Params) {
                     </div>
                     {s.description && <p className="mt-3 text-sm leading-relaxed text-muted">{s.description}</p>}
                     <p className="mt-3 text-xs font-medium text-foreground-soft">
-                      {s.games > 0 ? `${s.games} learning ${s.games === 1 ? 'game' : 'games'}` : 'Games coming soon'}
+                      {s.games > 0 ? `${s.games} learning ${s.games === 1 ? 'game' : 'games'}` : kidGamesOpen ? 'Games coming soon' : 'Learning games open soon'}
                       {s.courses > 0 ? ` · ${s.courses} ${s.courses === 1 ? 'course' : 'courses'}` : ''}
                     </p>
                   </li>

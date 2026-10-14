@@ -148,8 +148,8 @@ export function ClassManager() {
       {kidGamesOff && (
         <div role="status" className="flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>
-            <strong>Kid Games is switched off</strong>, so no class is shown on the website, the user dashboard or the class pages — even visible ones. Turn
-            Kid Games on to show them.
+            <strong>Kid Games is switched off.</strong> Visible classes still show on the website and their class pages, but signed-in users can&apos;t
+            open them in Kid Games or see them on their dashboard until it is on again.
           </p>
           <Link href="/admin/content/sections" className="inline-flex h-9 shrink-0 items-center rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover">
             Open Landing page settings
