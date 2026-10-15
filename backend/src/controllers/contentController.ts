@@ -36,8 +36,9 @@ export const listPublishedCourses = asyncHandler(async (req: Request, res: Respo
     courses
       .filter((c) => c.classLevel != null && c.subject != null && isPairAvailable(catalog, c.classLevel, c.subject))
       .map((c) => {
-        const { lessons, ...rest } = serializeCourse(c);
-        return { ...rest, lessonCount: lessons.length };
+        // The list stays light: lesson, practice and quiz content come with the course itself.
+        const { lessons, activities, quiz, resources, ...rest } = serializeCourse(c);
+        return { ...rest, lessonCount: lessons.length, activityCount: activities.length, quizCount: quiz.length, resourceCount: resources.length };
       }),
   );
 });

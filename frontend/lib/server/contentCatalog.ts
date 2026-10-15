@@ -53,3 +53,28 @@ export const getServerCatalog = cache(async (): Promise<PublicCatalog | null> =>
     return null;
   }
 });
+
+/** A published class as visitors read it: its details and its subjects with chapters (no answers). */
+export interface PublicClassCurriculum {
+  class: { classLevel: number; slug: string; title: string; subtitle: string; description: string; details: string; image: string | null };
+  subjects: import('@/lib/api/adminClasses').CurriculumSubject[];
+}
+
+/**
+ * The public curriculum of one class for server-rendered pages: 'missing' when the class isn't
+ * published and visible (or doesn't exist), 'error' when the API couldn't be read in time.
+ */
+export const getPublicCurriculum = cache(async (slug: string): Promise<{ status: 'ok'; data: PublicClassCurriculum } | { status: 'missing' } | { status: 'error' }> => {
+  await connection();
+  try {
+    const origin = await apiOrigin();
+    if (!origin) throw new Error('no trusted API origin configured (set NEXT_PUBLIC_SITE_URL)');
+    const res = await fetch(`${origin}/api/content/classes/${encodeURIComponent(slug)}/curriculum`, { cache: 'no-store', signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) });
+    if (res.status === 404 || res.status === 400) return { status: 'missing' };
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return { status: 'ok', data: ((await res.json()) as { data: PublicClassCurriculum }).data };
+  } catch (err) {
+    console.warn(`[content] class curriculum unavailable for ${slug}: ${err instanceof Error ? err.message : String(err)}`);
+    return { status: 'error' };
+  }
+});

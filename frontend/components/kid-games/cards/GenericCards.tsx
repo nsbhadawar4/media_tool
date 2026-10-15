@@ -41,7 +41,7 @@ function Art({ thumbnailUrl, children }: { thumbnailUrl: string | null; children
 }
 
 /** A class an administrator added (e.g. "Class 6"): its own thumbnail, or the class colours. Same shared card. */
-export function GenericClassCard({ view, index, subjects }: { view: ClassView; index: number; subjects?: number }) {
+export function GenericClassCard({ view, index, subjects, marks }: { view: ClassView; index: number; subjects?: number; marks?: string[] }) {
   return (
     <ClassCourseCard
       level={view.level}
@@ -49,6 +49,7 @@ export function GenericClassCard({ view, index, subjects }: { view: ClassView; i
       subtitle={view.subtitle || undefined}
       description={view.description || undefined}
       image={view.thumbnailUrl}
+      marks={marks}
       href={`/kid-games/${view.key}`}
       linkLabel={`${view.title}: ${view.description}`}
       facts={subjects ? [{ label: `${subjects} ${subjects === 1 ? 'subject' : 'subjects'}` }] : []}

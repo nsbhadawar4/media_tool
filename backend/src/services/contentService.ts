@@ -209,6 +209,8 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
   ]);
   const value: PublicCatalog = { sections: [], classes: [], subjects: [], classSubjects: [], kidGames: [], games: [], dashboardWidgets: [], navItems: [], courses: [] };
   for (const r of rows) {
+    // Draft classes are being prepared in Manage Courses: they don't exist for anyone else.
+    if (r.type === 'class' && r.status === 'draft') continue;
     value[GROUP[r.type]].push({
       key: r.key,
       title: r.title,

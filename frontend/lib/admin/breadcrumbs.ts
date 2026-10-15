@@ -39,7 +39,19 @@ export function adminCrumbs(pathname: string): Crumb[] {
     const segment = parts[i];
     href += `/${segment}`;
     if (classes) {
-      crumbs.push({ label: i === 1 ? 'Manage Courses' : segment === 'new' ? 'Add Class' : 'Edit Class', href });
+      const label =
+        i === 1
+          ? 'Manage Courses'
+          : segment === 'new'
+            ? 'Create Class'
+            : segment === 'generate'
+              ? 'Generate Curriculum'
+              : segment === 'preview'
+                ? 'Preview'
+                : i === parts.length - 1
+                  ? 'Edit Class'
+                  : `Class ${segment}`;
+      crumbs.push({ label, href });
       continue;
     }
     // /admin/content/dashboard manages the users' dashboard, not this one.

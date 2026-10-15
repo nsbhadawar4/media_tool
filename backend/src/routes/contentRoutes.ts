@@ -4,7 +4,8 @@ import { validate } from '../middleware/validate';
 import { getCatalog, getPublishedCourse, listPublishedCourses } from '../controllers/contentController';
 import { courseSlugParamSchema, publicCoursesQuerySchema } from '../validators/contentValidators';
 import { serveContentImage } from '../controllers/adminClassController';
-import { contentImageParamSchema } from '../validators/classValidators';
+import { contentImageParamSchema, slugParamSchema } from '../validators/classValidators';
+import { publicClassCurriculum } from '../controllers/adminCurriculumController';
 
 const router = Router();
 
@@ -12,6 +13,8 @@ const router = Router();
 router.get('/catalog', getCatalog);
 // Public: pictures administrators uploaded for classes (shown on the home page signed out).
 router.get('/images/:name', validate({ params: contentImageParamSchema }), serveContentImage);
+// Public: a published, visible class with its subjects and chapters (no quiz answers).
+router.get('/classes/:slug/curriculum', validate({ params: slugParamSchema }), publicClassCurriculum);
 
 // Courses are for signed-in users.
 router.get('/courses', requireAuth, validate({ query: publicCoursesQuerySchema }), listPublishedCourses);

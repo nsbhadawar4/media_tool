@@ -104,6 +104,8 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/content/catalog',
   // Pictures administrators uploaded for classes: shown on the public home page.
   'GET /api/content/images/:id',
+  // A published, visible class's subjects and chapters (no quiz answers, no internal ids).
+  'GET /api/content/classes/:id/curriculum',
   // The site's theme rules (light / dark allowed, default): no private data.
   'GET /api/settings/appearance',
 ]);

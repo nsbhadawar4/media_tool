@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { useKidProgress } from '@/lib/kid-games/progress';
 import { KidGameCard } from '@/components/kid-games/cards/KidCards';
+import { PracticeAndQuiz } from '@/components/courses/CurriculumView';
 
 /**
  * /courses/[slug]: one course and its lessons. Lesson text is shown as plain text (never HTML),
@@ -144,6 +145,8 @@ export default function CoursePage() {
               ))}
             </ol>
           )}
+
+          <PracticeAndQuiz chapter={{ objectives: course.objectives ?? [], activities: course.activities ?? [], quiz: course.quiz ?? [], resources: course.resources ?? [] }} />
         </>
       )}
     </div>

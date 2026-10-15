@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, BookOpen, Gamepad2, GraduationCap, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Gamepad2, RefreshCw } from 'lucide-react';
 import { MarketingShell, currentViewer } from '@/components/marketing/MarketingShell';
 import { builtInSubtitle, classPicture, classVars } from '@/components/kid-games/cards/ClassCourseCard';
-import { getServerCatalog } from '@/lib/server/contentCatalog';
+import { getPublicCurriculum, getServerCatalog } from '@/lib/server/contentCatalog';
+import { CurriculumView } from '@/components/courses/CurriculumView';
+import { ThemedPlaceholder } from '@/components/admin/courses/ClassGenerator';
 import { resolveCatalog } from '@/lib/content/catalog';
 import { siteMetadataBase } from '@/lib/site';
 import { LOGIN_PATH } from '@/lib/auth/routes';
@@ -36,13 +38,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function PublicClassPage({ params }: Params) {
   const { slug } = await params;
-  const raw = await getServerCatalog();
-  if (!raw) return <ClassUnavailable slug={slug} />;
+  const [raw, curriculum] = await Promise.all([getServerCatalog(), getPublicCurriculum(slug)]);
+  if (!raw || curriculum.status === 'error') return <ClassUnavailable slug={slug} />;
   const catalog = resolveCatalog(raw);
-  const view = catalog.classBySlug(slug);
-  // Any class switched on in Manage Courses opens here, whatever the Kid Games switch says; that
-  // switch only decides whether the class can be played in Kid Games after signing in.
-  if (!view) notFound();
+  // Published, visible classes only (drafts and hidden classes are previewed in Manage Courses).
+  // The Kid Games switch doesn't matter here; it only decides whether the class can be played.
+  const view = catalog.classViews.find((c) => c.key === slug);
+  if (!view || curriculum.status === 'missing') notFound();
   const kidGamesOpen = catalog.isSectionOn('kid-games');
 
   const viewer = await currentViewer();
@@ -55,12 +57,10 @@ export default async function PublicClassPage({ params }: Params) {
       ? '/dashboard'
       : '/signup';
   const learnLabel = kidGamesOpen ? (signedIn ? 'Start learning' : 'Sign in to start learning') : signedIn ? 'Go to your dashboard' : 'Create a free account';
-  const subjects = catalog.subjectsFor(view.level).map((s) => ({
-    ...s,
-    games: kidGamesOpen ? catalog.listedGames(view.level, s.key).length : 0,
-    courses: kidGamesOpen ? catalog.coursesFor(view.level, s.key).length : 0,
-  }));
+  // Games are counted only while Kid Games, where they are played, is open.
+  const subjects = curriculum.data.subjects.map((s) => ({ ...s, games: kidGamesOpen ? s.games : 0 }));
   const games = subjects.reduce((n, s) => n + s.games, 0);
+  const chapters = subjects.reduce((n, s) => n + s.chapters.length, 0);
   const picture = classPicture(view.level, view.thumbnailUrl, view.title, view.isCode);
   const subtitle = view.subtitle || (view.isCode ? builtInSubtitle(view.level) : undefined);
 
@@ -84,9 +84,7 @@ export default async function PublicClassPage({ params }: Params) {
                   <img src={picture.src} alt={picture.alt} className="absolute inset-0 h-full w-full object-cover" referrerPolicy="no-referrer" />
                 )
               ) : (
-                <div aria-hidden className="absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--kg) to-(--kg-2)">
-                  <GraduationCap className="h-16 w-16 text-white" strokeWidth={1.6} />
-                </div>
+                <ThemedPlaceholder level={view.level} marks={subjects.map((s) => s.glyph || s.title.slice(0, 1)).slice(0, 4)} />
               )}
               <span aria-hidden className="kg-photo-veil pointer-events-none absolute inset-0" />
               <span className="absolute left-5 top-5 rounded-full border border-white/30 bg-slate-900/45 px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white backdrop-blur-md">
@@ -104,6 +102,12 @@ export default async function PublicClassPage({ params }: Params) {
                   <BookOpen aria-hidden className="h-4 w-4 text-accent" />
                   {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}
                 </li>
+                {chapters > 0 && (
+                  <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-foreground-soft">
+                    <BookOpen aria-hidden className="h-4 w-4 text-accent" />
+                    {chapters} {chapters === 1 ? 'chapter' : 'chapters'}
+                  </li>
+                )}
                 {games > 0 && (
                   <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-foreground-soft">
                     <Gamepad2 aria-hidden className="h-4 w-4 text-accent" />
@@ -129,27 +133,9 @@ export default async function PublicClassPage({ params }: Params) {
             <h2 id="class-subjects" className="text-2xl font-semibold tracking-tight text-foreground">
               Subjects in {view.title}
             </h2>
-            {subjects.length === 0 ? (
-              <p className="mt-4 rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted">Subjects for this class are on their way.</p>
-            ) : (
-              <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {subjects.map((s, i) => (
-                  <li key={s.key} style={{ '--i': i } as React.CSSProperties} className="anim-rise surface-card rounded-2xl border border-border bg-surface p-5 shadow-card">
-                    <div className="flex items-center gap-3">
-                      <span aria-hidden className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-(--kg) to-(--kg-2) px-2 text-sm font-bold text-white">
-                        {s.glyph || s.title.slice(0, 1)}
-                      </span>
-                      <h3 className="text-lg font-semibold text-foreground">{s.title}</h3>
-                    </div>
-                    {s.description && <p className="mt-3 text-sm leading-relaxed text-muted">{s.description}</p>}
-                    <p className="mt-3 text-xs font-medium text-foreground-soft">
-                      {s.games > 0 ? `${s.games} learning ${s.games === 1 ? 'game' : 'games'}` : kidGamesOpen ? 'Games coming soon' : 'Learning games open soon'}
-                      {s.courses > 0 ? ` · ${s.courses} ${s.courses === 1 ? 'course' : 'courses'}` : ''}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="mt-6">
+              <CurriculumView subjects={subjects} />
+            </div>
           </section>
         </div>
       </main>

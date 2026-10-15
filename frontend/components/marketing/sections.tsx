@@ -1243,6 +1243,9 @@ export interface LandingClass extends ClassView {
   /** Games and subjects the class offers (counted from the catalog, never invented). */
   games: number;
   subjects: number;
+  /** Chapters (courses) the class offers, and its subjects' marks for a picture-free card. */
+  chapters?: number;
+  marks?: string[];
 }
 
 export function LearnByClassSection({ classes, status = 'ready' }: { classes: readonly LandingClass[]; status?: 'ready' | 'error' }) {
@@ -1283,8 +1286,10 @@ export function LearnByClassSection({ classes, status = 'ready' }: { classes: re
             image={c.thumbnailUrl}
             href={`/classes/${c.key}`}
             linkLabel={`Explore ${c.title}`}
+            marks={c.marks}
             facts={[
               ...(c.subjects > 0 ? [{ label: `${c.subjects} ${c.subjects === 1 ? "subject" : "subjects"}` }] : []),
+              ...(c.chapters ? [{ label: `${c.chapters} ${c.chapters === 1 ? "chapter" : "chapters"}` }] : []),
               ...(c.games > 0 ? [{ label: `${c.games} ${c.games === 1 ? "game" : "games"}` }] : []),
             ]}
             cta="Explore Class"

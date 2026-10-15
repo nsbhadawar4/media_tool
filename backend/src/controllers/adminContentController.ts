@@ -535,6 +535,13 @@ export function serializeCourse(course: ICourse) {
     ageGroup: course.ageGroup ?? null,
     learningObjective: course.learningObjective ?? '',
     lessons: (course.lessons as unknown as ICourseLesson[]).map((l) => ({ id: l._id.toString(), title: l.title, body: l.body, url: l.url ?? null })),
+    // From the Course & Class Generator (empty for hand-written courses).
+    objectives: course.objectives ?? [],
+    estimatedMinutes: course.estimatedMinutes ?? null,
+    activities: (course.activities ?? []).map((a) => ({ type: a.type, title: a.title, instructions: a.instructions, questions: a.questions.map((q) => ({ prompt: q.prompt, options: q.options, answer: q.answer })) })),
+    quiz: (course.quiz ?? []).map((q) => ({ prompt: q.prompt, options: q.options, answer: q.answer })),
+    resources: (course.resources ?? []).map((r) => ({ title: r.title, author: r.author ?? null, source: r.source, url: r.url, type: r.type, license: r.license, thumbnailUrl: r.thumbnailUrl ?? null })),
+    generated: course.generated ?? false,
     order: course.order,
     isEnabled: course.isEnabled,
     isVisible: course.isVisible,

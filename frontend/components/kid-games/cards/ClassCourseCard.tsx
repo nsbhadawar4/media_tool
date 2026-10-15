@@ -89,6 +89,8 @@ export interface ClassCourseCardProps {
   /** Position in its grid, for the staggered entrance. */
   index?: number;
   className?: string;
+  /** Without a picture: the subjects' marks shown on the class colours (a themed placeholder). */
+  marks?: string[];
   /** compact: picture, class and its line only — the row of classes under the home page hero. */
   variant?: 'full' | 'compact';
 }
@@ -108,6 +110,7 @@ export function ClassCourseCard({
   index = 0,
   className,
   variant = 'full',
+  marks = [],
 }: ClassCourseCardProps) {
   const look = builtIn ? CLASS_LOOK[level] : undefined;
   // An administrator's picture wins; a built-in class falls back to its own photograph.
@@ -190,10 +193,18 @@ export function ClassCourseCard({
           <div aria-hidden className="kg-course-art absolute inset-0 bg-linear-to-br from-(--kg) to-(--kg-2)">
             <span className="absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/20" />
             <span className="absolute -bottom-12 left-6 h-28 w-28 rounded-full bg-black/10" />
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/15 backdrop-blur-sm">
-                <GraduationCap className="h-8 w-8 text-white" strokeWidth={1.8} />
-              </span>
+            <span className="absolute inset-0 flex items-center justify-center gap-2 p-6">
+              {marks.length ? (
+                marks.slice(0, 4).map((m, i) => (
+                  <span key={`${m}-${i}`} className="flex h-14 min-w-14 items-center justify-center rounded-2xl border border-white/30 bg-white/15 px-2 text-lg font-bold text-white backdrop-blur-sm">
+                    {m}
+                  </span>
+                ))
+              ) : (
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/15 backdrop-blur-sm">
+                  <GraduationCap className="h-8 w-8 text-white" strokeWidth={1.8} />
+                </span>
+              )}
             </span>
           </div>
         )}

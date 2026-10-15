@@ -16,12 +16,27 @@ import {
   uploadContentImage,
 } from '../controllers/adminClassController';
 import {
+  buildChapters,
+  duplicateClass,
+  getClassCurriculum,
+  saveClassCurriculum,
+  searchResources,
+  setClassStatus,
+  suggestSubjects,
+} from '../controllers/adminCurriculumController';
+import {
   classLevelParamSchema,
   classOrderSchema,
   classVisibilitySchema,
   createClassSchema,
   listClassesQuerySchema,
   updateClassSchema,
+  briefSchema,
+  chaptersRequestSchema,
+  classStatusSchema,
+  duplicateClassSchema,
+  resourcesQuerySchema,
+  saveCurriculumSchema,
 } from '../validators/classValidators';
 import {
   listUsers,
@@ -150,5 +165,14 @@ router.patch('/classes/:level/visibility', validate({ ...classLevel, body: class
 router.patch('/classes/:level/order', validate({ ...classLevel, body: classOrderSchema }), setClassOrder);
 router.delete('/classes/:level', validate(classLevel), archiveClass);
 router.post('/classes/:level/restore', validate(classLevel), restoreClass);
+router.patch('/classes/:level/status', validate({ ...classLevel, body: classStatusSchema }), setClassStatus);
+router.post('/classes/:level/duplicate', validate({ ...classLevel, body: duplicateClassSchema }), duplicateClass);
+router.get('/classes/:level/curriculum', validate(classLevel), getClassCurriculum);
+router.put('/classes/:level/curriculum', validate({ ...classLevel, body: saveCurriculumSchema }), saveClassCurriculum);
+
+// The Course & Class Generator: suggestions only — nothing is saved until the class is.
+router.post('/curriculum/subjects', validate({ body: briefSchema }), suggestSubjects);
+router.post('/curriculum/chapters', validate({ body: chaptersRequestSchema }), buildChapters);
+router.get('/curriculum/resources', validate({ query: resourcesQuerySchema }), searchResources);
 
 export default router;

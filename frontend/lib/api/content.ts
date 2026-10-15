@@ -80,6 +80,13 @@ export interface Course {
   ageGroup: string | null;
   learningObjective: string;
   lessons: CourseLesson[];
+  /** Generated chapters: objectives, practice, quiz and free resources (empty otherwise; absent from older APIs). */
+  objectives?: string[];
+  estimatedMinutes?: number | null;
+  activities?: import('./adminClasses').CurriculumActivity[];
+  quiz?: import('./adminClasses').CurriculumQuestion[];
+  resources?: import('./adminClasses').FreeResource[];
+  generated?: boolean;
   order: number;
   isEnabled: boolean;
   isVisible: boolean;

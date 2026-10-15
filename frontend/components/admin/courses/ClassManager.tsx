@@ -7,6 +7,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   ArchiveRestore,
+  Copy,
+  FileClock,
+  Send,
+  Wand2,
   BookOpen,
   Eye,
   EyeOff,
@@ -34,9 +38,10 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { StatCard, StatCardSkeleton } from '@/components/admin/StatCard';
 import { builtInSubtitle, classPicture, classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { formatRelativeTime } from '@/utils/format';
+import { ThemedPlaceholder } from './ClassGenerator';
 import { cn } from '@/utils/cn';
 
-type Filter = 'all' | 'visible' | 'hidden' | 'archived';
+type Filter = 'all' | 'visible' | 'hidden' | 'draft' | 'archived';
 type Sort = 'order' | 'number' | 'updated';
 
 const SORTS: Array<{ label: string; value: Sort }> = [
@@ -46,6 +51,7 @@ const SORTS: Array<{ label: string; value: Sort }> = [
 ];
 
 const STATUS_BADGE: Record<AdminClass['status'], { label: string; className: string }> = {
+  draft: { label: 'Draft', className: 'border-sky-300/50 bg-sky-600/85 text-white' },
   visible: { label: 'Visible', className: 'border-emerald-300/50 bg-emerald-500/85 text-white' },
   hidden: { label: 'Hidden', className: 'border-white/30 bg-slate-900/60 text-white' },
   off: { label: 'Switched off', className: 'border-amber-300/50 bg-amber-500/85 text-white' },
@@ -53,7 +59,7 @@ const STATUS_BADGE: Record<AdminClass['status'], { label: string; className: str
 };
 
 /** The pending confirmation: which class, and what the administrator is about to do to it. */
-type Pending = { action: 'hide' | 'show' | 'archive' | 'restore'; cls: AdminClass } | null;
+type Pending = { action: 'hide' | 'show' | 'archive' | 'restore' | 'publish' | 'duplicate'; cls: AdminClass } | null;
 
 /**
  * /admin/courses — Manage Courses: every class with its subjects, as cards. Creating and editing
@@ -89,11 +95,17 @@ export function ClassManager() {
     mutationFn: async ({ action, cls }: NonNullable<Pending>) => {
       if (action === 'hide' || action === 'show') return adminClassesApi.setVisibility(cls.classLevel, action === 'show');
       if (action === 'archive') return adminClassesApi.archive(cls.classLevel);
+      if (action === 'publish') return adminClassesApi.setStatus(cls.classLevel, 'published');
+      if (action === 'duplicate') return adminClassesApi.duplicate(cls.classLevel);
       return adminClassesApi.restore(cls.classLevel);
     },
-    onSuccess: (_res, { action, cls }) => {
-      const done = { hide: 'is now hidden', show: 'is visible again', archive: 'was archived', restore: 'was restored' }[action];
-      toast.success(`${cls.title} ${done}`);
+    onSuccess: (res, { action, cls }) => {
+      if (action === 'duplicate') {
+        toast.success(`Draft Class ${res.data.classLevel} created — review it before publishing`);
+      } else {
+        const done = { hide: 'is now hidden', show: 'is visible again', archive: 'was archived', restore: 'was restored', publish: 'is published' }[action];
+        toast.success(`${cls.title} ${done}`);
+      }
       setPending(null);
       refresh();
     },
@@ -106,6 +118,7 @@ export function ClassManager() {
       if (filter === 'archived' ? c.status !== 'archived' : c.status === 'archived') return false;
       if (filter === 'visible' && c.status !== 'visible') return false;
       if (filter === 'hidden' && c.status !== 'hidden' && c.status !== 'off') return false;
+      if (filter === 'draft' && c.status !== 'draft') return false;
       if (!q) return true;
       return (
         String(c.classLevel) === q.replace(/^class\s*/, '') ||
@@ -127,8 +140,11 @@ export function ClassManager() {
     all: live.length,
     visible: live.filter((c) => c.status === 'visible').length,
     hidden: live.filter((c) => c.status === 'hidden' || c.status === 'off').length,
+    draft: live.filter((c) => c.status === 'draft').length,
     archived: all.length - live.length,
   };
+  const chapterTotal = live.reduce((n, c) => n + c.counts.chapters, 0);
+  const lessonTotal = live.reduce((n, c) => n + c.counts.lessons, 0);
 
   return (
     <div className="space-y-6">
@@ -140,7 +156,7 @@ export function ClassManager() {
         actions={
           <Link href="/admin/courses/new" className="btn-primary inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-accent-foreground">
             <Plus aria-hidden className="h-4 w-4" />
-            Add Class
+            Create Class
           </Link>
         }
       />
@@ -157,16 +173,17 @@ export function ClassManager() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
         {query.isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => <StatCardSkeleton key={i} />)
+          Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
             <StatCard index={0} icon={GraduationCap} label="Total classes" value={String(counts.all)} hint="Not archived" />
             <StatCard index={1} icon={Eye} label="Visible" value={String(counts.visible)} hint="On the website and dashboard" accent="success" />
             <StatCard index={2} icon={EyeOff} label="Hidden" value={String(counts.hidden)} hint="Only you can see these" accent="warning" />
-            <StatCard index={3} icon={BookOpen} label="Subjects" value={String(subjectKeys.size)} hint="Across all classes" color="#06b6d4" />
-            <StatCard index={4} icon={Gamepad2} label="Learning games" value={String(live.reduce((n, c) => n + c.counts.games, 0))} hint="Switched on" color="#f59e0b" />
+            <StatCard index={3} icon={FileClock} label="Drafts" value={String(counts.draft)} hint="Not published yet" color="#0284c7" />
+            <StatCard index={4} icon={BookOpen} label="Subjects" value={String(subjectKeys.size)} hint="Across all classes" color="#06b6d4" />
+            <StatCard index={5} icon={Layers} label="Chapters" value={String(chapterTotal)} hint={`${lessonTotal} lessons · ${live.reduce((n, c) => n + c.counts.games, 0)} games`} color="#f59e0b" />
           </>
         )}
       </div>
@@ -182,6 +199,7 @@ export function ClassManager() {
               { value: 'all', label: 'All', count: counts.all },
               { value: 'visible', label: 'Visible', count: counts.visible },
               { value: 'hidden', label: 'Hidden', count: counts.hidden },
+              { value: 'draft', label: 'Drafts', count: counts.draft },
               { value: 'archived', label: 'Archived', count: counts.archived },
             ]}
           />
@@ -208,11 +226,11 @@ export function ClassManager() {
         <EmptyState
           icon={GraduationCap}
           title="No classes yet"
-          description="Add the first class to show it on the website and the user dashboard."
+          description="Create the first class to show it on the website and the user dashboard."
           action={
             <Link href="/admin/courses/new" className="btn-primary inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-accent-foreground">
               <Plus aria-hidden className="h-4 w-4" />
-              Add Class
+              Create Class
             </Link>
           }
         />
@@ -250,6 +268,26 @@ export function ClassManager() {
         title="Show this class again?"
         description="It will appear again on the public landing page and the user dashboard."
         confirmLabel="Show Class"
+        isDangerous={false}
+      />
+      <ConfirmDialog
+        isOpen={pending?.action === 'publish'}
+        onClose={() => setPending(null)}
+        onConfirm={() => pending && act.mutate(pending)}
+        isLoading={act.isPending}
+        title="Publish this class?"
+        description="It will appear on the public landing page, its class page and the user dashboard (unless it is hidden). Every subject needs at least one chapter."
+        confirmLabel="Publish Class"
+        isDangerous={false}
+      />
+      <ConfirmDialog
+        isOpen={pending?.action === 'duplicate'}
+        onClose={() => setPending(null)}
+        onConfirm={() => pending && act.mutate(pending)}
+        isLoading={act.isPending}
+        title="Duplicate this class?"
+        description="A copy is created as a draft under the next free class number, with its subjects and chapters. It is not published until you review and publish it."
+        confirmLabel="Duplicate Class"
         isDangerous={false}
       />
       <ConfirmDialog
@@ -317,8 +355,8 @@ function ClassAdminCard({ cls, index, onAction }: { cls: AdminClass; index: numb
             <img src={picture.src} alt={picture.alt} className="kg-course-art absolute inset-0 h-full w-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
           )
         ) : (
-          <div aria-hidden className="kg-course-art absolute inset-0 flex items-center justify-center bg-linear-to-br from-(--kg) to-(--kg-2)">
-            <GraduationCap className="h-10 w-10 text-white" strokeWidth={1.6} />
+          <div className="kg-course-art absolute inset-0">
+            <ThemedPlaceholder level={cls.classLevel} marks={cls.subjects.map((s) => s.glyph ?? '').filter(Boolean).slice(0, 4)} />
           </div>
         )}
         <span aria-hidden className="kg-photo-veil pointer-events-none absolute inset-0" />
@@ -363,12 +401,15 @@ function ClassAdminCard({ cls, index, onAction }: { cls: AdminClass; index: numb
           <Fact icon={Layers}>
             {cls.counts.subjects} {cls.counts.subjects === 1 ? 'subject' : 'subjects'}
           </Fact>
-          <Fact icon={Gamepad2}>
-            {cls.counts.games} {cls.counts.games === 1 ? 'game' : 'games'}
+          <Fact icon={Shapes}>
+            {cls.counts.chapters} {cls.counts.chapters === 1 ? 'chapter' : 'chapters'}
           </Fact>
-          {cls.counts.courses > 0 && (
-            <Fact icon={Shapes}>
-              {cls.counts.courses} {cls.counts.courses === 1 ? 'course' : 'courses'}
+          <Fact icon={BookOpen}>
+            {cls.counts.lessons} {cls.counts.lessons === 1 ? 'lesson' : 'lessons'}
+          </Fact>
+          {cls.counts.games > 0 && (
+            <Fact icon={Gamepad2}>
+              {cls.counts.games} {cls.counts.games === 1 ? 'game' : 'games'}
             </Fact>
           )}
         </div>
@@ -394,17 +435,21 @@ function ClassAdminCard({ cls, index, onAction }: { cls: AdminClass; index: numb
                 <PencilLine aria-hidden className="h-4 w-4" />
                 Edit
               </Link>
-              <a
-                href={`/classes/${cls.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                title="Opens the class page in a new tab — it doesn't change visibility"
+              <Link
+                href={`/admin/courses/${cls.classLevel}/preview`}
+                title="See the class as visitors will — it doesn't change visibility"
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover"
+                aria-label={`Preview ${cls.title}`}
               >
                 <Eye aria-hidden className="h-4 w-4" />
                 Preview
-              </a>
-              {cls.status === 'visible' ? (
+              </Link>
+              {cls.status === 'draft' ? (
+                <Button variant="ghost" size="sm" className="gap-1.5 text-accent" onClick={() => onAction('publish')} aria-label={`Publish ${cls.title}`}>
+                  <Send aria-hidden className="h-4 w-4" />
+                  Publish
+                </Button>
+              ) : cls.status === 'visible' ? (
                 <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onAction('hide')} aria-label={`Hide ${cls.title}`}>
                   <EyeOff aria-hidden className="h-4 w-4" />
                   Hide
@@ -415,10 +460,24 @@ function ClassAdminCard({ cls, index, onAction }: { cls: AdminClass; index: numb
                   Show
                 </Button>
               )}
-              <Button variant="ghost" size="sm" className="ml-auto gap-1.5 text-danger hover:text-danger" onClick={() => onAction('archive')} aria-label={`Delete ${cls.title}`} title="Archive — can be restored">
-                <Archive aria-hidden className="h-4 w-4" />
-                <span className="max-sm:sr-only">Delete</span>
-              </Button>
+              <div className="flex w-full flex-wrap gap-1 border-t border-border/60 pt-2">
+                <Link
+                  href={`/admin/courses/${cls.classLevel}/generate`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-foreground-soft transition-colors hover:bg-surface-hover hover:text-foreground"
+                  aria-label={`Generate curriculum for ${cls.title}`}
+                >
+                  <Wand2 aria-hidden className="h-3.5 w-3.5" />
+                  Generate Curriculum
+                </Link>
+                <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => onAction('duplicate')} aria-label={`Duplicate ${cls.title}`}>
+                  <Copy aria-hidden className="h-3.5 w-3.5" />
+                  Duplicate
+                </Button>
+                <Button variant="ghost" size="sm" className="ml-auto gap-1.5 text-danger hover:text-danger" onClick={() => onAction('archive')} aria-label={`Delete ${cls.title}`} title="Archive — can be restored">
+                  <Archive aria-hidden className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
             </>
           )}
         </div>

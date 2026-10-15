@@ -33,14 +33,14 @@ let draftSeq = 0;
 const draft = (s: Partial<SubjectDraft> = {}): SubjectDraft => ({ id: `s${draftSeq++}`, title: '', description: '', glyph: '', isVisible: true, ...s });
 
 /** Most a request body may be on Vercel (4.5 MB) — kept under, so uploads work the same everywhere. */
-const UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+export const UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 
 /**
  * Shrinks a picture in the browser before it is sent (the server crops it to 1200×900 anyway), so a
  * large phone photo stays under the serverless request limit. Falls back to the original file
  * whenever the browser can't decode it here.
  */
-async function shrinkImage(file: File): Promise<File> {
+export async function shrinkImage(file: File): Promise<File> {
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));

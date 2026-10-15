@@ -26,12 +26,13 @@ import { slugify, type CreateClassInput, type UpdateClassInput } from '../valida
  */
 
 type Row = IContentItem;
-const uid = (req: Request) => new Types.ObjectId(req.user!.id);
-const CLASS_FILTER = { type: 'class' as const };
+export const uid = (req: Request) => new Types.ObjectId(req.user!.id);
+export const CLASS_FILTER = { type: 'class' as const };
 
 /** Where a class stands, in words an administrator reads on its card. */
-function statusOf(c: Row): 'visible' | 'hidden' | 'off' | 'archived' {
+function statusOf(c: Row): 'draft' | 'visible' | 'hidden' | 'off' | 'archived' {
   if (c.archivedAt) return 'archived';
+  if (c.status === 'draft') return 'draft';
   if (!c.isEnabled) return 'off';
   return c.isVisible ? 'visible' : 'hidden';
 }
@@ -40,7 +41,8 @@ interface Lookups {
   links: Row[];
   subjects: Map<string, Row>;
   games: Map<string, number>;
-  courses: Map<number, number>;
+  /** Courses (chapters) and their lessons, per "class:subject". */
+  chapters: Map<string, { n: number; lessons: number }>;
 }
 
 /** Everything the class cards need, in four queries whatever the number of classes. */
@@ -53,16 +55,16 @@ async function lookups(levels: number[]): Promise<Lookups> {
       { $match: { type: 'kid_game', classLevel: { $in: levels }, archivedAt: null, isEnabled: true } },
       { $group: { _id: { l: '$classLevel', s: '$subject' }, n: { $sum: 1 } } },
     ]),
-    Course.aggregate<{ _id: number; n: number }>([
+    Course.aggregate<{ _id: { l: number; s: string | null }; n: number; lessons: number }>([
       { $match: { classLevel: { $in: levels }, archivedAt: null } },
-      { $group: { _id: '$classLevel', n: { $sum: 1 } } },
+      { $group: { _id: { l: '$classLevel', s: '$subject' }, n: { $sum: 1 }, lessons: { $sum: { $size: { $ifNull: ['$lessons', []] } } } } },
     ]),
   ]);
   return {
     links,
     subjects: new Map(subjects.map((s) => [s.key, s])),
     games: new Map(games.map((g) => [`${g._id.l}:${g._id.s}`, g.n])),
-    courses: new Map(courses.map((c) => [c._id, c.n])),
+    chapters: new Map(courses.map((c) => [`${c._id.l}:${c._id.s}`, { n: c.n, lessons: c.lessons }])),
   };
 }
 
@@ -75,14 +77,23 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
       return {
         key: l.subject!,
         title: s?.title ?? l.subject!,
+        /** The shared subject's description (the class editor edits this one). */
         description: s?.description ?? '',
+        /** This class's own description of the subject, if the generator wrote one. */
+        classDescription: l.meta || l.resources?.length ? l.description : '',
         glyph: s?.glyph ?? null,
         isVisible: l.isVisible,
         /** The subject is switched on (it can be switched off for every class at once elsewhere). */
         isAvailable: Boolean(s && !s.archivedAt && s.isEnabled && l.isEnabled),
         games: look.games.get(`${level}:${l.subject}`) ?? 0,
+        chapters: look.chapters.get(`${level}:${l.subject}`)?.n ?? 0,
+        lessons: look.chapters.get(`${level}:${l.subject}`)?.lessons ?? 0,
+        difficulty: l.meta?.difficulty ?? null,
+        estimatedMinutes: l.meta?.estimatedMinutes ?? null,
+        resources: l.resources?.length ?? 0,
       };
     });
+  const allChapters = [...look.chapters.entries()].filter(([k]) => k.startsWith(`${level}:`)).map(([, v]) => v);
   return {
     id: c._id.toString(),
     classLevel: level,
@@ -95,6 +106,10 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
     isVisible: c.isVisible,
     isEnabled: c.isEnabled,
     status: statusOf(c),
+    published: c.status !== 'draft',
+    profile: c.profile
+      ? { learningGoal: c.profile.learningGoal, targetAge: c.profile.targetAge, language: c.profile.language, curriculumType: c.profile.curriculumType, difficulty: c.profile.difficulty }
+      : null,
     position,
     builtIn: c.source === 'code',
     subjects,
@@ -102,7 +117,9 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
       subjects: subjects.length,
       visibleSubjects: subjects.filter((s) => s.isVisible && s.isAvailable).length,
       games: subjects.reduce((n, s) => n + s.games, 0),
-      courses: look.courses.get(level) ?? 0,
+      courses: allChapters.reduce((n, v) => n + v.n, 0),
+      chapters: allChapters.reduce((n, v) => n + v.n, 0),
+      lessons: allChapters.reduce((n, v) => n + v.lessons, 0),
     },
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
@@ -111,22 +128,22 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
 }
 
 /** The live classes in display order (what "position" counts). */
-const liveClasses = () => ContentItem.find({ ...CLASS_FILTER, archivedAt: null }).sort({ order: 1, _id: 1 });
+export const liveClasses = () => ContentItem.find({ ...CLASS_FILTER, archivedAt: null }).sort({ order: 1, _id: 1 });
 
-async function findClass(level: number): Promise<Row> {
+export async function findClass(level: number): Promise<Row> {
   const c = await ContentItem.findOne({ ...CLASS_FILTER, classLevel: level });
   if (!c) throw AppError.notFound(`There is no Class ${level}`);
   return c;
 }
 
-async function respondWithClass(res: Response, c: Row, status = 200, message?: string) {
+export async function respondWithClass(res: Response, c: Row, status = 200, message?: string) {
   const live = await liveClasses();
   const index = live.findIndex((x) => x._id.equals(c._id));
   sendSuccess(res, serializeClass(c, index === -1 ? null : index + 1, await lookups([c.classLevel!])), status, undefined, message);
 }
 
 /** Puts a class at a 1-based position among the live classes and renumbers them all 1…n. */
-async function placeClass(c: Row, position: number, req: Request): Promise<{ from: number; to: number } | null> {
+export async function placeClass(c: Row, position: number, req: Request): Promise<{ from: number; to: number } | null> {
   const all = await liveClasses();
   const from = all.findIndex((x) => x._id.equals(c._id)) + 1;
   const others = all.filter((x) => !x._id.equals(c._id)).map((x) => ({ id: x._id, order: x.order }));
@@ -150,7 +167,7 @@ type SubjectRow = NonNullable<UpdateClassInput['subjects']>[number];
  * so a new name creates (or brings back) a subject, and a changed name or description changes it
  * everywhere. Links the list leaves out are archived — restorable, and nothing else is lost.
  */
-async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Promise<void> {
+export async function syncSubjects(req: Request, level: number, rows: SubjectRow[], mode: 'shared' | 'class' = 'shared'): Promise<void> {
   const links = await ContentItem.find({ type: 'class_subject', classLevel: level });
   const keep = new Set<string>();
 
@@ -161,7 +178,8 @@ async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Pr
     // The subject itself.
     let subject = await ContentItem.findOne({ type: 'subject', key });
     if (!subject) {
-      if (row.key) throw AppError.badRequest(`There is no subject “${row.key}”`, [{ path: `subjects.${i}.key`, message: 'Unknown subject' }]);
+      // The generator names new subjects by their library key ("science"); the editor never invents keys.
+      if (row.key && mode === 'shared') throw AppError.badRequest(`There is no subject “${row.key}”`, [{ path: `subjects.${i}.key`, message: 'Unknown subject' }]);
       subject = await ContentItem.create({
         type: 'subject',
         key,
@@ -174,6 +192,15 @@ async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Pr
         updatedBy: uid(req),
       });
       await auditItem(req, 'content_created', subject, 'Created');
+    } else if (mode === 'class') {
+      // The generator leaves a shared subject as it is (other classes show it); only bring it back.
+      if (subject.archivedAt) {
+        subject.archivedAt = null;
+        subject.order = await nextOrder({ type: 'subject', archivedAt: null });
+        subject.updatedBy = uid(req);
+        await subject.save();
+        await auditItem(req, 'content_restored', subject, 'Restored');
+      }
     } else {
       const edited: string[] = [];
       if (subject.archivedAt) {
@@ -205,6 +232,8 @@ async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Pr
         subject: key,
         order: i + 1,
         isVisible: row.isVisible,
+        ...(mode === 'class' ? { description: row.description } : {}),
+        meta: linkMeta(row),
         source: 'admin',
         createdBy: uid(req),
         updatedBy: uid(req),
@@ -217,6 +246,8 @@ async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Pr
     link.archivedAt = null;
     link.order = i + 1;
     link.isVisible = row.isVisible;
+    if (mode === 'class') link.description = row.description;
+    if (row.difficulty !== undefined || row.estimatedMinutes !== undefined) link.meta = linkMeta(row, link.meta);
     if (link.isModified()) {
       link.updatedBy = uid(req);
       await link.save();
@@ -232,6 +263,13 @@ async function syncSubjects(req: Request, level: number, rows: SubjectRow[]): Pr
     await link.save();
     await auditItem(req, 'content_archived', link, 'Removed');
   }
+}
+
+/** A link's difficulty and time, from an editor row (unset fields keep what was there). */
+function linkMeta(row: SubjectRow, prev?: IContentItem['meta']): IContentItem['meta'] {
+  const difficulty = row.difficulty !== undefined ? row.difficulty : (prev?.difficulty ?? null);
+  const estimatedMinutes = row.estimatedMinutes !== undefined ? row.estimatedMinutes : (prev?.estimatedMinutes ?? null);
+  return difficulty === null && estimatedMinutes === null ? null : { difficulty, estimatedMinutes };
 }
 
 // ------------------------------------------------------------------------------------ handlers
@@ -275,6 +313,8 @@ export const createClass = asyncHandler(async (req: Request, res: Response) => {
     order: await nextOrder({ ...CLASS_FILTER, archivedAt: null }),
     isEnabled: true,
     isVisible: input.isVisible,
+    status: input.status,
+    profile: input.profile ?? null,
     source: 'admin',
     createdBy: uid(req),
     updatedBy: uid(req),
@@ -283,9 +323,9 @@ export const createClass = asyncHandler(async (req: Request, res: Response) => {
     throw err;
   });
   if (input.position !== undefined) await placeClass(c, input.position, req);
-  await syncSubjects(req, input.classLevel, input.subjects);
+  await syncSubjects(req, input.classLevel, input.subjects, input.subjectMode);
   invalidateCatalog();
-  await auditItem(req, 'content_created', c, 'Created', { subjects: input.subjects.length });
+  await auditItem(req, 'content_created', c, input.status === 'draft' ? 'Created draft' : 'Created', { subjects: input.subjects.length, status: input.status });
   await respondWithClass(res, c, 201, 'Class created');
 });
 
@@ -301,6 +341,10 @@ export const updateClass = asyncHandler(async (req: Request, res: Response) => {
     if ((c[to] ?? null) !== (input[from] ?? null)) edited.push(from);
     (c as unknown as Record<string, unknown>)[to] = input[from];
   }
+  if (input.profile !== undefined) {
+    c.profile = input.profile;
+    edited.push('profile');
+  }
   const wasVisible = c.isVisible && c.isEnabled;
   if (input.isVisible !== undefined) {
     c.isVisible = input.isVisible;
@@ -310,7 +354,7 @@ export const updateClass = asyncHandler(async (req: Request, res: Response) => {
   c.updatedBy = uid(req);
   await c.save();
   const moved = input.position !== undefined ? await placeClass(c, input.position, req) : null;
-  if (input.subjects) await syncSubjects(req, c.classLevel!, input.subjects);
+  if (input.subjects) await syncSubjects(req, c.classLevel!, input.subjects, input.subjectMode);
   invalidateCatalog();
 
   if (edited.length || input.subjects) await auditItem(req, 'content_updated', c, 'Updated', { fields: input.subjects ? [...edited, 'subjects'] : edited });

@@ -122,7 +122,13 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   classes: ({ catalog, featureOn }) => (
     <LearnByClassSection
       status={catalog.fromServer ? 'ready' : 'error'}
-      classes={catalog.classViews.map((c) => ({ ...c, games: featureOn('kid-games') ? catalog.listedGames(c.level).length : 0, subjects: catalog.subjectsFor(c.level).length }))}
+      classes={catalog.classViews.map((c) => ({
+        ...c,
+        games: featureOn('kid-games') ? catalog.listedGames(c.level).length : 0,
+        subjects: catalog.subjectsFor(c.level).length,
+        chapters: catalog.coursesFor(c.level).length,
+        marks: catalog.subjectsFor(c.level).map((s) => s.glyph ?? '').filter(Boolean),
+      }))}
     />
   ),
   // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);

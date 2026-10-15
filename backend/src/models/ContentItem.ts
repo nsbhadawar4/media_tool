@@ -1,4 +1,5 @@
 import { Schema, model, Types, type Document } from 'mongoose';
+import { resourceSchema, type IFreeResource } from './Course';
 import { CONTENT_TYPES, DIFFICULTIES, GAME_TYPES, type ContentType, type Difficulty, type GameType } from '../config/constants';
 
 /**
@@ -49,6 +50,24 @@ export interface IContentItem extends Document {
   /** Arcade games and Kid Games: put first, with a "Featured" mark, where they're listed. */
   featured: boolean;
   source: 'code' | 'admin';
+  /**
+   * Classes: a draft is being prepared in Manage Courses and is shown nowhere else (it is left out
+   * of the public catalog entirely). Everything else — every class before this field existed — is
+   * published, and then shown or hidden by isVisible as before.
+   */
+  status: 'draft' | 'published';
+  /** Classes: what the Course & Class Generator was told about the class. */
+  profile: {
+    learningGoal: string;
+    targetAge: string;
+    language: string | null;
+    curriculumType: string | null;
+    difficulty: string | null;
+  } | null;
+  /** Class ↔ subject links: this subject's difficulty and expected time in this class. */
+  meta: { difficulty: string | null; estimatedMinutes: number | null } | null;
+  /** Class ↔ subject links: free resources (references only) chosen for this subject in this class. */
+  resources: IFreeResource[];
   /** Soft delete: archived entries are gone for users and restorable by an administrator. */
   archivedAt: Date | null;
   createdBy: Types.ObjectId | null;
@@ -78,6 +97,31 @@ const contentItemSchema = new Schema<IContentItem>(
     showOnLanding: { type: Boolean, default: true },
     featured: { type: Boolean, default: false },
     source: { type: String, enum: ['code', 'admin'], default: 'admin' },
+    status: { type: String, enum: ['draft', 'published'], default: 'published' },
+    profile: {
+      type: new Schema(
+        {
+          learningGoal: { type: String, default: '', trim: true, maxlength: 1000 },
+          targetAge: { type: String, default: '', trim: true, maxlength: 40 },
+          language: { type: String, enum: ['english', 'hindi', 'bilingual', 'other', null], default: null },
+          curriculumType: { type: String, enum: ['general', 'mathematics', 'science', 'language', 'competitive', 'skills', 'custom', null], default: null },
+          difficulty: { type: String, enum: ['beginner', 'elementary', 'intermediate', 'advanced', null], default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    meta: {
+      type: new Schema(
+        {
+          difficulty: { type: String, enum: ['easy', 'medium', 'hard', null], default: null },
+          estimatedMinutes: { type: Number, default: null, min: 0, max: 100000 },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
+    resources: { type: [resourceSchema], default: [] },
     archivedAt: { type: Date, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },

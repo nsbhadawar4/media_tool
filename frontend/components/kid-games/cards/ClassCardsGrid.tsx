@@ -69,7 +69,7 @@ export function ClassCardsGrid() {
             subjects={catalog.subjectsFor(view.level).length}
           />
         ) : (
-          <GenericClassCard key={view.key} view={view} index={i} subjects={catalog.subjectsFor(view.level).length} />
+          <GenericClassCard key={view.key} view={view} index={i} subjects={catalog.subjectsFor(view.level).length} marks={catalog.subjectsFor(view.level).map((s) => s.glyph ?? "").filter(Boolean)} />
         ),
       )}
     </div>
