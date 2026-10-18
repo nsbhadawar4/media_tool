@@ -87,6 +87,8 @@ export interface Course {
   quiz?: import('./adminClasses').CurriculumQuestion[];
   resources?: import('./adminClasses').FreeResource[];
   generated?: boolean;
+  /** Admin data: generated, waiting to be published (hidden from learners). */
+  draft?: boolean;
   order: number;
   isEnabled: boolean;
   isVisible: boolean;

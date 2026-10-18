@@ -6,15 +6,23 @@ import { summarise, useKidProgress } from '@/lib/kid-games/progress';
 import type { ClassLevel } from '@/lib/kid-games/types';
 import { ClassCard } from './KidCards';
 import { GenericClassCard } from './GenericCards';
+import { ClassCourseCard } from './ClassCourseCard';
+import { classPath } from '@/lib/content/learnPaths';
+import { useQuery } from '@tanstack/react-query';
+import { progressApi } from '@/lib/api/courses';
 
 /**
- * Every class a signed-in user can open, as the shared class cards with their own progress — the
- * Kid Games hub and the dashboard's "Learn by Class" block both render this, so the two never
- * differ. Classes, titles and order come from the catalog administrators manage.
+ * Every class a signed-in user can open, as the shared class cards — the same classes, titles and
+ * order everywhere, from the catalog administrators manage in Manage Courses.
+ *  - learn (the dashboard's "My Classes" and /courses): each card opens the class's course pages
+ *    (/classes/class-N), whatever the Kid Games switch says;
+ *  - play (the Kid Games hub): each card opens the class's games, with the child's game progress.
  */
-export function ClassCardsGrid() {
+export function ClassCardsGrid({ purpose = 'learn' }: { purpose?: 'learn' | 'play' }) {
   const progress = useKidProgress();
   const catalog = useContentCatalog();
+  // Course progress (lessons completed per class) for the learning cards — the signed-in app only.
+  const learnProgress = useQuery({ queryKey: ['progress', 'classes'], queryFn: async () => (await progressApi.classes()).data, enabled: purpose === 'learn', staleTime: 30_000, retry: false });
   // Only the managed catalog lists classes — never the code's own defaults, even for a moment.
   if (!catalog.fromServer && !catalog.settled) {
     return (
@@ -50,6 +58,38 @@ export function ClassCardsGrid() {
         <GraduationCap aria-hidden className="h-8 w-8 text-muted" />
         <p className="font-semibold text-foreground">No classes available</p>
         <p className="text-sm text-muted">No visible classes are available right now.</p>
+      </div>
+    );
+  }
+  if (purpose === 'learn') {
+    const percent = (key: string) => learnProgress.data?.find((p) => p.slug === key);
+    return (
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {catalog.classViews.map((view, i) => {
+          const subjects = catalog.subjectsFor(view.level);
+          const chapters = catalog.coursesFor(view.level).length;
+          return (
+            <ClassCourseCard
+              key={view.key}
+              level={view.level}
+              builtIn={view.isCode}
+              title={view.title}
+              subtitle={view.subtitle || undefined}
+              description={view.description || undefined}
+              image={view.thumbnailUrl}
+              marks={subjects.map((s) => s.glyph ?? '').filter(Boolean)}
+              href={classPath(view.key)}
+              linkLabel={`Explore ${view.title}`}
+              facts={[
+                ...(subjects.length ? [{ label: `${subjects.length} ${subjects.length === 1 ? 'subject' : 'subjects'}` }] : []),
+                ...(chapters ? [{ label: `${chapters} ${chapters === 1 ? 'chapter' : 'chapters'}` }] : []),
+              ]}
+              progress={percent(view.key)?.lessons ? { percent: percent(view.key)!.percent, label: `${percent(view.key)!.completed} of ${percent(view.key)!.lessons} lessons completed` } : null}
+              cta={percent(view.key)?.completed ? 'Continue Learning' : 'Start Learning'}
+              index={i}
+            />
+          );
+        })}
       </div>
     );
   }

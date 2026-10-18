@@ -32,7 +32,8 @@ export function homePathForRole(role: UserRole | null | undefined): string {
 const PUBLIC_PATHS = new Set(['/', '/privacy', '/terms', '/contact', LOGIN_PATH, '/signup', '/forgot-password', '/admin/login']);
 
 export function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.has(pathname);
+  // The class pages (/classes, /classes/class-N and its subjects and chapters) are public too.
+  return PUBLIC_PATHS.has(pathname) || pathname === '/classes' || pathname.startsWith('/classes/');
 }
 
 export function isAdminPath(pathname: string): boolean {

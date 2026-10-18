@@ -8,18 +8,53 @@ import { Schema, model, Types, type Document } from 'mongoose';
  * Lesson bodies are plain text (rendered as text, never HTML), and a lesson link can only be an
  * http(s) URL (validated on the way in).
  */
+export const QUESTION_TYPES = ['mcq', 'true-false', 'fill-blank', 'short-answer', 'match', 'word-problem'] as const;
+export type QuestionType = (typeof QUESTION_TYPES)[number];
+
+/**
+ * One question. In a lesson (questions and practice) the answer is part of what learners study and
+ * is shown to them on request; in a chapter's quiz it is kept on the server, which marks the quiz.
+ */
+export interface ICourseQuestion {
+  type?: QuestionType | null;
+  prompt: string;
+  options: string[];
+  answer: string;
+  difficulty?: 'easy' | 'medium' | 'hard' | null;
+  explanation?: string;
+}
+
+/**
+ * A lesson: its explanation (body), examples, key points, questions with answers and extra
+ * practice. Lessons written before these fields existed have a body only (and read as such).
+ */
 export interface ICourseLesson {
   _id: Types.ObjectId;
   title: string;
   body: string;
   url: string | null;
+  examples: string[];
+  keyPoints: string[];
+  questions: ICourseQuestion[];
+  practice: ICourseQuestion[];
+  estimatedMinutes: number | null;
 }
 
-/** One practice or quiz question. The answer is for checking — public pages leave it out. */
-export interface ICourseQuestion {
-  prompt: string;
-  options: string[];
-  answer: string;
+/** Who wrote a chapter (or last generated a course): an AI provider, the template generator, or a person. */
+export interface IContentSource {
+  kind: 'ai' | 'template' | 'manual';
+  provider: string | null;
+  model: string | null;
+  at: Date | null;
+}
+
+/** A class ↔ subject link's course details (see ContentItem.course). */
+export interface ICourseInfo {
+  title: string;
+  objectives: string[];
+  language: 'english' | 'hindi' | 'bilingual' | 'hinglish' | null;
+  level: 'beginner' | 'basic' | 'intermediate' | 'advanced' | null;
+  source: IContentSource | null;
 }
 
 export interface ICourseActivity {
@@ -45,6 +80,8 @@ export interface ICourse extends Document {
   title: string;
   slug: string;
   summary: string;
+  /** A chapter's closing summary (what it covered); empty for chapters written before it existed. */
+  recap: string;
   classLevel: number | null;
   subject: string | null;
   thumbnailUrl: string | null;
@@ -61,6 +98,19 @@ export interface ICourse extends Document {
   resources: IFreeResource[];
   /** Made by the generator (replaced when the subject is generated again); false for hand-written courses. */
   generated: boolean;
+  /**
+   * Generated but not published yet: hidden from everyone but administrators (who preview it).
+   * Publishing the class swaps a subject's drafts in for its earlier generated chapters, which are
+   * archived — so generating never changes what learners see until an administrator publishes.
+   */
+  draft: boolean;
+  /**
+   * A draft from a new version of the course: publishing it archives the subject's earlier generated
+   * chapters. False for a single chapter added as a draft, which is published on its own.
+   * (Drafts saved before this field existed read as true, as they were made that way.)
+   */
+  supersedes: boolean;
+  source: IContentSource | null;
   order: number;
   isEnabled: boolean;
   isVisible: boolean;
@@ -71,17 +121,35 @@ export interface ICourse extends Document {
   updatedAt: Date;
 }
 
+const questionSchema = new Schema<ICourseQuestion>(
+  {
+    type: { type: String, enum: [...QUESTION_TYPES, null], default: null },
+    prompt: { type: String, required: true, trim: true, maxlength: 500 },
+    options: { type: [{ type: String, trim: true, maxlength: 300 }], default: [] },
+    answer: { type: String, default: '', trim: true, maxlength: 300 },
+    difficulty: { type: String, enum: ['easy', 'medium', 'hard', null], default: null },
+    explanation: { type: String, default: '', trim: true, maxlength: 500 },
+  },
+  { _id: false },
+);
+
 const lessonSchema = new Schema<ICourseLesson>({
   title: { type: String, required: true, trim: true, maxlength: 120 },
   body: { type: String, default: '', maxlength: 10_000 },
   url: { type: String, default: null },
+  examples: { type: [{ type: String, trim: true, maxlength: 500 }], default: [] },
+  keyPoints: { type: [{ type: String, trim: true, maxlength: 300 }], default: [] },
+  questions: { type: [questionSchema], default: [] },
+  practice: { type: [questionSchema], default: [] },
+  estimatedMinutes: { type: Number, default: null, min: 0, max: 1000 },
 });
 
-const questionSchema = new Schema<ICourseQuestion>(
+export const sourceSchema = new Schema<IContentSource>(
   {
-    prompt: { type: String, required: true, trim: true, maxlength: 500 },
-    options: { type: [{ type: String, trim: true, maxlength: 300 }], default: [] },
-    answer: { type: String, default: '', trim: true, maxlength: 300 },
+    kind: { type: String, enum: ['ai', 'template', 'manual'], required: true },
+    provider: { type: String, default: null },
+    model: { type: String, default: null },
+    at: { type: Date, default: null },
   },
   { _id: false },
 );
@@ -114,6 +182,7 @@ const courseSchema = new Schema<ICourse>(
     title: { type: String, required: true, trim: true, maxlength: 120 },
     slug: { type: String, required: true, trim: true, lowercase: true },
     summary: { type: String, default: '', trim: true, maxlength: 500 },
+    recap: { type: String, default: '', trim: true, maxlength: 1500 },
     classLevel: { type: Number, default: null, min: 1, max: 12 },
     subject: { type: String, default: null },
     thumbnailUrl: { type: String, default: null },
@@ -127,6 +196,9 @@ const courseSchema = new Schema<ICourse>(
     quiz: { type: [questionSchema], default: [] },
     resources: { type: [resourceSchema], default: [] },
     generated: { type: Boolean, default: false },
+    draft: { type: Boolean, default: false },
+    supersedes: { type: Boolean, default: true },
+    source: { type: sourceSchema, default: null },
     order: { type: Number, required: true },
     isEnabled: { type: Boolean, default: true },
     isVisible: { type: Boolean, default: true },

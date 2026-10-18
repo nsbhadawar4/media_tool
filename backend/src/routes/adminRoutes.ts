@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { courseEngine, generateCourseChapter, generateCourseLesson, generateCourseOutline, generateCourseQuestions, getCourse as getSubjectCourse, publishCourse, saveCourse, unpublishCourse } from '../controllers/adminCourseController';
+import { generateChapterSchema, generateLessonSchema, generateOutlineSchema, generateQuestionsSchema, levelSubjectParamSchema, saveCourseSchema } from '../validators/courseValidators';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
 import { updateAppearanceSchema } from '../validators/settingsValidators';
@@ -16,13 +18,9 @@ import {
   uploadContentImage,
 } from '../controllers/adminClassController';
 import {
-  buildChapters,
   duplicateClass,
   getClassCurriculum,
-  saveClassCurriculum,
-  searchResources,
   setClassStatus,
-  suggestSubjects,
 } from '../controllers/adminCurriculumController';
 import {
   classLevelParamSchema,
@@ -31,12 +29,8 @@ import {
   createClassSchema,
   listClassesQuerySchema,
   updateClassSchema,
-  briefSchema,
-  chaptersRequestSchema,
   classStatusSchema,
   duplicateClassSchema,
-  resourcesQuerySchema,
-  saveCurriculumSchema,
 } from '../validators/classValidators';
 import {
   listUsers,
@@ -168,11 +162,17 @@ router.post('/classes/:level/restore', validate(classLevel), restoreClass);
 router.patch('/classes/:level/status', validate({ ...classLevel, body: classStatusSchema }), setClassStatus);
 router.post('/classes/:level/duplicate', validate({ ...classLevel, body: duplicateClassSchema }), duplicateClass);
 router.get('/classes/:level/curriculum', validate(classLevel), getClassCurriculum);
-router.put('/classes/:level/curriculum', validate({ ...classLevel, body: saveCurriculumSchema }), saveClassCurriculum);
 
-// The Course & Class Generator: suggestions only — nothing is saved until the class is.
-router.post('/curriculum/subjects', validate({ body: briefSchema }), suggestSubjects);
-router.post('/curriculum/chapters', validate({ body: chaptersRequestSchema }), buildChapters);
-router.get('/curriculum/resources', validate({ query: resourcesQuerySchema }), searchResources);
+// AI Course Generator and course editor: a course is one subject of one class. Generating saves nothing.
+const levelSubject = { params: levelSubjectParamSchema };
+router.get('/courses/engine', courseEngine);
+router.post('/courses/generate/outline', validate({ body: generateOutlineSchema }), generateCourseOutline);
+router.post('/courses/generate/chapter', validate({ body: generateChapterSchema }), generateCourseChapter);
+router.post('/courses/generate/lesson', validate({ body: generateLessonSchema }), generateCourseLesson);
+router.post('/courses/generate/questions', validate({ body: generateQuestionsSchema }), generateCourseQuestions);
+router.get('/courses/:level/:subject', validate(levelSubject), getSubjectCourse);
+router.put('/courses/:level/:subject', validate({ ...levelSubject, body: saveCourseSchema }), saveCourse);
+router.post('/courses/:level/:subject/publish', validate(levelSubject), publishCourse);
+router.post('/courses/:level/:subject/unpublish', validate(levelSubject), unpublishCourse);
 
 export default router;

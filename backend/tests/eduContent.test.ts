@@ -304,8 +304,13 @@ test('users: published courses follow the class subject they sit in, and the adm
   const list = async (q = '') => (await call('GET', `/api/content/courses${q}`, undefined, user)).data.map((c: { title: string }) => c.title);
   assert.deepEqual(await list(), ['Plants & Trees', 'Counting to 20']);
   assert.deepEqual(await list('?classLevel=1&subject=math'), ['Counting to 20']);
-  await asAdmin('POST', `/api/admin/content/courses/${mathCourse}/move`, { direction: 'up' });
-  assert.deepEqual(await list(), ['Counting to 20', 'Plants & Trees'], 'reordered');
+  // Chapters are ordered within their class and subject: a new one comes last, and moves among its own.
+  const second = await asAdmin('POST', '/api/admin/content/courses', { title: 'Numbers to 50', classLevel: 1, subject: 'math', lessons: [{ title: 'Count on' }] });
+  assert.deepEqual(await list('?classLevel=1&subject=math'), ['Counting to 20', 'Numbers to 50']);
+  await asAdmin('POST', `/api/admin/content/courses/${second.data.id}/move`, { direction: 'up' });
+  assert.deepEqual(await list('?classLevel=1&subject=math'), ['Numbers to 50', 'Counting to 20'], 'reordered');
+  assert.equal((await asAdmin('POST', `/api/admin/content/courses/${second.data.id}/move`, { direction: 'up' })).message, 'Already first', 'never swapped with another class’s chapter');
+  await asAdmin('DELETE', `/api/admin/content/courses/${second.data.id}`);
 
   const scienceLink = await item('class_subject', 'class-6-science');
   await asAdmin('PATCH', `/api/admin/content/items/${scienceLink._id}`, { isEnabled: false });

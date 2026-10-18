@@ -57,24 +57,59 @@ export const getServerCatalog = cache(async (): Promise<PublicCatalog | null> =>
 /** A published class as visitors read it: its details and its subjects with chapters (no answers). */
 export interface PublicClassCurriculum {
   class: { classLevel: number; slug: string; title: string; subtitle: string; description: string; details: string; image: string | null };
-  subjects: import('@/lib/api/adminClasses').CurriculumSubject[];
+  /** Subjects with their chapters as summaries (no lesson content). */
+  subjects: import('@/lib/api/adminClasses').CurriculumSubject<import('@/lib/api/adminClasses').CurriculumChapterSummary>[];
 }
 
+type PublicRead<T> = { status: 'ok'; data: T } | { status: 'missing' } | { status: 'error' };
+
 /**
- * The public curriculum of one class for server-rendered pages: 'missing' when the class isn't
- * published and visible (or doesn't exist), 'error' when the API couldn't be read in time.
+ * One public class read for server-rendered pages: 'missing' when the API says it isn't there for
+ * visitors (unpublished, hidden, switched off, or no such class / subject in it), 'error' when it
+ * couldn't be read in time — so a page can tell "not found" from "try again".
  */
-export const getPublicCurriculum = cache(async (slug: string): Promise<{ status: 'ok'; data: PublicClassCurriculum } | { status: 'missing' } | { status: 'error' }> => {
+async function readPublicClass<T>(path: string, what: string): Promise<PublicRead<T>> {
   await connection();
   try {
     const origin = await apiOrigin();
     if (!origin) throw new Error('no trusted API origin configured (set NEXT_PUBLIC_SITE_URL)');
-    const res = await fetch(`${origin}/api/content/classes/${encodeURIComponent(slug)}/curriculum`, { cache: 'no-store', signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) });
+    const read = () => fetch(`${origin}/api/content/classes/${path}`, { cache: 'no-store', signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) });
+    // A request can land on a pooled keep-alive connection the API has just closed ("fetch failed:
+    // read ECONNRESET"): a network error, not an answer — so it is tried once more on a fresh one.
+    // An answer (404, 500…) is never retried.
+    const res = await read().catch(() => read());
     if (res.status === 404 || res.status === 400) return { status: 'missing' };
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return { status: 'ok', data: ((await res.json()) as { data: PublicClassCurriculum }).data };
+    return { status: 'ok', data: ((await res.json()) as { data: T }).data };
   } catch (err) {
-    console.warn(`[content] class curriculum unavailable for ${slug}: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[content] ${what} unavailable: ${err instanceof Error ? err.message : String(err)}`);
     return { status: 'error' };
   }
-});
+}
+
+/** The public curriculum of one class: its details and its subjects with chapters. */
+export const getPublicCurriculum = cache((slug: string) =>
+  readPublicClass<PublicClassCurriculum>(`${encodeURIComponent(slug)}/curriculum`, `class curriculum for ${slug}`),
+);
+
+/** One subject as a class teaches it — the API checks the class offers it — with its chapters. */
+export interface PublicClassSubject {
+  class: PublicClassCurriculum['class'];
+  subject: import('@/lib/api/adminClasses').CurriculumSubject<import('@/lib/api/adminClasses').CurriculumChapterSummary>;
+}
+
+export const getPublicClassSubject = cache((slug: string, subject: string) =>
+  readPublicClass<PublicClassSubject>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}`, `subject ${subject} of ${slug}`),
+);
+
+/** One chapter in full — lessons with their questions and practice, the quiz without answers — and its subject's chapter list. */
+export interface PublicChapter {
+  class: PublicClassCurriculum['class'];
+  subject: { key: string; title: string; glyph: string | null };
+  chapter: import('@/lib/api/adminClasses').CurriculumChapter;
+  chapters: Array<{ slug: string; title: string }>;
+}
+
+export const getPublicChapter = cache((slug: string, subject: string, chapter: string) =>
+  readPublicClass<PublicChapter>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}/chapters/${encodeURIComponent(chapter)}`, `chapter ${chapter} of ${subject} in ${slug}`),
+);

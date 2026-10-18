@@ -22,7 +22,7 @@ export interface AdminClassSubject {
   title: string;
   description: string;
   glyph: string | null;
-  /** This class's own description of the subject (from the generator), if any. */
+  /** How this class describes the subject (the class editor and the generator write it); empty: the shared description. */
   classDescription: string;
   /** Listed in this class. */
   isVisible: boolean;
@@ -31,6 +31,10 @@ export interface AdminClassSubject {
   games: number;
   chapters: number;
   lessons: number;
+  /** Generated chapters waiting to be published. */
+  draftChapters: number;
+  questions: number;
+  courseTitle: string;
   difficulty: ChapterDifficulty | null;
   estimatedMinutes: number | null;
   resources: number;
@@ -57,7 +61,8 @@ export interface AdminClass {
   /** Classes 1–5, which the app has games and pictures for. */
   builtIn: boolean;
   subjects: AdminClassSubject[];
-  counts: { subjects: number; visibleSubjects: number; games: number; courses: number; chapters: number; lessons: number };
+  /** chapters / lessons: published ones; draftChapters: generated, waiting to be published. */
+  counts: { subjects: number; visibleSubjects: number; games: number; courses: number; chapters: number; lessons: number; draftChapters: number; questions: number };
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -88,61 +93,40 @@ export interface ClassInput {
   profile?: ClassProfile | null;
 }
 
-// ------------------------------------------------------------------------------------ generator
+// ------------------------------------------------------------------------------------ curriculum
 
-export interface ClassBrief {
-  classLevel: number;
-  title: string;
-  subtitle?: string;
-  description?: string;
-  details?: string;
-  learningGoal?: string;
-  targetAge?: string;
-  language?: ClassLanguage;
-  curriculumType?: CurriculumType;
-  difficulty?: ClassDifficulty;
-}
+export type QuestionType = 'mcq' | 'true-false' | 'fill-blank' | 'short-answer' | 'match' | 'word-problem';
 
-export interface SubjectSuggestion {
-  key: string;
-  title: string;
-  description: string;
-  glyph: string;
-  difficulty: ChapterDifficulty;
-  estimatedMinutes: number;
-  chapterCount: number;
-  activityCount: number;
-  reason: string;
-  /** Already a subject in the catalog (shared with other classes). */
-  existing: boolean;
-}
-
+/** A question. Lessons' questions and practice carry their answer (to study); a public quiz doesn't. */
 export interface CurriculumQuestion {
+  type: QuestionType;
   prompt: string;
   options: string[];
-  /** Admin and generator data only; public pages never receive it. */
   answer?: string;
+  difficulty?: ChapterDifficulty | null;
+  explanation?: string;
 }
 
+/** Practice sets in chapters written before lessons had their own questions. */
 export interface CurriculumActivity {
-  type: 'multiple-choice' | 'fill-blank' | 'match-pair' | 'number-problems';
+  type: string;
   title: string;
   instructions: string;
   questions: CurriculumQuestion[];
 }
 
-export interface CurriculumChapter {
+export interface CurriculumLesson {
+  /** Admin data. */
   id?: string;
-  slug?: string;
+  /** Its place in the chapter (1-based): a lesson's address. */
+  number: number;
   title: string;
-  description: string;
-  objectives: string[];
+  explanation: string;
+  examples: string[];
+  keyPoints: string[];
+  questions: CurriculumQuestion[];
+  practice: CurriculumQuestion[];
   estimatedMinutes: number | null;
-  difficulty: ChapterDifficulty | null;
-  lessons: Array<{ title: string; body: string }>;
-  activities: CurriculumActivity[];
-  quiz: CurriculumQuestion[];
-  resources?: FreeResource[];
 }
 
 export interface FreeResource {
@@ -155,7 +139,51 @@ export interface FreeResource {
   thumbnailUrl: string | null;
 }
 
-export interface CurriculumSubject {
+/** A chapter in a list (class and subject pages): no lesson content. */
+export interface CurriculumChapterSummary {
+  slug: string;
+  title: string;
+  description: string;
+  difficulty: ChapterDifficulty | null;
+  estimatedMinutes: number | null;
+  lessonCount: number;
+  questionCount: number;
+  lessons: Array<{ number: number; title: string }>;
+}
+
+/** Who wrote content: an AI provider, the template generator, or a person. */
+export interface ContentSource {
+  kind: 'ai' | 'template' | 'manual';
+  provider: string | null;
+  model: string | null;
+  at?: string | null;
+}
+
+/** A whole chapter: lessons in full, older practice sets, the quiz and resources (admin fields when an administrator reads it). */
+export interface CurriculumChapter extends CurriculumChapterSummary {
+  id?: string;
+  draft?: boolean;
+  isVisible?: boolean;
+  generated?: boolean;
+  source?: ContentSource | null;
+  objectives: string[];
+  /** The chapter's closing summary (empty for older chapters). */
+  summary?: string;
+  lessons: CurriculumLesson[];
+  activities: CurriculumActivity[];
+  quiz: CurriculumQuestion[];
+  resources?: FreeResource[];
+}
+
+export interface CourseInfo {
+  title: string;
+  objectives: string[];
+  language: 'english' | 'hindi' | 'bilingual' | 'hinglish' | null;
+  level: 'beginner' | 'basic' | 'intermediate' | 'advanced' | null;
+  source?: ContentSource | null;
+}
+
+export interface CurriculumSubject<C extends CurriculumChapterSummary = CurriculumChapter> {
   key: string;
   title: string;
   description: string;
@@ -164,8 +192,9 @@ export interface CurriculumSubject {
   estimatedMinutes: number | null;
   games: number;
   isVisible?: boolean;
+  course?: CourseInfo | null;
   resources: FreeResource[];
-  chapters: CurriculumChapter[];
+  chapters: C[];
 }
 
 export const ADMIN_CLASSES_KEY = ['admin', 'classes'] as const;
@@ -182,13 +211,6 @@ export const adminClassesApi = {
   setStatus: (level: number, status: 'draft' | 'published') => api.patch<AdminClass>(`/api/admin/classes/${level}/status`, { status }),
   duplicate: (level: number, classLevel?: number) => api.post<AdminClass>(`/api/admin/classes/${level}/duplicate`, classLevel ? { classLevel } : {}),
   curriculum: (level: number) => api.get<{ subjects: CurriculumSubject[] }>(`/api/admin/classes/${level}/curriculum`),
-  saveCurriculum: (level: number, subjects: Array<{ key: string; chapters: CurriculumChapter[]; resources: FreeResource[] }>) =>
-    api.put<{ subjects: CurriculumSubject[] }>(`/api/admin/classes/${level}/curriculum`, { subjects }),
-  suggestSubjects: (brief: ClassBrief) => api.post<{ generator: string; subjects: SubjectSuggestion[] }>('/api/admin/curriculum/subjects', brief),
-  buildChapters: (brief: ClassBrief, subjects: Array<{ key: string; title: string; difficulty?: ChapterDifficulty; chapterCount?: number }>) =>
-    api.post<{ generator: string; subjects: Array<{ key: string; chapters: CurriculumChapter[] }> }>('/api/admin/curriculum/chapters', { brief, subjects }),
-  findResources: (subject: string, opts: { topic?: string; classLevel?: number } = {}) =>
-    api.get<{ resources: FreeResource[]; unavailable: string[] }>('/api/admin/curriculum/resources', { subject, ...(opts.topic ? { topic: opts.topic } : {}), ...(opts.classLevel ? { classLevel: opts.classLevel } : {}) }),
   uploadImage: (file: File) => {
     const form = new FormData();
     form.append('image', file);

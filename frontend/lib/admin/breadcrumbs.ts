@@ -48,9 +48,11 @@ export function adminCrumbs(pathname: string): Crumb[] {
               ? 'Generate Curriculum'
               : segment === 'preview'
                 ? 'Preview'
-                : i === parts.length - 1
-                  ? 'Edit Class'
-                  : `Class ${segment}`;
+                : i === 3
+                  ? 'Edit Course'
+                  : i === parts.length - 1
+                    ? 'Edit Class'
+                    : `Class ${segment}`;
       crumbs.push({ label, href });
       continue;
     }

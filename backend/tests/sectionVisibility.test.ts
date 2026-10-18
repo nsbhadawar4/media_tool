@@ -169,7 +169,7 @@ test('new sections can be added, and appear in the public catalog', async () => 
   assert.equal(on(await publicSection('announcement')), false);
 });
 
-test('Kid Games OFF closes Kid Games for users on the server: results and courses refused', async () => {
+test('Kid Games OFF closes Kid Games on the server (results refused) — and never courses, which follow Manage Courses', async () => {
   const kid = await section('kid-games');
   const result = { gameId: 'c1-math-math-quiz', correct: 7, total: 10, seconds: 30 };
   assert.equal((await call('POST', '/api/kid-games/results', result, user)).status, 201);
@@ -179,8 +179,10 @@ test('Kid Games OFF closes Kid Games for users on the server: results and course
   await turn(kid._id, false);
   const refused = await call('POST', '/api/kid-games/results', result, user);
   assert.deepEqual([refused.status, refused.error?.code], [403, 'GAME_UNAVAILABLE']);
-  assert.equal((await call('GET', '/api/content/courses/counting', undefined, user)).status, 404);
-  assert.deepEqual((await call('GET', '/api/content/courses', undefined, user)).data, []);
+  // Courses (and the public class pages) stay open: Kid Games only decides whether games are played.
+  assert.equal((await call('GET', '/api/content/courses/counting', undefined, user)).status, 200);
+  assert.deepEqual(((await call('GET', '/api/content/courses', undefined, user)).data as Array<{ slug: string }>).map((c) => c.slug), ['counting']);
+  assert.equal((await call('GET', '/api/content/classes/class-1/subjects/math')).status, 200);
 
   await turn(kid._id, true);
   assert.equal((await call('POST', '/api/kid-games/results', result, user)).status, 201);

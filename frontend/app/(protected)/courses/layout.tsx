@@ -1,11 +1,9 @@
 import type { ReactNode } from 'react';
-import { SectionGate } from '@/components/content/SectionGate';
 
-/** /courses/*: open only while the "kid-games" website section is on (/admin/content/sections). */
+/**
+ * /courses/*: the signed-in app's way into the classes. Open whatever the Kid Games switch says —
+ * courses follow Manage Courses alone (a class is listed while it is published and visible there).
+ */
 export default function Layout({ children }: { children: ReactNode }) {
-  return (
-    <SectionGate section="kid-games" name="Kid Games">
-      {children}
-    </SectionGate>
-  );
+  return children;
 }

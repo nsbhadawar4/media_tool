@@ -542,6 +542,7 @@ export function serializeCourse(course: ICourse) {
     quiz: (course.quiz ?? []).map((q) => ({ prompt: q.prompt, options: q.options, answer: q.answer })),
     resources: (course.resources ?? []).map((r) => ({ title: r.title, author: r.author ?? null, source: r.source, url: r.url, type: r.type, license: r.license, thumbnailUrl: r.thumbnailUrl ?? null })),
     generated: course.generated ?? false,
+    draft: course.draft ?? false,
     order: course.order,
     isEnabled: course.isEnabled,
     isVisible: course.isVisible,
@@ -681,8 +682,11 @@ export const moveCourse = asyncHandler(async (req: Request, res: Response) => {
   const course = await Course.findById(req.params.id);
   if (!course) throw AppError.notFound('Course not found');
   if (course.archivedAt) throw AppError.conflict('Archived courses have no position');
+  // Chapters are ordered within their class and subject: the neighbour is the one next to it there.
   const neighbour = await Course.findOne({
     archivedAt: null,
+    classLevel: course.classLevel ?? null,
+    subject: course.subject ?? null,
     _id: { $ne: course._id },
     order: direction === 'up' ? { $lte: course.order } : { $gte: course.order },
   }).sort(direction === 'up' ? { order: -1, _id: -1 } : { order: 1, _id: 1 });

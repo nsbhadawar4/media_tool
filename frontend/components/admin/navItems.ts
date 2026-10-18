@@ -60,9 +60,10 @@ export const USER_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/folders', label: 'Folders', icon: FolderClosed },
       { href: '/media', label: 'Media', icon: ImageIcon },
       { href: '/documents', label: 'Documents', icon: FileText },
+      // Courses follow Manage Courses alone: never hidden by the Kid Games switch.
+      { href: '/courses', label: 'Courses', icon: BookOpenCheck },
       { href: '/games', label: 'Games', icon: Gamepad2, section: 'games' },
       { href: '/kid-games', label: 'Kid Games', icon: GraduationCap, section: 'kid-games' },
-      { href: '/courses', label: 'Courses', icon: BookOpenCheck, section: 'kid-games' },
     ],
   },
   {

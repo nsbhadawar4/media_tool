@@ -11,6 +11,7 @@ import healthRoutes from './healthRoutes';
 import kidGameRoutes from './kidGameRoutes';
 import reviewRoutes from './reviewRoutes';
 import contentRoutes from './contentRoutes';
+import progressRoutes from './progressRoutes';
 import settingsRoutes from './settingsRoutes';
 
 const router = Router();
@@ -27,6 +28,7 @@ router.use('/health', healthRoutes);
 router.use('/kid-games', kidGameRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/content', contentRoutes);
+router.use('/progress', progressRoutes);
 router.use('/settings', settingsRoutes);
 
 export default router;

@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { BookOpen, ChevronDown, Clock, ExternalLink, Gamepad2, Image as ImageIcon, Library, ListChecks, PencilRuler, Target } from 'lucide-react';
 import type { CurriculumChapter, CurriculumQuestion, CurriculumSubject, FreeResource } from '@/lib/api/adminClasses';
 import { cn } from '@/utils/cn';
+import { formatMinutes } from '@/lib/content/learnPaths';
+
+export { formatMinutes };
 
 /**
  * A class's curriculum: its subjects as tabs, each with its chapters — objectives, lessons,
@@ -75,12 +78,6 @@ export function CurriculumView({ subjects, showAnswers = false, emptyText = 'Sub
 
 const DIFFICULTY = { easy: 'Easy', medium: 'Medium', hard: 'Challenging' } as const;
 
-export function formatMinutes(m: number): string {
-  if (m < 60) return `${m} min`;
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  return r ? `${h} h ${r} min` : `${h} h`;
-}
 
 function Chip({ icon: Icon, children }: { icon: typeof BookOpen; children: React.ReactNode }) {
   return (
@@ -100,11 +97,18 @@ function ChapterCard({ chapter: c, index, showAnswers }: { chapter: CurriculumCh
             {index + 1}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-semibold text-foreground">{c.title}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate font-semibold text-foreground">{c.title}</span>
+              {c.draft ? (
+                <span className="shrink-0 rounded bg-sky-500/15 px-1.5 text-[10px] font-semibold uppercase text-sky-600 dark:text-sky-300">Draft</span>
+              ) : (
+                c.isVisible === false && <span className="shrink-0 rounded bg-surface-hover px-1.5 text-[10px] font-semibold uppercase text-muted">Hidden</span>
+              )}
+            </span>
             {c.description && <span className="block truncate text-sm text-muted">{c.description}</span>}
           </span>
           <span className="hidden shrink-0 text-xs text-muted sm:block">
-            {c.lessons.length} lessons · {c.activities.length} activities{c.estimatedMinutes ? ` · ${formatMinutes(c.estimatedMinutes)}` : ''}
+            {c.lessons.length} lessons · {c.questionCount ?? 0} questions{c.estimatedMinutes ? ` · ${formatMinutes(c.estimatedMinutes)}` : ''}
           </span>
           <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-muted transition-transform group-open:rotate-180" />
         </summary>
@@ -126,7 +130,22 @@ function ChapterCard({ chapter: c, index, showAnswers }: { chapter: CurriculumCh
                     <p className="text-sm font-semibold text-foreground">
                       {i + 1}. {l.title}
                     </p>
-                    {l.body && <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted">{l.body}</p>}
+                    {l.explanation && <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted">{l.explanation}</p>}
+                    {l.examples.length > 0 && (
+                      <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-foreground-soft">
+                        {l.examples.map((x, j) => (
+                          <li key={`${x}-${j}`}>{x}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {l.keyPoints.length > 0 && <p className="mt-2 text-xs text-muted">Key points: {l.keyPoints.join(' · ')}</p>}
+                    {l.questions.length > 0 && <Questions items={l.questions} showAnswers={showAnswers} />}
+                    {l.practice.length > 0 && (
+                      <>
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-muted">Practice</p>
+                        <Questions items={l.practice} showAnswers={showAnswers} />
+                      </>
+                    )}
                   </li>
                 ))}
               </ol>

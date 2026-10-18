@@ -233,8 +233,9 @@ export function resolveCatalog(catalog: PublicCatalog | null | undefined): Resol
     )
     .map(applyGame);
   const widgetEntries = catalog.dashboardWidgets;
-  // Blocks that belong to a feature leave with it: Games; Kid Games and the class cards.
-  const FEATURE_OF: Record<string, string> = { games: 'games', 'kid-games': 'kid-games', classes: 'kid-games', learning: 'kid-games' };
+  // Blocks that belong to a feature leave with it: Games; Kid Games and its progress. The class
+  // cards stay: classes are managed in Manage Courses and open without Kid Games (learnPaths.ts).
+  const FEATURE_OF: Record<string, string> = { games: 'games', 'kid-games': 'kid-games', learning: 'kid-games' };
   const featureOn = (key: string) => (FEATURE_OF[key] ? isSectionOn(catalog, FEATURE_OF[key]) : true);
   const dashboardWidgets = (
     widgetEntries?.length ? [...widgetEntries].filter((w) => w.isEnabled).sort((a, b) => a.order - b.order).map((w) => w.key) : DASHBOARD_WIDGETS.map((w) => w.key)

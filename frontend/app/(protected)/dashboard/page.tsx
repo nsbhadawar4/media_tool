@@ -5,22 +5,7 @@ import { AdminOnlyNotice } from '@/components/auth/AdminOnlyNotice';
 import { MediaThumbnail } from '@/components/media/MediaThumbnail';
 import { useQuery } from '@tanstack/react-query';
 import { Suspense, type CSSProperties, type ReactNode } from 'react';
-import {
-  Activity,
-  ArrowRight,
-  FolderClosed,
-  FolderPlus,
-  Gamepad2,
-  GraduationCap,
-  Layers,
-  HardDrive,
-  Image as ImageIcon,
-  FileText,
-  Trash2,
-  Upload,
-  Video,
-  type LucideIcon,
-} from 'lucide-react';
+import { Activity, ArrowRight, BookOpenCheck, FileText, FolderClosed, FolderPlus, Gamepad2, GraduationCap, HardDrive, Image as ImageIcon, Layers, Trash2, type LucideIcon, Upload, Video } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState, InlineErrorState } from '@/components/ui/ErrorState';
@@ -107,6 +92,7 @@ export default function DashboardPage() {
     { label: 'Upload files', hint: 'Add to your library', icon: Upload, color: 'var(--accent)', onClick: () => requestUpload(null) },
     { label: 'Create folder', hint: 'Organise your files', icon: FolderPlus, color: 'var(--accent-2)', onClick: () => crud.setIsCreateOpen(true) },
     { label: 'Browse documents', hint: 'PDF, Word, Excel', icon: FileText, color: '#34d399', href: '/documents' },
+    { label: 'Courses', hint: 'Classes, subjects & chapters', icon: BookOpenCheck, color: '#a78bfa', href: '/courses' },
     ...(catalog.isSectionOn('games') ? [{ label: 'Play games', hint: 'Ludo, Snake & more', icon: Gamepad2, color: '#f472b6', href: '/games' }] : []),
     ...(catalog.isSectionOn('kid-games') ? [{ label: 'Kid Games', hint: 'Learn with Classes 1–5', icon: GraduationCap, color: '#fbbf24', href: '/kid-games' }] : []),
   ];
@@ -338,7 +324,7 @@ export default function DashboardPage() {
       <section aria-labelledby="learn-by-class-title">
         <div className="mb-3">
           <h2 id="learn-by-class-title" className="text-base font-semibold tracking-tight text-foreground">My Classes</h2>
-          <p className="text-xs text-muted">Fun, engaging and structured learning for Classes 1–5.</p>
+          <p className="text-xs text-muted">Fun, engaging and structured learning, class by class.</p>
         </div>
         <ClassCardsGrid />
       </section>

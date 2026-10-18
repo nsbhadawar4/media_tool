@@ -23,6 +23,7 @@ import { getServerCatalog } from '@/lib/server/contentCatalog';
 import { resolveCatalog, type ResolvedCatalog } from '@/lib/content/catalog';
 import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
 import { homeBlocks, isSectionOn, type HomeBlock } from '@/lib/content/sections';
+import { classCards } from '@/lib/content/learnPaths';
 import { PublicReviews } from '@/components/reviews/PublicReviews';
 
 const TITLE = 'media_tool — Your Digital World, Organized';
@@ -119,18 +120,7 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   // Kid Games, so it shows only while that feature is on.
   // The visible classes from Manage Courses (this block has its own switch on the Landing page
   // settings). Game counts only while Kid Games, where the games are played, is open.
-  classes: ({ catalog, featureOn }) => (
-    <LearnByClassSection
-      status={catalog.fromServer ? 'ready' : 'error'}
-      classes={catalog.classViews.map((c) => ({
-        ...c,
-        games: featureOn('kid-games') ? catalog.listedGames(c.level).length : 0,
-        subjects: catalog.subjectsFor(c.level).length,
-        chapters: catalog.coursesFor(c.level).length,
-        marks: catalog.subjectsFor(c.level).map((s) => s.glyph ?? '').filter(Boolean),
-      }))}
-    />
-  ),
+  classes: ({ catalog, featureOn }) => <LearnByClassSection status={catalog.fromServer ? 'ready' : 'error'} classes={classCards(catalog, featureOn('kid-games'))} />,
   // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);
   // each lists only the games switched on for the landing page. Empty, the block isn't rendered.
   games: ({ catalog }) => <GamesSection games={catalog.landingArcadeGames} />,

@@ -156,9 +156,11 @@ test('admin breadcrumbs name every admin page, and only admin pages', () => {
   assert.deepEqual(adminCrumbs('/admin/content/classes').map((c) => c.href), ['/admin/dashboard', '/admin/content', '/admin/content/classes']);
   assert.deepEqual(labels('/admin/courses'), ['Admin', 'Manage Courses']);
   assert.deepEqual(labels('/admin/courses/new'), ['Admin', 'Manage Courses', 'Create Class']);
+  assert.deepEqual(labels('/admin/courses/generate'), ['Admin', 'Manage Courses', 'Generate Curriculum']);
   assert.deepEqual(labels('/admin/courses/6'), ['Admin', 'Manage Courses', 'Edit Class']);
   assert.deepEqual(labels('/admin/courses/6/generate'), ['Admin', 'Manage Courses', 'Class 6', 'Generate Curriculum']);
   assert.deepEqual(labels('/admin/courses/6/preview'), ['Admin', 'Manage Courses', 'Class 6', 'Preview']);
+  assert.deepEqual(labels('/admin/courses/6/hindi'), ['Admin', 'Manage Courses', 'Class 6', 'Edit Course']);
   assert.deepEqual(adminCrumbs('/dashboard'), []);
   assert.deepEqual(adminCrumbs('/administrator'), []);
 });

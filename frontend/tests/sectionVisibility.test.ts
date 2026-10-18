@@ -120,14 +120,17 @@ test('app areas: Games and Kid Games (with Courses) close with their sections', 
   assert.equal(sectionForPath('/games'), 'games');
   assert.equal(sectionForPath('/games/ludo'), 'games');
   assert.equal(sectionForPath('/kid-games/class-1/math'), 'kid-games');
-  assert.equal(sectionForPath('/courses/counting'), 'kid-games');
+  // Courses follow Manage Courses: the Kid Games switch never closes them.
+  assert.equal(sectionForPath('/courses/counting'), null);
+  assert.equal(sectionForPath('/courses'), null);
   assert.equal(sectionForPath('/gamesroom'), null);
   assert.equal(sectionForPath('/dashboard'), null);
   assert.equal(sectionForPath('/onboarding'), null, 'plan choice is never gated by a section');
 
   const c = resolveCatalog(off(off(seeded(), 'games'), 'kid-games'));
   const nav = liveNavItems(openNavGroups(USER_NAV_GROUPS, c.isSectionOn)).map((i) => i.href);
-  assert.ok(!nav.includes('/games') && !nav.includes('/kid-games') && !nav.includes('/courses'));
+  assert.ok(!nav.includes('/games') && !nav.includes('/kid-games'));
+  assert.ok(nav.includes('/courses'), 'Courses stay in the menu with Kid Games off');
   assert.ok(nav.includes('/dashboard') && nav.includes('/manage-storage'));
   const all = liveNavItems(openNavGroups(USER_NAV_GROUPS, resolveCatalog(seeded()).isSectionOn)).map((i) => i.href);
   assert.ok(all.includes('/games') && all.includes('/kid-games') && all.includes('/courses'));

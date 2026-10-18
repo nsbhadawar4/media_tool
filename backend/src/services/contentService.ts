@@ -203,7 +203,8 @@ export async function getPublicCatalog(): Promise<PublicCatalog> {
   await ensureCatalogSeeded();
   const [rows, courses] = await Promise.all([
     ContentItem.find({ archivedAt: null }).sort({ type: 1, classLevel: 1, subject: 1, order: 1, key: 1 }).lean<IContentItem[]>(),
-    Course.find({ archivedAt: null }, { lessons: { _id: 1 }, slug: 1, title: 1, summary: 1, classLevel: 1, subject: 1, thumbnailUrl: 1, difficulty: 1, ageGroup: 1, order: 1, isEnabled: 1, isVisible: 1 })
+    // Draft chapters (generated, not yet published) don't exist for anyone but administrators.
+    Course.find({ archivedAt: null, draft: { $ne: true } }, { lessons: { _id: 1 }, slug: 1, title: 1, summary: 1, classLevel: 1, subject: 1, thumbnailUrl: 1, difficulty: 1, ageGroup: 1, order: 1, isEnabled: 1, isVisible: 1 })
       .sort({ order: 1, _id: 1 })
       .lean(),
   ]);
@@ -262,15 +263,21 @@ export function isSectionOn(catalog: PublicCatalog, key: string): boolean {
 }
 
 /**
- * A class offers a subject, and the class, the subject and that link are all enabled — inside a
- * Kid Games area that is switched on.
+ * A class offers a subject, and the class, the subject and that link are all enabled (`listed`:
+ * and visible too — what learners may read). Courses follow Manage Courses only: the Kid Games
+ * switch never decides whether a class, a subject or its chapters open.
  */
-export function isPairAvailable(catalog: PublicCatalog, classLevel: number, subject: string): boolean {
-  if (!isSectionOn(catalog, 'kid-games')) return false;
+export function isPairOpen(catalog: PublicCatalog, classLevel: number, subject: string, listed = false): boolean {
   const cls = catalog.classes.find((c) => c.classLevel === classLevel);
   const subj = catalog.subjects.find((s) => s.key === subject);
   const link = catalog.classSubjects.find((l) => l.classLevel === classLevel && l.subject === subject);
-  return Boolean(cls?.isEnabled && subj?.isEnabled && link?.isEnabled);
+  if (!cls?.isEnabled || !subj?.isEnabled || !link?.isEnabled) return false;
+  return !listed || Boolean(cls.isVisible && subj.isVisible && link.isVisible);
+}
+
+/** The same, for a Kid Game: inside a Kid Games area that is switched on as well. */
+export function isPairAvailable(catalog: PublicCatalog, classLevel: number, subject: string): boolean {
+  return isSectionOn(catalog, 'kid-games') && isPairOpen(catalog, classLevel, subject);
 }
 
 /**

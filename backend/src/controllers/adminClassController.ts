@@ -42,7 +42,7 @@ interface Lookups {
   subjects: Map<string, Row>;
   games: Map<string, number>;
   /** Courses (chapters) and their lessons, per "class:subject". */
-  chapters: Map<string, { n: number; lessons: number }>;
+  chapters: Map<string, { n: number; lessons: number; drafts: number; questions: number }>;
 }
 
 /** Everything the class cards need, in four queries whatever the number of classes. */
@@ -55,16 +55,40 @@ async function lookups(levels: number[]): Promise<Lookups> {
       { $match: { type: 'kid_game', classLevel: { $in: levels }, archivedAt: null, isEnabled: true } },
       { $group: { _id: { l: '$classLevel', s: '$subject' }, n: { $sum: 1 } } },
     ]),
-    Course.aggregate<{ _id: { l: number; s: string | null }; n: number; lessons: number }>([
+    // Published chapters (n, lessons) and generated drafts waiting to be published, per class and subject.
+    Course.aggregate<{ _id: { l: number; s: string | null }; n: number; lessons: number; drafts: number; questions: number }>([
       { $match: { classLevel: { $in: levels }, archivedAt: null } },
-      { $group: { _id: { l: '$classLevel', s: '$subject' }, n: { $sum: 1 }, lessons: { $sum: { $size: { $ifNull: ['$lessons', []] } } } } },
+      {
+        $group: {
+          _id: { l: '$classLevel', s: '$subject' },
+          n: { $sum: { $cond: [{ $eq: ['$draft', true] }, 0, 1] } },
+          lessons: { $sum: { $cond: [{ $eq: ['$draft', true] }, 0, { $size: { $ifNull: ['$lessons', []] } }] } },
+          drafts: { $sum: { $cond: [{ $eq: ['$draft', true] }, 1, 0] } },
+          // Quiz, lesson questions and practice, and (older chapters) activity questions — counted in the database.
+          questions: {
+            $sum: {
+              $cond: [
+                { $eq: ['$draft', true] },
+                0,
+                {
+                  $add: [
+                    { $size: { $ifNull: ['$quiz', []] } },
+                    { $reduce: { input: { $ifNull: ['$lessons', []] }, initialValue: 0, in: { $add: ['$$value', { $size: { $ifNull: ['$$this.questions', []] } }, { $size: { $ifNull: ['$$this.practice', []] } }] } } },
+                    { $reduce: { input: { $ifNull: ['$activities', []] }, initialValue: 0, in: { $add: ['$$value', { $size: { $ifNull: ['$$this.questions', []] } }] } } },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
     ]),
   ]);
   return {
     links,
     subjects: new Map(subjects.map((s) => [s.key, s])),
     games: new Map(games.map((g) => [`${g._id.l}:${g._id.s}`, g.n])),
-    chapters: new Map(courses.map((c) => [`${c._id.l}:${c._id.s}`, { n: c.n, lessons: c.lessons }])),
+    chapters: new Map(courses.map((c) => [`${c._id.l}:${c._id.s}`, { n: c.n, lessons: c.lessons, drafts: c.drafts, questions: c.questions }])),
   };
 }
 
@@ -77,10 +101,10 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
       return {
         key: l.subject!,
         title: s?.title ?? l.subject!,
-        /** The shared subject's description (the class editor edits this one). */
+        /** The shared subject's description (Content → Subjects edits it, for every class). */
         description: s?.description ?? '',
-        /** This class's own description of the subject, if the generator wrote one. */
-        classDescription: l.meta || l.resources?.length ? l.description : '',
+        /** How this class describes the subject (the class editor and the generator write this one). */
+        classDescription: l.description ?? '',
         glyph: s?.glyph ?? null,
         isVisible: l.isVisible,
         /** The subject is switched on (it can be switched off for every class at once elsewhere). */
@@ -88,6 +112,10 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
         games: look.games.get(`${level}:${l.subject}`) ?? 0,
         chapters: look.chapters.get(`${level}:${l.subject}`)?.n ?? 0,
         lessons: look.chapters.get(`${level}:${l.subject}`)?.lessons ?? 0,
+        draftChapters: look.chapters.get(`${level}:${l.subject}`)?.drafts ?? 0,
+        questions: look.chapters.get(`${level}:${l.subject}`)?.questions ?? 0,
+        /** The course's own title, when one was saved for this subject in this class. */
+        courseTitle: l.course?.title ?? '',
         difficulty: l.meta?.difficulty ?? null,
         estimatedMinutes: l.meta?.estimatedMinutes ?? null,
         resources: l.resources?.length ?? 0,
@@ -120,6 +148,8 @@ function serializeClass(c: Row, position: number | null, look: Lookups) {
       courses: allChapters.reduce((n, v) => n + v.n, 0),
       chapters: allChapters.reduce((n, v) => n + v.n, 0),
       lessons: allChapters.reduce((n, v) => n + v.lessons, 0),
+      draftChapters: allChapters.reduce((n, v) => n + v.drafts, 0),
+      questions: allChapters.reduce((n, v) => n + v.questions, 0),
     },
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
@@ -163,9 +193,11 @@ export async function placeClass(c: Row, position: number, req: Request): Promis
 type SubjectRow = NonNullable<UpdateClassInput['subjects']>[number];
 
 /**
- * Makes a class offer exactly these subjects, in this order. Subjects are shared by every class,
- * so a new name creates (or brings back) a subject, and a changed name or description changes it
- * everywhere. Links the list leaves out are archived — restorable, and nothing else is lost.
+ * Makes a class offer exactly these subjects, in this order. Subjects are shared by every class:
+ * a new name creates (or brings back) a subject, an existing one is linked as it is. What a class
+ * says about a subject — its description, visibility and order — is kept on this class's link,
+ * so editing Class 6's Hindi never changes Class 1's (renaming a subject everywhere is done in
+ * Content → Subjects). Links the list leaves out are archived — restorable, nothing else is lost.
  */
 export async function syncSubjects(req: Request, level: number, rows: SubjectRow[], mode: 'shared' | 'class' = 'shared'): Promise<void> {
   const links = await ContentItem.find({ type: 'class_subject', classLevel: level });
@@ -192,33 +224,13 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
         updatedBy: uid(req),
       });
       await auditItem(req, 'content_created', subject, 'Created');
-    } else if (mode === 'class') {
-      // The generator leaves a shared subject as it is (other classes show it); only bring it back.
-      if (subject.archivedAt) {
-        subject.archivedAt = null;
-        subject.order = await nextOrder({ type: 'subject', archivedAt: null });
-        subject.updatedBy = uid(req);
-        await subject.save();
-        await auditItem(req, 'content_restored', subject, 'Restored');
-      }
-    } else {
-      const edited: string[] = [];
-      if (subject.archivedAt) {
-        subject.archivedAt = null;
-        subject.order = await nextOrder({ type: 'subject', archivedAt: null });
-        await auditItem(req, 'content_restored', subject, 'Restored');
-      }
-      if (row.title !== subject.title) edited.push('title');
-      if (row.description !== subject.description) edited.push('description');
-      if (row.glyph !== undefined && (row.glyph ?? null) !== (subject.glyph ?? null)) edited.push('glyph');
-      subject.title = row.title;
-      subject.description = row.description;
-      if (row.glyph !== undefined) subject.glyph = row.glyph ?? null;
-      if (subject.isModified()) {
-        subject.updatedBy = uid(req);
-        await subject.save();
-        if (edited.length) await auditItem(req, 'content_updated', subject, 'Updated', { fields: edited });
-      }
+    } else if (subject.archivedAt) {
+      // An existing subject is left as it is (other classes show it); only brought back if archived.
+      subject.archivedAt = null;
+      subject.order = await nextOrder({ type: 'subject', archivedAt: null });
+      subject.updatedBy = uid(req);
+      await subject.save();
+      await auditItem(req, 'content_restored', subject, 'Restored');
     }
 
     // Its link to this class, at this position.
@@ -232,7 +244,7 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
         subject: key,
         order: i + 1,
         isVisible: row.isVisible,
-        ...(mode === 'class' ? { description: row.description } : {}),
+        description: row.description,
         meta: linkMeta(row),
         source: 'admin',
         createdBy: uid(req),
@@ -246,7 +258,7 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
     link.archivedAt = null;
     link.order = i + 1;
     link.isVisible = row.isVisible;
-    if (mode === 'class') link.description = row.description;
+    link.description = row.description;
     if (row.difficulty !== undefined || row.estimatedMinutes !== undefined) link.meta = linkMeta(row, link.meta);
     if (link.isModified()) {
       link.updatedBy = uid(req);
@@ -262,6 +274,28 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
     link.updatedBy = uid(req);
     await link.save();
     await auditItem(req, 'content_archived', link, 'Removed');
+  }
+}
+
+/**
+ * Checked before anything is saved. A subject is shared by every class, so a class can't rename
+ * it: renaming "English" to "Hindi" from Class 6 once left every class with two "Hindi" subjects
+ * and English lessons under one of them. Renaming everywhere is done in Content → Subjects; a
+ * class that needs another subject adds it (a new name creates it). The generator ('class') sends
+ * a subject's existing name, so the same rule holds for it.
+ */
+export async function assertSubjectNamesFree(rows: SubjectRow[] | undefined): Promise<void> {
+  if (!rows?.length) return;
+  const keyed = rows.filter((r) => r.key);
+  if (!keyed.length) return;
+  const own = new Map((await ContentItem.find({ type: 'subject', key: { $in: keyed.map((r) => r.key!) } }, { key: 1, title: 1 })).map((x) => [x.key, x.title]));
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  for (const [i, row] of rows.entries()) {
+    const current = row.key ? own.get(row.key) : undefined;
+    if (current === undefined || same(current, row.title)) continue;
+    throw AppError.badRequest(`“${current}” is shared by every class — rename it in Content → Subjects, or add another subject to this class`, [
+      { path: `subjects.${i}.title`, message: `Subjects are renamed for every class in Content → Subjects` },
+    ]);
   }
 }
 
@@ -295,6 +329,7 @@ export const getClass = asyncHandler(async (req: Request, res: Response) => {
 export const createClass = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as CreateClassInput;
   await ensureCatalogSeeded();
+  await assertSubjectNamesFree(input.subjects);
   const existing = await ContentItem.findOne({ ...CLASS_FILTER, classLevel: input.classLevel });
   if (existing) {
     throw AppError.conflict(
@@ -333,6 +368,7 @@ export const updateClass = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as UpdateClassInput;
   const c = await findClass(Number(req.params.level));
   if (c.archivedAt) throw AppError.conflict('Restore this class before changing it');
+  await assertSubjectNamesFree(input.subjects);
 
   const fields = { title: 'title', subtitle: 'subtitle', description: 'description', details: 'details', image: 'thumbnailUrl' } as const;
   const edited: string[] = [];

@@ -79,10 +79,10 @@ export const SECTION_EFFECTS: Readonly<Record<string, string>> = {
   highlights: 'Home page block',
   features: 'Home page block and its header/footer links',
   media: 'Home page block',
-  classes: 'Home page block (shown while the Kid Games feature is on)',
+  classes: 'Home page block (the class pages follow Manage Courses)',
   documents: 'Home page block',
   games: 'The whole Games feature: its pages, dashboard block and links (the home page block has its own switch)',
-  'kid-games': 'The whole Kid Games feature with Courses: pages, dashboard block and links (the home page block has its own switch)',
+  'kid-games': 'The Kid Games feature: its games, pages, dashboard block and links. Courses and classes stay open (Manage Courses decides those); the home page block has its own switch',
   'how-it-works': 'Home page block',
   security: 'Home page block',
   reviews: 'Home page block',
@@ -98,7 +98,8 @@ export const CUSTOM_SECTION_EFFECT = 'Home page text block';
 /** Sections whose OFF switch closes part of the app for signed-in users. */
 export const APP_AREA_SECTIONS: Readonly<Record<string, readonly string[]>> = {
   games: ['/games'],
-  'kid-games': ['/kid-games', '/courses'],
+  // Courses (/courses, /classes) follow Manage Courses: Kid Games closes only its games.
+  'kid-games': ['/kid-games'],
 };
 
 /** The section that gates an app path, if any ("/kid-games/class-1" → "kid-games"). */

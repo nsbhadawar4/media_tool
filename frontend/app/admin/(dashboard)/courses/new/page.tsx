@@ -1,6 +1,8 @@
-import { ClassGeneratorPage } from '@/components/admin/courses/ClassGenerator';
+'use client';
 
-/** /admin/courses/new — Create Class: the Course & Class Generator. */
+import { ClassEditorPage } from '@/components/admin/courses/ClassEditor';
+
+/** /admin/courses/new — Add Class: number, title, description and subjects, then Generate Course. */
 export default function AdminNewClassPage() {
-  return <ClassGeneratorPage />;
+  return <ClassEditorPage />;
 }

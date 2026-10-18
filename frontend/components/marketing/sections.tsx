@@ -1248,7 +1248,7 @@ export interface LandingClass extends ClassView {
   marks?: string[];
 }
 
-export function LearnByClassSection({ classes, status = 'ready' }: { classes: readonly LandingClass[]; status?: 'ready' | 'error' }) {
+export function LearnByClassSection({ classes, status = 'ready', retryHref = '/#kid-games' }: { classes: readonly LandingClass[]; status?: 'ready' | 'error'; retryHref?: string }) {
   return (
     // #kid-games: the header's "Kid Games" link lands on these Class 1–5 cards.
     <Section id="kid-games">
@@ -1265,9 +1265,9 @@ export function LearnByClassSection({ classes, status = 'ready' }: { classes: re
         <div className="mx-auto mt-12 max-w-md rounded-3xl border border-border bg-surface/70 p-8 text-center shadow-card sm:mt-14">
           <p className="text-base font-semibold text-foreground">Unable to load classes</p>
           <p className="mt-1.5 text-sm text-muted">Please try again in a moment.</p>
-          <Link href="/#kid-games" className="btn-primary mt-5 inline-flex h-11 items-center rounded-xl px-5 text-sm font-semibold text-accent-foreground">
+          <a href={retryHref} className="btn-primary mt-5 inline-flex h-11 items-center rounded-xl px-5 text-sm font-semibold text-accent-foreground">
             Try Again
-          </Link>
+          </a>
         </div>
       ) : classes.length === 0 ? (
         <p className="mx-auto mt-12 max-w-md rounded-3xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted sm:mt-14">

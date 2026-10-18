@@ -1,3 +1,4 @@
+import { aiConfig } from './services/curriculum/providers';
 import fs from 'node:fs';
 import { logger } from './utils/logger';
 
@@ -55,6 +56,11 @@ async function bootstrap(): Promise<void> {
   const server = app.listen(env.PORT, () => {
     logger.info(`media_tool API listening on port ${env.PORT} [${env.NODE_ENV}]`);
     logger.info(`Storage provider: ${env.STORAGE_PROVIDER}`);
+    // The Course Generator's AI: which provider is ready, or why not (never the key).
+    const ai = aiConfig();
+    if (ai.ready) logger.info(`Course generator: AI provider ${ai.provider} (${ai.model})`);
+    else if (ai.provider) logger.warn(`Course generator: ${ai.problem} The template generator will be used.`);
+    else logger.info('Course generator: no AI provider configured — the template generator is used (and labelled).');
   });
 
   const shutdown = (signal: string) => {

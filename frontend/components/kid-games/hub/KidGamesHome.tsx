@@ -152,7 +152,7 @@ export function KidGamesHome() {
       {/* Classes */}
       <section aria-labelledby="kg-classes">
         <KidSectionTitle id="kg-classes" icon={GraduationCap} title="Choose Your Class" hint="Every class has 30 games: 10 Hindi, 10 English and 10 Maths." />
-        <ClassCardsGrid />
+        <ClassCardsGrid purpose="play" />
       </section>
 
       {/* Search, filters, and either results or recommendations */}

@@ -2096,7 +2096,7 @@ export const CATALOG_SEED: readonly CatalogSeedEntry[] = [
     "type": "dashboard_widget",
     "key": "classes",
     "title": "My Classes",
-    "description": "Class 1–5 cards with the user’s progress (needs the Kid Games feature on).",
+    "description": "The visible classes from Manage Courses (with game progress while Kid Games is on).",
     "order": 9
   },
   {

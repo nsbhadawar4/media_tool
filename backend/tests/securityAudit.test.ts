@@ -37,6 +37,7 @@ import healthRoutes from '../src/routes/healthRoutes';
 import kidGameRoutes from '../src/routes/kidGameRoutes';
 import reviewRoutes from '../src/routes/reviewRoutes';
 import contentRoutes from '../src/routes/contentRoutes';
+import progressRoutes from '../src/routes/progressRoutes';
 import settingsRoutes from '../src/routes/settingsRoutes';
 
 const PASSWORD = 'audit-password-123';
@@ -82,6 +83,7 @@ const MOUNTS: ReadonlyArray<[string, Router]> = [
   ['/kid-games', kidGameRoutes],
   ['/reviews', reviewRoutes],
   ['/content', contentRoutes],
+  ['/progress', progressRoutes],
   ['/settings', settingsRoutes],
 ];
 
@@ -106,6 +108,10 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/content/images/:id',
   // A published, visible class's subjects and chapters (no quiz answers, no internal ids).
   'GET /api/content/classes/:id/curriculum',
+  // One subject of such a class (checked to belong to it), with its chapters — same rules.
+  'GET /api/content/classes/:id/subjects/:id',
+  // One published chapter of it in full: lessons with practice answers to study; never quiz answers.
+  'GET /api/content/classes/:id/subjects/:id/chapters/:id',
   // The site's theme rules (light / dark allowed, default): no private data.
   'GET /api/settings/appearance',
 ]);

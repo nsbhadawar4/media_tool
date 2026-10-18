@@ -276,10 +276,11 @@ test('courses: create, list, read, update, hide, disable, archive, restore — a
   const read = await call('GET', '/api/content/courses/fractions-made-easy', undefined, user);
   assert.equal(read.data.lessons[1].url, 'https://example.com/quarters');
 
-  // Hidden: unlisted but reachable by its link. Disabled: gone.
+  // Hidden: gone for learners — from the list and by its link alike (administrators still preview it). Disabled: gone.
   await call('PATCH', `/api/admin/content/courses/${id}`, { isVisible: false }, admin);
   assert.ok(!(await call('GET', '/api/content/courses', undefined, user)).data.some((c: { id: string }) => c.id === id));
-  assert.equal((await call('GET', '/api/content/courses/fractions-made-easy', undefined, user)).status, 200);
+  assert.equal((await call('GET', '/api/content/courses/fractions-made-easy', undefined, user)).status, 404);
+  assert.equal((await call('GET', `/api/admin/content/courses/${id}`, undefined, admin)).status, 200);
   await call('PATCH', `/api/admin/content/courses/${id}`, { isEnabled: false }, admin);
   assert.equal((await call('GET', '/api/content/courses/fractions-made-easy', undefined, user)).status, 404);
   await call('PATCH', `/api/admin/content/courses/${id}`, { isEnabled: true, isVisible: true, title: 'Fractions!', lessons: [{ title: 'Only lesson' }] }, admin);

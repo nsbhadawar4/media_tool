@@ -1,5 +1,5 @@
 import { Schema, model, Types, type Document } from 'mongoose';
-import { resourceSchema, type IFreeResource } from './Course';
+import { resourceSchema, sourceSchema, type ICourseInfo, type IFreeResource } from './Course';
 import { CONTENT_TYPES, DIFFICULTIES, GAME_TYPES, type ContentType, type Difficulty, type GameType } from '../config/constants';
 
 /**
@@ -68,6 +68,11 @@ export interface IContentItem extends Document {
   meta: { difficulty: string | null; estimatedMinutes: number | null } | null;
   /** Class ↔ subject links: free resources (references only) chosen for this subject in this class. */
   resources: IFreeResource[];
+  /**
+   * Class ↔ subject links: the course this subject is in this class (Class 1 → Hindi) — its title,
+   * objectives, language, level and who last generated its content. Null until a course is saved.
+   */
+  course: ICourseInfo | null;
   /** Soft delete: archived entries are gone for users and restorable by an administrator. */
   archivedAt: Date | null;
   createdBy: Types.ObjectId | null;
@@ -122,6 +127,19 @@ const contentItemSchema = new Schema<IContentItem>(
       default: null,
     },
     resources: { type: [resourceSchema], default: [] },
+    course: {
+      type: new Schema<ICourseInfo>(
+        {
+          title: { type: String, default: '', trim: true, maxlength: 120 },
+          objectives: { type: [{ type: String, trim: true, maxlength: 300 }], default: [] },
+          language: { type: String, enum: ['english', 'hindi', 'bilingual', 'hinglish', null], default: null },
+          level: { type: String, enum: ['beginner', 'basic', 'intermediate', 'advanced', null], default: null },
+          source: { type: sourceSchema, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     archivedAt: { type: Date, default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },

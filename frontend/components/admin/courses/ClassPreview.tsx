@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink, Loader2, PencilLine, RefreshCw, Wand2 } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, ExternalLink, Loader2, PencilLine, RefreshCw, Send, Wand2 } from 'lucide-react';
+import { CONTENT_CATALOG_KEY } from '@/lib/content/useContentCatalog';
+import { useToast } from '@/lib/toast/ToastContext';
 import { ADMIN_CLASSES_KEY, adminClassesApi } from '@/lib/api/adminClasses';
 import { Button } from '@/components/ui/Button';
 import { CurriculumView } from '@/components/courses/CurriculumView';
 import { builtInSubtitle, classPicture } from '@/components/kid-games/cards/ClassCourseCard';
-import { ThemedPlaceholder } from './ClassGenerator';
+import { ThemedPlaceholder } from '@/components/courses/ThemedPlaceholder';
 
 const STATUS_TEXT = { draft: 'Draft — not shown publicly', visible: 'Published and visible', hidden: 'Hidden — not shown publicly', off: 'Switched off', archived: 'Archived' } as const;
 
@@ -20,6 +22,18 @@ export function ClassPreview({ level }: { level: number }) {
   const list = useQuery({ queryKey: [...ADMIN_CLASSES_KEY, 'all'], queryFn: async () => (await adminClassesApi.list('all')).data });
   const curriculum = useQuery({ queryKey: [...ADMIN_CLASSES_KEY, 'curriculum', level], queryFn: async () => (await adminClassesApi.curriculum(level)).data, enabled: level > 0 });
   const cls = list.data?.find((c) => c.classLevel === level);
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  // Publishing a class also publishes its draft chapters (the generator saves new chapters as drafts).
+  const publish = useMutation({
+    mutationFn: () => adminClassesApi.setStatus(level, 'published'),
+    onSuccess: () => {
+      toast.success(cls?.status === 'draft' ? `${cls.title} is published` : 'Draft chapters published');
+      void queryClient.invalidateQueries({ queryKey: ADMIN_CLASSES_KEY });
+      void queryClient.invalidateQueries({ queryKey: CONTENT_CATALOG_KEY });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Could not publish'),
+  });
 
   if (list.isLoading || curriculum.isLoading) {
     return (
@@ -65,10 +79,16 @@ export function ClassPreview({ level }: { level: number }) {
             <PencilLine aria-hidden className="h-4 w-4" />
             Edit
           </Link>
-          <Link href={`/admin/courses/${level}/generate`} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-surface-hover">
+          <Link href={`/admin/courses/generate?class=${level}`} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground hover:bg-surface-hover">
             <Wand2 aria-hidden className="h-4 w-4" />
-            Generate Curriculum
+            Generate Content
           </Link>
+          {(cls.status === 'draft' || cls.counts.draftChapters > 0) && (
+            <Button className="gap-1.5" onClick={() => publish.mutate()} isLoading={publish.isPending}>
+              <Send aria-hidden className="h-4 w-4" />
+              {cls.status === 'draft' ? 'Publish Class' : `Publish ${cls.counts.draftChapters} draft ${cls.counts.draftChapters === 1 ? 'chapter' : 'chapters'}`}
+            </Button>
+          )}
           {cls.status === 'visible' && (
             <a href={`/classes/${cls.slug}`} target="_blank" rel="noreferrer" className="btn-primary inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-accent-foreground">
               <ExternalLink aria-hidden className="h-4 w-4" />
@@ -101,7 +121,17 @@ export function ClassPreview({ level }: { level: number }) {
         </div>
       </section>
 
-      <CurriculumView subjects={curriculum.data!.subjects} showAnswers emptyText="This class has no subjects yet. Use Generate Curriculum to add them." />
+      {curriculum.data!.subjects.length > 0 && (
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="text-muted">Edit a course:</span>
+          {curriculum.data!.subjects.map((s) => (
+            <Link key={s.key} href={`/admin/courses/${level}/${s.key}`} className="rounded-full border border-border bg-surface px-3 py-1 font-medium text-foreground hover:bg-surface-hover">
+              {s.title}
+            </Link>
+          ))}
+        </div>
+      )}
+      <CurriculumView subjects={curriculum.data!.subjects} showAnswers emptyText="This class has no subjects yet. Add one in Edit, then generate its content." />
     </div>
   );
 }

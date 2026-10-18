@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type { ClientSession } from 'mongoose';
 
 import { ContentItem, type IContentItem } from '../models/ContentItem';
 import { Course, type ICourse } from '../models/Course';
@@ -7,43 +8,67 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { sendSuccess } from '../utils/apiResponse';
 import { ensureCatalogSeeded, invalidateCatalog, nextOrder } from '../services/contentService';
 import { classSubjectKey } from '../services/learningStructure';
-import { getCurriculumGenerator, type ClassBrief } from '../services/curriculum';
-import { findFreeResources } from '../services/curriculum/resources';
 import { auditItem } from './adminContentController';
 import { CLASS_FILTER, findClass, respondWithClass, uid } from './adminClassController';
-import { slugify, type SaveCurriculumInput } from '../validators/classValidators';
+import { slugify } from '../validators/classValidators';
 
 /**
- * The Course & Class Generator (admin) and a class's curriculum as visitors read it (public).
+ * A class's curriculum, read three ways: by administrators (everything, drafts and answers included —
+ * the preview), and by visitors as light summaries (a class page, a subject page) or one full chapter
+ * at a time (its lessons and practice). Publishing a class (and its draft chapters) and duplicating a
+ * class live here too; generating and editing courses is adminCourseController.
  *
- * Generation itself saves nothing: the administrator reviews subjects and chapters first. What is
- * saved lives in the existing content: subjects are class ↔ subject links (with this class's own
- * description, difficulty, time and free resources), and each chapter is a Course in that class
- * and subject — so the signed-in app's Courses and Kid Games pages show them too.
+ * Subjects are class ↔ subject links; each chapter is a Course in that class and subject.
  */
 
 type CourseDoc = ICourse;
+type Q = { type?: string | null; prompt: string; options: string[]; answer: string; difficulty?: string | null; explanation?: string };
 
-const withoutAnswers = (q: { prompt: string; options: string[] }) => ({ prompt: q.prompt, options: q.options });
+/** A question's type: stored, or (for questions written before types existed) read from its shape. */
+const typeOf = (q: Q) => q.type ?? (q.options.length === 2 && /^(true|सही)$/i.test(q.options[0] ?? '') ? 'true-false' : q.options.length ? 'mcq' : 'short-answer');
+/** A question learners study from: the answer comes with it (shown on request). */
+const withAnswer = (q: Q) => ({ type: typeOf(q), prompt: q.prompt, options: q.options, answer: q.answer, difficulty: q.difficulty ?? null, explanation: q.explanation ?? '' });
+/** A quiz question as visitors get it: the server keeps the answer and marks the quiz. */
+const quizQuestion = (q: Q) => ({ type: typeOf(q), prompt: q.prompt, options: q.options });
 
-function serializeChapter(c: CourseDoc, includeAnswers: boolean) {
+const questionCount = (c: CourseDoc) => (c.quiz?.length ?? 0) + c.lessons.reduce((n, l) => n + (l.questions?.length ?? 0) + (l.practice?.length ?? 0), 0) + (c.activities ?? []).reduce((n, a) => n + a.questions.length, 0);
+
+/** A chapter in a list (class and subject pages): no lesson content, so the page stays light. */
+function chapterSummary(c: CourseDoc) {
   return {
-    // Internal ids only for administrators; visitors get the chapter address.
-    ...(includeAnswers ? { id: c._id.toString(), generated: c.generated ?? false, isVisible: c.isVisible } : {}),
     slug: c.slug,
     title: c.title,
     description: c.summary,
-    objectives: c.objectives ?? [],
-    estimatedMinutes: c.estimatedMinutes ?? null,
     difficulty: c.difficulty ?? null,
-    lessons: c.lessons.map((l) => ({ title: l.title, body: l.body })),
-    activities: (c.activities ?? []).map((a) => ({
-      type: a.type,
-      title: a.title,
-      instructions: a.instructions,
-      questions: a.questions.map((q) => (includeAnswers ? { prompt: q.prompt, options: q.options, answer: q.answer } : withoutAnswers(q))),
+    estimatedMinutes: c.estimatedMinutes ?? null,
+    lessonCount: c.lessons.length,
+    questionCount: questionCount(c),
+    lessons: c.lessons.map((l, i) => ({ number: i + 1, title: l.title })),
+  };
+}
+
+/** A whole chapter. Admin: ids, status and every answer. Public: lesson answers (to study), never quiz answers. */
+export function serializeChapter(c: CourseDoc, audience: 'admin' | 'public') {
+  const admin = audience === 'admin';
+  return {
+    ...(admin ? { id: c._id.toString(), generated: c.generated ?? false, draft: c.draft ?? false, isVisible: c.isVisible, source: c.source ?? null } : {}),
+    ...chapterSummary(c),
+    objectives: c.objectives ?? [],
+    summary: c.recap ?? '',
+    lessons: c.lessons.map((l, i) => ({
+      ...(admin ? { id: String((l as unknown as { _id: unknown })._id) } : {}),
+      number: i + 1,
+      title: l.title,
+      // Older lessons have a body only: it is the lesson's explanation.
+      explanation: l.body,
+      examples: l.examples ?? [],
+      keyPoints: l.keyPoints ?? [],
+      questions: (l.questions ?? []).map(withAnswer),
+      practice: (l.practice ?? []).map(withAnswer),
+      estimatedMinutes: l.estimatedMinutes ?? null,
     })),
-    quiz: (c.quiz ?? []).map((q) => (includeAnswers ? { prompt: q.prompt, options: q.options, answer: q.answer } : withoutAnswers(q))),
+    activities: (c.activities ?? []).map((a) => ({ type: a.type, title: a.title, instructions: a.instructions, questions: a.questions.map(withAnswer) })),
+    quiz: (c.quiz ?? []).map((q) => (admin ? withAnswer(q) : quizQuestion(q))),
     resources: (c.resources ?? []).map(serializeResource),
   };
 }
@@ -59,18 +84,20 @@ const serializeResource = (r: { title: string; author: string | null; source: st
 });
 
 /**
- * A class's subjects with their chapters. Admin: every linked subject and chapter, answers included.
- * Public: only what a visitor may see — listed subjects and chapters, no answers.
+ * A class's subjects with their chapters. Admin: every linked subject and every chapter in full
+ * (drafts and answers included). Public: listed subjects and published, visible chapters, as summaries.
  */
-async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public') {
+async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onlySubject?: string) {
   const level = cls.classLevel!;
   const pub = audience === 'public';
+  // One subject: still read through this class's own link, so a subject the class doesn't offer is never returned.
+  const subjectFilter = onlySubject ? { subject: onlySubject } : {};
   const [links, subjects, courses, games] = await Promise.all([
-    ContentItem.find({ type: 'class_subject', classLevel: level, archivedAt: null, ...(pub ? { isEnabled: true, isVisible: true } : {}) }).sort({ order: 1, _id: 1 }),
+    ContentItem.find({ type: 'class_subject', classLevel: level, archivedAt: null, ...subjectFilter, ...(pub ? { isEnabled: true, isVisible: true } : {}) }).sort({ order: 1, _id: 1 }),
     ContentItem.find({ type: 'subject', archivedAt: null }),
-    Course.find({ classLevel: level, archivedAt: null, ...(pub ? { isEnabled: true, isVisible: true } : {}) }).sort({ order: 1, _id: 1 }),
+    Course.find({ classLevel: level, archivedAt: null, ...subjectFilter, ...(pub ? { isEnabled: true, isVisible: true, draft: { $ne: true } } : {}) }).sort({ order: 1, _id: 1 }),
     ContentItem.aggregate<{ _id: string; n: number }>([
-      { $match: { type: 'kid_game', classLevel: level, archivedAt: null, isEnabled: true, ...(pub ? { isVisible: true } : {}) } },
+      { $match: { type: 'kid_game', classLevel: level, archivedAt: null, isEnabled: true, ...subjectFilter, ...(pub ? { isVisible: true } : {}) } },
       { $group: { _id: '$subject', n: { $sum: 1 } } },
     ]),
   ]);
@@ -83,15 +110,16 @@ async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public') {
       return {
         key: l.subject!,
         title: s?.title ?? l.subject!,
-        // This class's own description when the generator wrote one, the shared one otherwise.
-        description: (l.meta || l.resources?.length ? l.description : '') || s?.description || '',
+        // How this class describes the subject ("A–Z, phonics…" for Class 1 English), else the shared text.
+        description: l.description || s?.description || '',
         glyph: s?.glyph ?? null,
         difficulty: l.meta?.difficulty ?? null,
         estimatedMinutes: l.meta?.estimatedMinutes ?? null,
         games: gamesBy.get(l.subject!) ?? 0,
         ...(pub ? {} : { isVisible: l.isVisible }),
+        course: l.course ? { title: l.course.title, objectives: l.course.objectives ?? [], language: l.course.language ?? null, level: l.course.level ?? null, ...(pub ? {} : { source: l.course.source ?? null }) } : null,
         resources: (l.resources ?? []).map(serializeResource),
-        chapters: courses.filter((c) => c.subject === l.subject).map((c) => serializeChapter(c, !pub)),
+        chapters: courses.filter((c) => c.subject === l.subject).map((c) => (pub ? chapterSummary(c) : serializeChapter(c, 'admin'))),
       };
     });
 }
@@ -114,7 +142,7 @@ async function assertPublishable(level: number) {
 }
 
 /** A course address for a chapter: "c6-science-plants", unique across all courses. */
-async function chapterSlug(level: number, subject: string, title: string, index: number, taken: Set<string>): Promise<string> {
+export async function chapterSlug(level: number, subject: string, title: string, index: number, taken: Set<string>): Promise<string> {
   const base = `c${level}-${subject}`.slice(0, 40).replace(/-+$/, '');
   const words = slugify(title).slice(0, 20).replace(/-+$/, '');
   const stem = `${base}-${words || `ch${index + 1}`}`;
@@ -128,33 +156,6 @@ async function chapterSlug(level: number, subject: string, title: string, index:
   throw AppError.conflict('Could not name a chapter — try a different title');
 }
 
-// ------------------------------------------------------------------------------------ generation
-
-export const suggestSubjects = asyncHandler(async (req: Request, res: Response) => {
-  const brief = req.body as ClassBrief;
-  const generator = getCurriculumGenerator();
-  const suggestions = await generator.suggestSubjects(brief);
-  // Subjects that already exist keep their shared name (the generator never renames them).
-  const existing = new Map((await ContentItem.find({ type: 'subject', key: { $in: suggestions.map((s) => s.key) } })).map((s) => [s.key, s]));
-  sendSuccess(res, {
-    generator: generator.name,
-    subjects: suggestions.map((s) => ({ ...s, title: existing.get(s.key)?.title ?? s.title, existing: existing.has(s.key) })),
-  });
-});
-
-export const buildChapters = asyncHandler(async (req: Request, res: Response) => {
-  const { brief, subjects } = req.body as { brief: ClassBrief; subjects: Array<{ key: string; title: string; difficulty?: 'easy' | 'medium' | 'hard'; chapterCount?: number }> };
-  const generator = getCurriculumGenerator();
-  const out = [];
-  for (const subject of subjects) out.push({ key: subject.key, chapters: await generator.buildChapters(brief, subject) });
-  sendSuccess(res, { generator: generator.name, subjects: out });
-});
-
-export const searchResources = asyncHandler(async (req: Request, res: Response) => {
-  const { subject, topic, classLevel } = req.query as unknown as { subject: string; topic?: string; classLevel?: number };
-  sendSuccess(res, await findFreeResources(subject, { topic, classLevel: classLevel === undefined ? undefined : Number(classLevel) }));
-});
-
 // ------------------------------------------------------------------------------------ a class's curriculum
 
 export const getClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
@@ -163,71 +164,21 @@ export const getClassCurriculum = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
- * Saves chapters (and chosen free resources) for the listed subjects of a class. A subject's
- * earlier generated chapters are replaced; chapters written by hand in Lesson courses are kept.
+ * Publishes a class's draft chapters (or one subject's). In a subject with drafts from a new version
+ * of its course, the earlier generated chapters are archived (restorable — never deleted) and the
+ * drafts take their place; a single chapter added as a draft simply goes live. Chapters written by
+ * hand are never archived here. Returns how many chapters went live.
  */
-export const saveClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
-  const { subjects } = req.body as SaveCurriculumInput;
-  const cls = await findClass(Number(req.params.level));
-  if (cls.archivedAt) throw AppError.conflict('Restore this class before changing it');
-  const level = cls.classLevel!;
-  const links = await ContentItem.find({ type: 'class_subject', classLevel: level, archivedAt: null });
-
-  const missing = subjects.filter((s) => !links.some((l) => l.subject === s.key));
-  if (missing.length) {
-    throw AppError.badRequest(`Class ${level} doesn't offer ${missing.map((m) => m.key).join(', ')}`, missing.map((m) => ({ path: 'subjects', message: `${m.key} is not in this class` })));
+export async function publishDraftChapters(req: Request, level: number, subject?: string, session: ClientSession | null = null): Promise<number> {
+  const drafts = await Course.find({ classLevel: level, draft: true, archivedAt: null, ...(subject ? { subject } : {}) }).session(session);
+  if (!drafts.length) return 0;
+  const replacing = [...new Set(drafts.filter((d) => d.supersedes !== false).map((d) => d.subject))];
+  if (replacing.length) {
+    await Course.updateMany({ classLevel: level, subject: { $in: replacing }, generated: true, draft: { $ne: true }, archivedAt: null }, { $set: { archivedAt: new Date(), updatedBy: uid(req) } }, { session: session ?? undefined });
   }
-
-  const taken = new Set<string>();
-  let chapters = 0;
-  for (const subject of subjects) {
-    // Earlier generated chapters go; any a Kid Game points at is archived instead of removed.
-    const old = await Course.find({ classLevel: level, subject: subject.key, generated: true, archivedAt: null });
-    for (const course of old) {
-      if (await ContentItem.exists({ type: 'kid_game', courseId: course._id })) {
-        course.archivedAt = new Date();
-        await course.save();
-      } else {
-        await course.deleteOne();
-      }
-    }
-    const handWritten = await Course.countDocuments({ classLevel: level, subject: subject.key, archivedAt: null });
-    for (const [i, ch] of subject.chapters.entries()) {
-      await Course.create({
-        title: ch.title,
-        slug: await chapterSlug(level, subject.key, ch.title, i, taken),
-        summary: ch.description,
-        classLevel: level,
-        subject: subject.key,
-        difficulty: ch.difficulty,
-        ageGroup: cls.profile?.targetAge || null,
-        learningObjective: ch.objectives[0] ?? '',
-        objectives: ch.objectives,
-        estimatedMinutes: ch.estimatedMinutes,
-        lessons: ch.lessons.map((l) => ({ title: l.title, body: l.body, url: null })),
-        activities: ch.activities,
-        quiz: ch.quiz,
-        generated: true,
-        order: handWritten + i + 1,
-        isEnabled: true,
-        isVisible: true,
-        createdBy: uid(req),
-        updatedBy: uid(req),
-      });
-      chapters++;
-    }
-    const link = links.find((l) => l.subject === subject.key)!;
-    link.resources = subject.resources;
-    link.updatedBy = uid(req);
-    await link.save();
-  }
-  cls.updatedBy = uid(req);
-  cls.markModified('updatedAt');
-  await cls.save();
-  invalidateCatalog();
-  await auditItem(req, 'content_updated', cls, 'Generated the curriculum of', { subjects: subjects.map((s) => s.key), chapters });
-  sendSuccess(res, { subjects: await curriculumOf(cls, 'admin') }, 200, undefined, 'Curriculum saved');
-});
+  await Course.updateMany({ _id: { $in: drafts.map((d) => d._id) } }, { $set: { draft: false, isVisible: true, updatedBy: uid(req) } }, { session: session ?? undefined });
+  return drafts.length;
+}
 
 /** Draft ↔ published. Publishing checks there is something to learn in every visible subject. */
 export const setClassStatus = asyncHandler(async (req: Request, res: Response) => {
@@ -236,11 +187,14 @@ export const setClassStatus = asyncHandler(async (req: Request, res: Response) =
   if (cls.archivedAt) throw AppError.conflict('Restore this class first');
   if (status === 'published') await assertPublishable(cls.classLevel!);
   const was = cls.status ?? 'published';
+  // Publishing also publishes the class's draft chapters (also how a published class's new ones go live).
+  const chapters = status === 'published' ? await publishDraftChapters(req, cls.classLevel!) : 0;
   cls.status = status;
   if (status === 'published') cls.isEnabled = true;
   cls.updatedBy = uid(req);
   await cls.save();
   invalidateCatalog();
+  if (chapters) await auditItem(req, 'content_updated', cls, 'Published the generated chapters of', { chapters });
   if (was !== status) await auditItem(req, status === 'published' ? 'content_shown' : 'content_hidden', cls, status === 'published' ? 'Published' : 'Moved to draft', { field: 'status', previous: was, next: status });
   await respondWithClass(res, cls, 200, status === 'published' ? 'Class published' : 'Saved as draft');
 });
@@ -326,24 +280,69 @@ export const duplicateClass = asyncHandler(async (req: Request, res: Response) =
 
 // ------------------------------------------------------------------------------------ public
 
-/** /api/content/classes/:slug/curriculum — a published, visible class as visitors read it. */
-export const publicClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
+/** A published, visible, switched-on class by its address (class-N), or a 404. */
+export async function findPublicClass(slug: string): Promise<IContentItem> {
   await ensureCatalogSeeded();
-  const cls = await ContentItem.findOne({ ...CLASS_FILTER, key: req.params.slug, archivedAt: null, isEnabled: true, isVisible: true, status: { $ne: 'draft' } });
+  const cls = await ContentItem.findOne({ ...CLASS_FILTER, key: slug, archivedAt: null, isEnabled: true, isVisible: true, status: { $ne: 'draft' } });
   if (!cls) throw AppError.notFound('Class not found');
-  res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, {
-    class: {
-      classLevel: cls.classLevel,
-      slug: cls.key,
-      title: cls.title,
-      subtitle: cls.subtitle ?? '',
-      description: cls.description,
-      details: cls.details ?? '',
-      image: cls.thumbnailUrl ?? null,
-      profile: cls.profile ? { learningGoal: cls.profile.learningGoal, targetAge: cls.profile.targetAge, language: cls.profile.language, difficulty: cls.profile.difficulty } : null,
-    },
-    subjects: await curriculumOf(cls, 'public'),
-  });
+  return cls;
+}
+
+/** What visitors may read about a class: no ids, nothing an administrator keeps to themselves. */
+const publicClassFields = (cls: IContentItem) => ({
+  classLevel: cls.classLevel,
+  slug: cls.key,
+  title: cls.title,
+  subtitle: cls.subtitle ?? '',
+  description: cls.description,
+  details: cls.details ?? '',
+  image: cls.thumbnailUrl ?? null,
+  profile: cls.profile ? { learningGoal: cls.profile.learningGoal, targetAge: cls.profile.targetAge, language: cls.profile.language, difficulty: cls.profile.difficulty } : null,
 });
 
+/** /api/content/classes/:slug/curriculum — a published, visible class as visitors read it. */
+export const publicClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
+  const cls = await findPublicClass(String(req.params.slug));
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, { class: publicClassFields(cls), subjects: await curriculumOf(cls, 'public') });
+});
+
+/**
+ * /api/content/classes/:slug/subjects/:subject — one subject as this class teaches it: its chapters
+ * (lessons, practice and quiz without answers) and resources. The class and the subject both come
+ * from the address, so the pair is checked here: a subject the class doesn't offer, or one that is
+ * hidden or switched off in it, is a 404 — never another class's subject of the same name.
+ */
+export const publicClassSubject = asyncHandler(async (req: Request, res: Response) => {
+  const cls = await findPublicClass(String(req.params.slug));
+  const [subject] = await curriculumOf(cls, 'public', String(req.params.subject));
+  if (!subject) throw AppError.notFound('Subject not found in this class');
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, { class: publicClassFields(cls), subject });
+});
+
+/**
+ * /api/content/classes/:slug/subjects/:subject/chapters/:chapter — one chapter in full (its lessons with
+ * their questions and practice, and its quiz without answers), checked to belong to this class and
+ * subject and to be published and visible, with the subject's other chapters for previous / next.
+ */
+/** A published, visible chapter by its address — under the same checks as its page — or a 404. */
+export async function findPublicChapter(slug: string, subjectKey: string, chapterSlug: string) {
+  const cls = await findPublicClass(slug);
+  const [subject] = await curriculumOf(cls, 'public', subjectKey);
+  if (!subject) throw AppError.notFound('Subject not found in this class');
+  const course = await Course.findOne({ classLevel: cls.classLevel, subject: subject.key, slug: chapterSlug, archivedAt: null, isEnabled: true, isVisible: true, draft: { $ne: true } });
+  if (!course) throw AppError.notFound('Chapter not found in this subject');
+  return { cls, subject, course };
+}
+
+export const publicChapter = asyncHandler(async (req: Request, res: Response) => {
+  const { cls, subject, course } = await findPublicChapter(String(req.params.slug), String(req.params.subject), String(req.params.chapter));
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, {
+    class: publicClassFields(cls),
+    subject: { key: subject.key, title: subject.title, glyph: subject.glyph },
+    chapter: serializeChapter(course, 'public'),
+    chapters: subject.chapters.map((c) => ({ slug: c.slug, title: c.title })),
+  });
+});
