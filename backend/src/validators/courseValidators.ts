@@ -49,6 +49,10 @@ const outline = z
   .strict();
 
 export const generateOutlineSchema = z.object({ brief: courseBriefSchema, engine }).strict();
+/** A generation saved as a job (resumable): the same brief, and whether it is a new version of an existing course. */
+export const startGenerationJobSchema = z.object({ brief: courseBriefSchema, engine, mode: z.enum(['new', 'new-version']).default('new') }).strict();
+export const generationJobParamSchema = z.object({ id: objectId }).strict();
+export const currentGenerationJobQuerySchema = z.object({ classLevel, subject: subjectKey }).strict();
 export const generateChapterSchema = z
   .object({ brief: courseBriefSchema, engine, outline, index: z.number().int().min(0).max(LIMITS.chapters - 1), seed })
   .strict()

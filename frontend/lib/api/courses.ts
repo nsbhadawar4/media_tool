@@ -114,7 +114,38 @@ export const courseAdminApi = {
   save: (level: number, subject: string, input: SaveCourseInput) => api.put<AdminCourse>(`/api/admin/courses/${level}/${encodeURIComponent(subject)}`, input),
   publish: (level: number, subject: string) => api.post<AdminCourse>(`/api/admin/courses/${level}/${encodeURIComponent(subject)}/publish`),
   unpublish: (level: number, subject: string) => api.post<AdminCourse>(`/api/admin/courses/${level}/${encodeURIComponent(subject)}/unpublish`),
+  /** Resumable generation, saved on the server: start, then `next` until ready (see courseGeneration.ts). */
+  jobs: {
+    start: (brief: CourseBrief, engine: Engine, mode: 'new' | 'new-version') => api.post<GenerationJob>('/api/admin/courses/generate/jobs', { brief, engine, mode }),
+    current: (classLevel: number, subject: string) => api.get<GenerationJob | null>('/api/admin/courses/generate/jobs/current', { classLevel, subject }),
+    next: (id: string) => api.post<GenerationJob>(`/api/admin/courses/generate/jobs/${id}/next`),
+    finish: (id: string) => api.post<GenerationJob>(`/api/admin/courses/generate/jobs/${id}/finish`),
+    discard: (id: string) => api.delete<GenerationJob>(`/api/admin/courses/generate/jobs/${id}`),
+  },
 };
+
+export const GENERATION_JOB_KEY = (level: number, subject: string) => ['admin', 'courses', 'job', level, subject] as const;
+
+/** A course being generated, as the server keeps it: chapters are saved as they are written. */
+export interface GenerationJob {
+  id: string;
+  classLevel: number;
+  subject: string;
+  status: 'running' | 'paused' | 'ready' | 'complete' | 'discarded';
+  engine: Engine;
+  mode: 'new' | 'new-version';
+  brief: CourseBrief;
+  outline: CourseOutline | null;
+  chapters: GeneratedChapter[];
+  by: GeneratedBy | null;
+  total: number;
+  done: number;
+  /** "outline", "chapter:5" (0-based), or null when everything is written. */
+  next: string | null;
+  retry: { step: string; attempt: number; of: number; waitSeconds: number } | null;
+  lastError: { message: string; code: string | null; rateLimited: boolean } | null;
+  updatedAt: string;
+}
 
 // ------------------------------------------------------------------------------------ progress
 

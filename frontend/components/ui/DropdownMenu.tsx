@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreVertical } from 'lucide-react';
 import { BottomSheet, SheetItem } from './BottomSheet';
@@ -13,6 +13,8 @@ export interface DropdownMenuItem {
   icon: ReactNode;
   onClick: () => void;
   danger?: boolean;
+  /** A separator line above this item, to group related actions. */
+  divider?: boolean;
 }
 
 interface DropdownMenuProps {
@@ -184,16 +186,18 @@ export function DropdownMenu({
           {header}
           <div role="menu" aria-orientation="vertical" className="pt-1">
             {items.map((item) => (
-              <SheetItem
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                danger={item.danger}
-                onClick={() => {
-                  close();
-                  item.onClick();
-                }}
-              />
+              <Fragment key={item.label}>
+                {item.divider && <div role="separator" className="mx-4 my-1 h-px bg-border" />}
+                <SheetItem
+                  icon={item.icon}
+                  label={item.label}
+                  danger={item.danger}
+                  onClick={() => {
+                    close();
+                    item.onClick();
+                  }}
+                />
+              </Fragment>
             ))}
           </div>
         </BottomSheet>
@@ -219,23 +223,25 @@ export function DropdownMenu({
           >
             {header}
             {items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                role="menuitem"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  close();
-                  item.onClick();
-                }}
-                className={cn(
-                  'group/item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-[background-color,padding] duration-150 hover:bg-surface-hover hover:pl-3.5 focus:bg-surface-hover focus:outline-none',
-                  item.danger ? 'text-danger hover:bg-danger/10 focus:bg-danger/10' : 'text-foreground-soft hover:text-foreground',
-                )}
-              >
-                {item.icon}
-                {item.label}
-              </button>
+              <Fragment key={item.label}>
+                {item.divider && <div role="separator" className="my-1 h-px bg-border" />}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    close();
+                    item.onClick();
+                  }}
+                  className={cn(
+                    'group/item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] transition-[background-color,padding] duration-150 hover:bg-surface-hover hover:pl-3.5 focus:bg-surface-hover focus:outline-none',
+                    item.danger ? 'text-danger hover:bg-danger/10 focus:bg-danger/10' : 'text-foreground-soft hover:text-foreground',
+                  )}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              </Fragment>
             ))}
           </div>,
           document.body,

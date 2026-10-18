@@ -27,6 +27,8 @@ export class AiProviderError extends Error {
   constructor(
     public readonly code: AiErrorCode,
     message: string,
+    /** rate_limited: how long the provider asked us to wait, when it said. */
+    public readonly retryAfterMs: number | null = null,
   ) {
     super(message);
     this.name = 'AiProviderError';
@@ -82,6 +84,45 @@ const timeoutMs = (env: NodeJS.ProcessEnv) => {
   return Number.isFinite(n) && n >= 1000 ? n : 180_000;
 };
 
+/** AI_MIN_INTERVAL_MS: the least time between two requests to the provider (default 2 s; 0 turns pacing off). */
+const intervalMs = (env: NodeJS.ProcessEnv) => {
+  const n = Number(env.AI_MIN_INTERVAL_MS);
+  return env.AI_MIN_INTERVAL_MS !== undefined && env.AI_MIN_INTERVAL_MS !== '' && Number.isFinite(n) && n >= 0 ? Math.min(n, 60_000) : 2000;
+};
+
+/** One queue per provider + model, shared by every request this server makes to it. */
+const lanes = new Map<string, { tail: Promise<void>; lastAt: number }>();
+
+/**
+ * Requests to a provider go one at a time, at least `gap` ms apart — a course's chapters (or two
+ * admins generating at once) never burst at the provider and trip its rate limit.
+ */
+function paced(inner: AiProvider, lane: string, gap: number): AiProvider {
+  if (gap <= 0) return inner;
+  return {
+    name: inner.name,
+    model: inner.model,
+    json<T>(req: AiRequest<T>) {
+      const q = lanes.get(lane) ?? { tail: Promise.resolve(), lastAt: 0 };
+      lanes.set(lane, q);
+      const run = q.tail.then(async () => {
+        const wait = q.lastAt + gap - Date.now();
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        try {
+          return await inner.json(req);
+        } finally {
+          q.lastAt = Date.now();
+        }
+      });
+      q.tail = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
+    },
+  };
+}
+
 /** The configured provider, or null when none is ready. */
 export function createAiProvider(env: NodeJS.ProcessEnv = process.env): AiProvider | null {
   const cfg = aiConfig(env);
@@ -89,9 +130,25 @@ export function createAiProvider(env: NodeJS.ProcessEnv = process.env): AiProvid
   const key = keyFor(cfg.provider!, env)!;
   const base = (env.AI_BASE_URL ?? '').trim() || undefined;
   const timeout = timeoutMs(env);
-  if (cfg.provider === 'anthropic') return new AnthropicProvider(key, cfg.model!, timeout, base);
-  if (cfg.provider === 'openai') return new OpenAiProvider(key, cfg.model!, timeout, base);
-  return new GeminiProvider(key, cfg.model!, timeout, base);
+  const provider =
+    cfg.provider === 'anthropic'
+      ? new AnthropicProvider(key, cfg.model!, timeout, base)
+      : cfg.provider === 'openai'
+        ? new OpenAiProvider(key, cfg.model!, timeout, base)
+        : new GeminiProvider(key, cfg.model!, timeout, base);
+  return paced(provider, `${cfg.provider}:${cfg.model}:${base ?? ''}`, intervalMs(env));
+}
+
+const RATE_LIMITED = 'The AI provider is busy (rate limit reached). It will be retried in a moment.';
+
+/** "Retry-After: 30" (seconds) or Google's RetryInfo detail ("retryDelay": "27s"), in ms. */
+function retryAfterOf(headers: Headers | undefined, body: unknown): number | null {
+  const header = Number(headers?.get('retry-after'));
+  if (Number.isFinite(header) && header > 0) return Math.round(header * 1000);
+  const details = (body as { error?: { details?: Array<{ retryDelay?: unknown }> } } | null)?.error?.details;
+  const delay = Array.isArray(details) ? details.find((d) => typeof d?.retryDelay === 'string')?.retryDelay : undefined;
+  const secs = typeof delay === 'string' ? Number.parseFloat(delay) : NaN;
+  return Number.isFinite(secs) && secs > 0 ? Math.round(secs * 1000) : null;
 }
 
 // ------------------------------------------------------------------------------------ Anthropic
@@ -134,7 +191,7 @@ function anthropicError(err: unknown): AiProviderError {
   if (err instanceof AiProviderError) return err;
   if (err instanceof Anthropic.APIConnectionTimeoutError) return new AiProviderError('timeout', 'The AI provider took too long to answer. Please try again.');
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return new AiProviderError('auth', 'The AI provider rejected the configured API key.');
-  if (err instanceof Anthropic.RateLimitError) return new AiProviderError('rate_limited', 'The AI provider is rate limiting requests. Please wait a moment and try again.');
+  if (err instanceof Anthropic.RateLimitError) return new AiProviderError('rate_limited', RATE_LIMITED, retryAfterOf(err.headers as Headers | undefined, null));
   if (err instanceof Anthropic.APIConnectionError) return new AiProviderError('upstream', 'The AI provider could not be reached.');
   if (err instanceof Anthropic.APIError) return new AiProviderError('upstream', `The AI provider returned an error (${err.status ?? 'unknown'}).`);
   // The SDK's parse step: the reply wasn't JSON matching the schema.
@@ -147,8 +204,7 @@ function anthropicError(err: unknown): AiProviderError {
 const schemaHint = <T>(req: AiRequest<T>) => `Return a single JSON object matching this JSON Schema (${req.name}):\n${JSON.stringify(z.toJSONSchema(req.schema as z.ZodType))}`;
 
 /** The provider's own error message ({ error: { message } } for Gemini and OpenAI), short and with any secret removed. */
-async function upstreamReason(res: Response, secrets: string[]): Promise<string> {
-  const body = (await res.json().catch(() => null)) as { error?: { message?: unknown } } | null;
+function upstreamReason(body: { error?: { message?: unknown } } | null, secrets: string[]): string {
   let message = typeof body?.error?.message === 'string' ? body.error.message : '';
   for (const s of secrets) if (s) message = message.split(s).join('[redacted]');
   message = message.replace(/\s+/g, ' ').trim();
@@ -164,9 +220,15 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
     throw new AiProviderError('upstream', 'The AI provider could not be reached.');
   }
   if (res.status === 401 || res.status === 403) throw new AiProviderError('auth', 'The AI provider rejected the configured API key.');
-  if (res.status === 429) throw new AiProviderError('rate_limited', 'The AI provider is rate limiting requests. Please wait a moment and try again.');
   if (!res.ok) {
-    const reason = await upstreamReason(res, Object.values(headers).map((v) => v.replace(/^Bearer\s+/i, '')));
+    const failure = (await res.json().catch(() => null)) as { error?: { message?: unknown; status?: unknown } } | null;
+    // 429, or Google's RESOURCE_EXHAUSTED (quota) whatever the status: a rate limit, worth retrying.
+    if (res.status === 429 || failure?.error?.status === 'RESOURCE_EXHAUSTED') {
+      const after = retryAfterOf(res.headers, failure);
+      logger.warn(`course generator: AI provider rate limit (${res.status})${after ? `, retry after ${Math.round(after / 1000)} s` : ''}`);
+      throw new AiProviderError('rate_limited', RATE_LIMITED, after);
+    }
+    const reason = upstreamReason(failure, Object.values(headers).map((v) => v.replace(/^Bearer\s+/i, '')));
     throw new AiProviderError('upstream', `The AI provider returned an error (${res.status})${reason ? `: ${reason}` : '.'}`);
   }
   return (await res.json().catch(() => {

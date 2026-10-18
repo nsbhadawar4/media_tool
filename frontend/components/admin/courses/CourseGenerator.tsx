@@ -7,7 +7,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, ArrowRight, Bot, CheckCircle2, Circle, ExternalLink, FileText, Loader2, RefreshCw, Save, Send, Sparkles, Wand2 } from 'lucide-react';
 import { ADMIN_CLASSES_KEY, adminClassesApi } from '@/lib/api/adminClasses';
 import { adminContentApi } from '@/lib/api/adminContent';
-import { COURSE_KEY, courseAdminApi, type CourseBrief, type CourseLanguage, type CourseLevel, type CourseOutline, type Engine, type GeneratedBy } from '@/lib/api/courses';
+import { COURSE_KEY, GENERATION_JOB_KEY, courseAdminApi, type CourseBrief, type CourseLanguage, type CourseLevel, type CourseOutline, type Engine, type GeneratedBy, type GenerationJob } from '@/lib/api/courses';
+import { nextChapterIndex, rateLimitOf, runGenerationJob, type RetryWait } from '@/lib/api/courseGeneration';
 import { CONTENT_CATALOG_KEY } from '@/lib/content/useContentCatalog';
 import { useToast } from '@/lib/toast/ToastContext';
 import { Button } from '@/components/ui/Button';
@@ -112,16 +113,23 @@ export function CourseGenerator() {
   const [instructions, setInstructions] = useState('');
   const engineQuery = useQuery({ queryKey: ['admin', 'courses', 'engine'], queryFn: async () => (await courseAdminApi.engine()).data, staleTime: 60_000 });
   const [engine, setEngine] = useState<Engine | null>(null);
-  const chosenEngine: Engine = engine ?? engineQuery.data?.defaultEngine ?? 'template';
+  // The administrator's choice, else what the server says (AI whenever a provider is configured). Never assumed:
+  // until the server answers there is no engine, and Generate waits — the template is used only when chosen.
+  const chosenEngine: Engine | null = engine ?? engineQuery.data?.defaultEngine ?? null;
 
   // Step 3–5
   const [stages, setStages] = useState<Stage[]>([]);
   const [genError, setGenError] = useState<string | null>(null);
-  const [outline, setOutline] = useState<CourseOutline | null>(null);
   const [by, setBy] = useState<GeneratedBy | null>(null);
   const [draft, setDraft] = useState<DraftCourse | null>(null);
   const [saved, setSaved] = useState<{ published: boolean } | null>(null);
   const [running, setRunning] = useState(false);
+  /** Waiting out a rate limit before retrying (null when not). */
+  const [wait, setWait] = useState<RetryWait | null>(null);
+  /** Where generation stopped: a chapter (0-based) or the plan (null), and whether it was a rate limit. */
+  const [failure, setFailure] = useState<{ chapter: number | null; rateLimited: boolean } | null>(null);
+  /** The generation job this page is running (saved on the server, chapter by chapter). */
+  const [job, setJob] = useState<GenerationJob | null>(null);
 
   const cls = classes.data?.find((c) => c.classLevel === classLevel);
   const subjectOptions = useMemo(() => {
@@ -142,6 +150,13 @@ export function CourseGenerator() {
     enabled: Boolean(classLevel && subject?.key && !isNewSubject),
   });
   const exists = (existing.data?.counts.chapters ?? 0) > 0;
+  // An unfinished generation for this class and subject (paused, or left when the page closed).
+  const savedJob = useQuery({
+    queryKey: GENERATION_JOB_KEY(classLevel, subject?.key ?? ''),
+    queryFn: async () => (await courseAdminApi.jobs.current(classLevel, subject!.key)).data,
+    enabled: Boolean(classLevel && subject?.key && !isNewSubject),
+  });
+  const unfinished = !job && savedJob.data && savedJob.data.status !== 'complete' && savedJob.data.status !== 'discarded' ? savedJob.data : null;
   // A new version only where a course exists (and the administrator chose it).
   const mode: 'new' | 'new-version' = exists && versionChosen ? 'new-version' : 'new';
 
@@ -152,77 +167,129 @@ export function CourseGenerator() {
   const step1Ready = Boolean(brief && (!exists || mode === 'new-version'));
 
   const message = (err: unknown) => (err instanceof Error ? err.message : 'Something went wrong');
+  const providerLabel = chosenEngine === 'template' ? 'The generator' : ({ gemini: 'Gemini', openai: 'OpenAI', anthropic: 'Claude' }[(job?.by?.provider ?? engineQuery.data?.ai.provider) || ''] ?? 'The AI provider');
 
-  /** Runs (or resumes) generation: the outline, then every chapter not written yet. */
-  async function generate(fresh: boolean) {
-    if (!brief || running) return;
+  /** The progress list for a job: the plan, each chapter, then the final check. */
+  function stagesFor(j: GenerationJob, state: 'running' | 'failed' | 'done'): Stage[] {
+    const now: Stage['state'] = state === 'failed' ? 'failed' : 'running';
+    const at = nextChapterIndex(j);
+    const list: Stage[] = [{ label: `Understanding Class ${j.classLevel} and planning the chapters`, state: j.outline ? 'done' : j.next === 'outline' ? now : 'waiting' }];
+    for (let i = 0; i < j.total; i++) {
+      const t = j.outline?.chapters[i]?.title;
+      list.push({ label: `Chapter ${i + 1} of ${j.total}${t ? `: ${t}` : ''} — lessons, questions and answers`, state: i < j.done ? 'done' : i === at ? now : 'waiting' });
+    }
+    list.push({ label: 'Validating and finalizing the course', state: state === 'done' ? 'done' : 'waiting' });
+    return list;
+  }
+
+  /** Shows a job as the server saved it: its plan and every chapter written so far. */
+  function show(j: GenerationJob, state: 'running' | 'failed' | 'done') {
+    setJob(j);
+    setStages(stagesFor(j, state));
+    if (!j.outline) return;
+    setBy(j.by);
+    setDraft({ title: j.outline.title, description: j.outline.description, objectives: j.outline.objectives, chapters: j.chapters.map((c) => toDraftChapter(c, 'draft')) });
+  }
+
+  /**
+   * Runs generation as a job saved on the server: the outline, then each chapter not written yet,
+   * one request at a time. Every chapter is saved as it arrives; a rate limit is waited out as the
+   * server says (backoff or Retry-After, at most 4 retries). If it stops, the job is paused with its
+   * chapters kept, and "Resume Generation" continues from the first missing chapter — now or after
+   * a reload. `resume` continues that job (with its own settings); `fresh` starts a new one.
+   */
+  async function generate(fresh: boolean, resume?: GenerationJob) {
+    const b = resume?.brief ?? brief;
+    const eng = resume?.engine ?? job?.engine ?? chosenEngine;
+    if (!b || !eng || running) return;
     setRunning(true);
     setGenError(null);
-    let plan = fresh ? null : outline;
-    const written = fresh ? [] : (draft?.chapters ?? []);
-    if (fresh) {
-      setDraft(null);
-      setOutline(null);
-      setBy(null);
-    }
-    const base: Stage[] = [{ label: `Understanding Class ${brief.classLevel} and planning the chapters`, state: plan ? 'done' : 'waiting' }];
-    const total = plan?.chapters.length ?? brief.chapters;
-    const chapterLabel = (i: number, t?: string) => `Chapter ${i + 1}${t ? `: ${t}` : ''} — lessons, questions and answers`;
-    for (let i = 0; i < total; i++) base.push({ label: chapterLabel(i, plan?.chapters[i]?.title), state: i < written.length ? 'done' : 'waiting' });
-    base.push({ label: 'Validating and finalizing the course', state: 'waiting' });
-    setStages(base);
-    const mark = (i: number, state: Stage['state'], label?: string) => setStages((s) => s.map((x, j) => (j === i ? { ...x, state, ...(label ? { label } : {}) } : x)));
-    let at = 0;
+    setFailure(null);
+    setWait(null);
     try {
-      if (!plan) {
-        mark(0, 'running');
-        const res = await courseAdminApi.outline(brief, chosenEngine);
-        plan = res.data.outline;
-        setOutline(plan);
-        setBy(res.data.by);
-        mark(0, 'done');
-        plan.chapters.forEach((c, i) => mark(i + 1, 'waiting', chapterLabel(i, c.title)));
+      let current = resume ?? (fresh ? null : job);
+      if (!current || current.status === 'complete' || current.status === 'discarded') {
+        setDraft(null);
+        setBy(null);
+        try {
+          current = (await courseAdminApi.jobs.start(b, chosenEngine ?? eng, mode)).data;
+        } catch (err) {
+          setFailure({ chapter: null, rateLimited: false });
+          setGenError(message(err));
+          return;
+        }
       }
-      const chaptersSoFar = [...written];
-      for (let i = chaptersSoFar.length; i < plan.chapters.length; i++) {
-        at = i + 1;
-        mark(at, 'running');
-        const res = await courseAdminApi.chapter(brief, chosenEngine, plan, i);
-        chaptersSoFar.push(toDraftChapter(res.data.chapter, 'draft'));
-        setBy(res.data.by);
-        setDraft({ title: plan.title, description: plan.description, objectives: plan.objectives, chapters: [...chaptersSoFar] });
-        mark(at, 'done');
+      show(current, 'running');
+      const run = await runGenerationJob({
+        job: current,
+        next: async (id) => (await courseAdminApi.jobs.next(id)).data,
+        onProgress: (j) => show(j, 'running'),
+        onWait: setWait,
+      });
+      if (run.error) {
+        show(run.job, 'failed');
+        setFailure({ chapter: nextChapterIndex(run.job), rateLimited: Boolean(rateLimitOf(run.error)) });
+        setGenError(message(run.error));
+        return;
       }
-      at = plan.chapters.length + 1;
-      mark(at, 'running');
       // Every chapter was validated by the server as it arrived; this is the final check of the whole.
-      mark(at, 'done');
+      show(run.job, 'done');
       setStep(3);
       toast.success('Course generated successfully');
-    } catch (err) {
-      mark(at, 'failed');
-      setGenError(message(err));
     } finally {
+      setWait(null);
       setRunning(false);
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'courses', 'job'] });
     }
   }
 
+  /** Picks up an unfinished generation (after a reload, or later): its settings, then carries on. */
+  function resumeJob(j: GenerationJob) {
+    const jb = j.brief;
+    setTypedTitle(jb.title);
+    setDescription(jb.description);
+    setLanguage(jb.language);
+    setLevel(jb.level);
+    setChapters(jb.chapters);
+    setLessons(jb.lessonsPerChapter);
+    setQuestions(jb.questionsPerLesson);
+    setPrompt(jb.prompt);
+    setGoals(jb.goals);
+    setInclude(jb.include);
+    setAvoid(jb.avoid);
+    setInstructions(jb.instructions);
+    setEngine(j.engine);
+    setVersionChosen(j.mode === 'new-version');
+    setStep(2);
+    void generate(false, j);
+  }
+
+  const discardJob = useMutation({
+    mutationFn: (id: string) => courseAdminApi.jobs.discard(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'courses', 'job'] });
+      toast.success('Unfinished generation discarded');
+    },
+    onError: (err) => toast.error(message(err)),
+  });
+
+  const regenEngine: Engine = job?.engine ?? chosenEngine ?? 'ai';
   const regenerate = brief
     ? {
         chapter: async (index: number) => {
           const plan: CourseOutline = { title: draft!.title, description: draft!.description, objectives: draft!.objectives, chapters: draft!.chapters.map((c) => ({ title: c.title, description: c.description || c.title, lessonTitles: c.lessons.map((l) => l.title) })) };
-          const res = await courseAdminApi.chapter({ ...brief, chapters: plan.chapters.length, lessonsPerChapter: plan.chapters[index]!.lessonTitles.length || brief.lessonsPerChapter }, chosenEngine, plan, index, String(Date.now()));
+          const res = await courseAdminApi.chapter({ ...brief, chapters: plan.chapters.length, lessonsPerChapter: plan.chapters[index]!.lessonTitles.length || brief.lessonsPerChapter }, regenEngine, plan, index, String(Date.now()));
           return toDraftChapter(res.data.chapter, 'draft');
         },
         lesson: async (ci: number, li: number) => {
           const c = draft!.chapters[ci]!;
-          const res = await courseAdminApi.lesson(brief, chosenEngine, { title: c.title, description: c.description || c.title, lessonTitles: c.lessons.map((l) => l.title) }, li, String(Date.now()));
+          const res = await courseAdminApi.lesson(brief, regenEngine, { title: c.title, description: c.description || c.title, lessonTitles: c.lessons.map((l) => l.title) }, li, String(Date.now()));
           return toDraftLesson(res.data.lesson);
         },
         questions: async (ci: number, li: number, count: number) => {
           const c = draft!.chapters[ci]!;
           const l = c.lessons[li]!;
-          const res = await courseAdminApi.questions(brief, chosenEngine, c.title, li, { title: l.title, explanation: l.explanation }, Math.min(15, count), String(Date.now()));
+          const res = await courseAdminApi.questions(brief, regenEngine, c.title, li, { title: l.title, explanation: l.explanation }, Math.min(15, count), String(Date.now()));
           return res.data.questions.map(toDraftQuestion);
         },
       }
@@ -246,6 +313,9 @@ export function CourseGenerator() {
       void queryClient.invalidateQueries({ queryKey: CONTENT_CATALOG_KEY });
       setSaved({ published: publish });
       setStep(4);
+      // The course is saved: its generation job is done (it no longer offers to resume).
+      if (job) void courseAdminApi.jobs.finish(job.id).catch(() => undefined);
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'courses', 'job'] });
       toast.success(publish ? 'Course published' : 'Course saved as a draft');
     },
     onError: (err) => toast.error(message(err)),
@@ -343,6 +413,27 @@ export function CourseGenerator() {
               </select>
             </Field>
           </div>
+          {unfinished && (
+            <div role="status" className="flex flex-col gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between">
+              <p className="flex gap-2">
+                <RefreshCw aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                <span>
+                  <strong>Unfinished generation</strong> — {unfinished.done} of {unfinished.total} chapters are saved
+                  {unfinished.lastError?.rateLimited ? ` (paused: ${providerLabel} was rate limiting requests)` : unfinished.status === 'ready' ? ', ready to review' : ''}. Continue from chapter{' '}
+                  {Math.min(unfinished.done + 1, unfinished.total)}, or start over.
+                </span>
+              </p>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button type="button" size="sm" variant="ghost" disabled={discardJob.isPending} onClick={() => discardJob.mutate(unfinished.id)}>
+                  Start Over
+                </Button>
+                <Button type="button" size="sm" className="gap-1.5" onClick={() => resumeJob(unfinished)}>
+                  <RefreshCw aria-hidden className="h-4 w-4" />
+                  {unfinished.status === 'paused' && unfinished.outline ? 'Retry from failed chapter' : 'Resume Generation'}
+                </Button>
+              </div>
+            </div>
+          )}
           {exists && existing.data && (
             <div role="status" className="flex flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-sm text-foreground sm:flex-row sm:items-center sm:justify-between">
               <p className="flex gap-2">
@@ -452,7 +543,7 @@ export function CourseGenerator() {
               ['Questions', `${brief.questionsPerLesson} per lesson`],
               ['Language', LANGUAGES.find((l) => l.value === language)!.label],
               ['Difficulty', LEVELS.find((l) => l.value === level)!.label],
-              ['Generator', chosenEngine === 'ai' ? `AI (${engineQuery.data?.ai.provider})` : 'Template (no AI)'],
+              ['Generator', chosenEngine === 'ai' ? `AI (${engineQuery.data?.ai.provider} · ${engineQuery.data?.ai.model})` : chosenEngine === 'template' ? 'Template (no AI)' : 'Checking…'],
             ].map(([k2, v]) => (
               <div key={k2} className="rounded-xl border border-border bg-surface-elevated/60 px-3 py-2">
                 <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">{k2}</dt>
@@ -461,6 +552,23 @@ export function CourseGenerator() {
             ))}
           </dl>
           {mode === 'new-version' && <p className="text-xs text-muted">This is a new version: it is saved as drafts beside the current course and replaces it only when published.</p>}
+          {!chosenEngine && (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-elevated/60 px-4 py-3 text-sm text-foreground">
+              {engineQuery.isError ? (
+                <>
+                  <span>Could not check the AI provider, so generation waits (it never falls back to the template).</span>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => void engineQuery.refetch()}>
+                    Try again
+                  </Button>
+                </>
+              ) : (
+                <span className="inline-flex items-center gap-2 text-muted">
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+                  Checking the AI provider…
+                </span>
+              )}
+            </div>
+          )}
           {stages.length > 0 && (
             <ol className="space-y-1.5" aria-live="polite">
               {stages.map((s, i) => (
@@ -474,34 +582,39 @@ export function CourseGenerator() {
                   ) : (
                     <Circle aria-hidden className="h-4 w-4 shrink-0 text-subtle" />
                   )}
-                  <span className={cn(s.state === 'waiting' ? 'text-muted' : 'text-foreground')}>{s.label}</span>
+                  <span className="min-w-0">
+                    <span className={cn(s.state === 'waiting' ? 'text-muted' : 'text-foreground')}>{s.label}</span>
+                    {s.state === 'running' && wait && (
+                      <span className="block text-xs text-warning" role="status">
+                        {providerLabel} is temporarily rate limiting requests. Your completed chapters are saved. We will automatically retry shortly.{' '}
+                        <span className="text-muted">
+                          ({wait.chapter ? `Chapter ${wait.chapter}` : 'Course plan'}: {wait.secondsLeft > 0 ? `retrying in ${wait.secondsLeft} s` : 'retrying now'} · attempt {wait.attempt} of {wait.of})
+                        </span>
+                      </span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ol>
           )}
           {genError && (
             <div role="alert" className="rounded-2xl border border-danger/40 bg-danger/10 p-4 text-sm text-foreground">
-              <p className="font-semibold">Generation stopped</p>
+              <p className="font-semibold">
+                {failure?.rateLimited ? 'Generation paused' : failure?.chapter != null ? `Chapter ${failure.chapter + 1} of ${job?.total ?? brief?.chapters ?? ''} could not be written` : 'Generation stopped'}
+              </p>
+              {/* The server's words, e.g. "Gemini is still rate limiting requests after 5 automatic retries. Your completed chapters are saved — …" */}
               <p className="mt-1">{genError}</p>
-              <p className="mt-1 text-xs text-muted">Nothing was saved. Chapters already written are kept — retrying continues from where it stopped.</p>
+              <p className="mt-1 text-xs text-muted">
+                {job && job.done > 0
+                  ? `Chapters 1–${job.done} of ${job.total} are saved and will not be written again. Retrying continues from chapter ${job.done + 1}${failure?.rateLimited ? ' — now, or later from this page' : ''}.`
+                  : 'Nothing is lost. Retrying continues from where it stopped.'}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
+                {/* Retries the same AI step — Gemini content is never swapped for the template. */}
                 <Button type="button" size="sm" className="gap-1.5" onClick={() => void generate(false)}>
                   <RefreshCw aria-hidden className="h-4 w-4" />
-                  Retry
+                  {failure?.chapter != null ? 'Retry from failed chapter' : 'Retry'}
                 </Button>
-                {chosenEngine === 'ai' && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setEngine('template');
-                      setTimeout(() => void generate(true));
-                    }}
-                  >
-                    Use the template generator instead
-                  </Button>
-                )}
               </div>
             </div>
           )}
@@ -575,7 +688,7 @@ export function CourseGenerator() {
               </Button>
             )}
             {step === 2 && (
-              <Button type="button" className="gap-1.5" disabled={running} isLoading={stages.some((s) => s.state === 'running')} onClick={() => void generate(!genError)}>
+              <Button type="button" className="gap-1.5" disabled={running || !chosenEngine} isLoading={stages.some((s) => s.state === 'running')} onClick={() => void generate(!genError)}>
                 <Wand2 aria-hidden className="h-4 w-4" />
                 Generate Course
               </Button>

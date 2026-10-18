@@ -1,6 +1,17 @@
 import { Router } from 'express';
 import { courseEngine, generateCourseChapter, generateCourseLesson, generateCourseOutline, generateCourseQuestions, getCourse as getSubjectCourse, publishCourse, saveCourse, unpublishCourse } from '../controllers/adminCourseController';
-import { generateChapterSchema, generateLessonSchema, generateOutlineSchema, generateQuestionsSchema, levelSubjectParamSchema, saveCourseSchema } from '../validators/courseValidators';
+import {
+  currentGenerationJobQuerySchema,
+  generateChapterSchema,
+  generateLessonSchema,
+  generateOutlineSchema,
+  generateQuestionsSchema,
+  generationJobParamSchema,
+  levelSubjectParamSchema,
+  saveCourseSchema,
+  startGenerationJobSchema,
+} from '../validators/courseValidators';
+import { currentGenerationJob, discardGenerationJob, finishGenerationJob, nextGenerationStep, startGenerationJob } from '../controllers/courseGenerationJobController';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
 import { updateAppearanceSchema } from '../validators/settingsValidators';
@@ -166,6 +177,12 @@ router.get('/classes/:level/curriculum', validate(classLevel), getClassCurriculu
 // AI Course Generator and course editor: a course is one subject of one class. Generating saves nothing.
 const levelSubject = { params: levelSubjectParamSchema };
 router.get('/courses/engine', courseEngine);
+// Resumable generation: one step per request (fits serverless), rate limits retried with backoff, chapters kept as they arrive.
+router.post('/courses/generate/jobs', validate({ body: startGenerationJobSchema }), startGenerationJob);
+router.get('/courses/generate/jobs/current', validate({ query: currentGenerationJobQuerySchema }), currentGenerationJob);
+router.post('/courses/generate/jobs/:id/next', validate({ params: generationJobParamSchema }), nextGenerationStep);
+router.post('/courses/generate/jobs/:id/finish', validate({ params: generationJobParamSchema }), finishGenerationJob);
+router.delete('/courses/generate/jobs/:id', validate({ params: generationJobParamSchema }), discardGenerationJob);
 router.post('/courses/generate/outline', validate({ body: generateOutlineSchema }), generateCourseOutline);
 router.post('/courses/generate/chapter', validate({ body: generateChapterSchema }), generateCourseChapter);
 router.post('/courses/generate/lesson', validate({ body: generateLessonSchema }), generateCourseLesson);

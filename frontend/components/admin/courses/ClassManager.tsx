@@ -28,7 +28,6 @@ import { useToast } from '@/lib/toast/ToastContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
-import { Button } from '@/components/ui/Button';
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DangerConfirmDialog } from '@/components/ui/DangerConfirmDialog';
@@ -276,73 +275,73 @@ export function ClassManager() {
         <div className={cn('overflow-hidden rounded-2xl border border-border bg-surface shadow-card transition-opacity', (query.isFetching || move.isPending) && 'opacity-70')}>
           {/* Table from xl up (beside the admin sidebar it needs the room); scrolls rather than clips if it must */}
           <div className="hidden overflow-x-auto xl:block">
-            <table className="w-full min-w-[1100px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="border-b border-border bg-surface-hover/40 text-[11px] font-semibold uppercase tracking-[0.08em] text-subtle">
                 <tr>
-                  <th scope="col" className="px-5 py-3">
+                  <th scope="col" className="py-3 pl-5 pr-3">
                     Class
                   </th>
-                  <th scope="col" className="px-3 py-3">
-                    Title
-                  </th>
-                  <th scope="col" className="px-3 py-3 text-right">
+                  <th scope="col" className="w-20 px-2 py-3 text-center">
                     Subjects
                   </th>
-                  <th scope="col" className="px-3 py-3 text-right">
+                  <th scope="col" className="w-20 px-2 py-3 text-center">
                     Chapters
                   </th>
-                  <th scope="col" className="px-3 py-3 text-right">
+                  <th scope="col" className="w-20 px-2 py-3 text-center">
                     Lessons
                   </th>
-                  <th scope="col" className="px-3 py-3 text-right">
+                  <th scope="col" className="w-20 px-2 py-3 text-center">
                     Questions
                   </th>
-                  <th scope="col" className="px-3 py-3">
+                  <th scope="col" className="w-28 px-3 py-3">
                     Status
                   </th>
-                  <th scope="col" className="px-3 py-3">
+                  <th scope="col" className="w-28 px-3 py-3">
                     Visibility
                   </th>
-                  <th scope="col" className="px-3 py-3">
+                  <th scope="col" className="w-36 px-3 py-3">
                     Updated
                   </th>
-                  <th scope="col" className="px-3 py-3">
-                    Created
-                  </th>
-                  <th scope="col" className="px-5 py-3 text-right">
-                    Actions
+                  <th scope="col" className="w-14 py-3 pl-3 pr-5 text-right">
+                    <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/70">
                 {shown.map((cls) => (
-                  <tr key={cls.id} style={classVars(cls.classLevel)} className={cn('align-middle transition-colors hover:bg-surface-hover/30', cls.status === 'archived' && 'opacity-75')}>
-                    <td className="px-5 py-3.5">
-                      <ClassThumb cls={cls} />
+                  <tr key={cls.id} style={classVars(cls.classLevel)} className={cn('group align-middle transition-colors hover:bg-surface-hover/40', cls.status === 'archived' && 'opacity-70')}>
+                    <td className="py-3 pl-5 pr-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <ClassThumb cls={cls} />
+                        <TitleCell cls={cls} />
+                      </div>
                     </td>
-                    <td className="max-w-72 px-3 py-3.5">
-                      <TitleCell cls={cls} />
+                    <td className="px-2 py-3 text-center" title={`${cls.counts.visibleSubjects} shown in this class`}>
+                      <Count n={cls.counts.subjects} />
                     </td>
-                    <td className="px-3 py-3.5 text-right tabular-nums text-foreground-soft" title={`${cls.counts.visibleSubjects} shown in this class`}>
-                      {cls.counts.subjects}
+                    <td className="px-2 py-3 text-center">
+                      <Count n={cls.counts.chapters} />
+                      {cls.counts.draftChapters > 0 && <span className="block text-[10px] font-medium text-sky-600 dark:text-sky-300">+{cls.counts.draftChapters} draft</span>}
                     </td>
-                    <td className="px-3 py-3.5 text-right tabular-nums text-foreground-soft">
-                      {cls.counts.chapters}
-                      {cls.counts.draftChapters > 0 && <span className="block text-[11px] text-sky-600 dark:text-sky-300">+{cls.counts.draftChapters} draft</span>}
+                    <td className="px-2 py-3 text-center">
+                      <Count n={cls.counts.lessons} />
                     </td>
-                    <td className="px-3 py-3.5 text-right tabular-nums text-foreground-soft">{cls.counts.lessons}</td>
-                    <td className="px-3 py-3.5 text-right tabular-nums text-foreground-soft">{cls.counts.questions}</td>
-                    <td className="px-3 py-3.5">
+                    <td className="px-2 py-3 text-center">
+                      <Count n={cls.counts.questions} />
+                    </td>
+                    <td className="px-3 py-3">
                       <StatusBadge cls={cls} />
                     </td>
-                    <td className="px-3 py-3.5">
+                    <td className="px-3 py-3">
                       <VisibilityBadge cls={cls} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3.5 text-xs text-muted" title={new Date(cls.updatedAt).toLocaleString()}>
-                      {formatRelativeTime(cls.updatedAt)}
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <p className="text-xs font-medium text-foreground-soft" title={new Date(cls.updatedAt).toLocaleString()}>
+                        {formatRelativeTime(cls.updatedAt)}
+                      </p>
+                      <p className="text-[11px] text-subtle">Created {shortDate(cls.createdAt)}</p>
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3.5 text-xs text-muted">{shortDate(cls.createdAt)}</td>
-                    <td className="px-5 py-3.5">
+                    <td className="py-3 pl-3 pr-5 text-right">
                       <Actions cls={cls} onAction={onAction(cls)} onMove={canReorder ? onMove(cls) : undefined} liveCount={live.length} />
                     </td>
                   </tr>
@@ -352,27 +351,41 @@ export function ClassManager() {
           </div>
 
           {/* Cards below xl */}
-          <ul className="divide-y divide-border xl:hidden">
+          <ul className="divide-y divide-border/70 xl:hidden">
             {shown.map((cls) => (
-              <li key={cls.id} style={classVars(cls.classLevel)} className={cn('flex flex-col gap-3 p-4', cls.status === 'archived' && 'opacity-75')}>
+              <li key={cls.id} style={classVars(cls.classLevel)} className={cn('flex flex-col gap-3 p-4', cls.status === 'archived' && 'opacity-70')}>
                 <div className="flex items-start gap-3">
                   <ClassThumb cls={cls} />
                   <div className="min-w-0 flex-1">
                     <TitleCell cls={cls} />
                   </div>
+                  <Actions cls={cls} onAction={onAction(cls)} onMove={canReorder ? onMove(cls) : undefined} liveCount={live.length} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-foreground-soft">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge cls={cls} />
                   <VisibilityBadge cls={cls} />
-                  <span>
-                    {cls.counts.subjects} {cls.counts.subjects === 1 ? 'subject' : 'subjects'} · {cls.counts.chapters} {cls.counts.chapters === 1 ? 'chapter' : 'chapters'} · {cls.counts.lessons} lessons · {cls.counts.questions} questions
-                    {cls.counts.draftChapters > 0 && ` (+${cls.counts.draftChapters} draft)`}
-                  </span>
                 </div>
-                <p className="text-xs text-muted">
+                <dl className="grid grid-cols-4 gap-2 rounded-xl border border-border/70 bg-surface-elevated/40 p-2 text-center">
+                  {(
+                    [
+                      ['Subjects', cls.counts.subjects],
+                      ['Chapters', cls.counts.chapters],
+                      ['Lessons', cls.counts.lessons],
+                      ['Questions', cls.counts.questions],
+                    ] as const
+                  ).map(([label, n]) => (
+                    <div key={label}>
+                      <dt className="text-[10px] font-semibold uppercase tracking-wider text-subtle">{label}</dt>
+                      <dd>
+                        <Count n={n} />
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="text-[11px] text-subtle">
                   Updated {formatRelativeTime(cls.updatedAt)} · Created {shortDate(cls.createdAt)}
+                  {cls.counts.draftChapters > 0 && <span className="text-sky-600 dark:text-sky-300"> · {cls.counts.draftChapters} draft chapters</span>}
                 </p>
-                <Actions cls={cls} onAction={onAction(cls)} onMove={canReorder ? onMove(cls) : undefined} liveCount={live.length} wide />
               </li>
             ))}
           </ul>
@@ -486,27 +499,52 @@ function ClassThumb({ cls }: { cls: AdminClass }) {
 
 function TitleCell({ cls }: { cls: AdminClass }) {
   const subtitle = cls.subtitle || (cls.builtIn ? builtInSubtitle(cls.classLevel) : '');
+  const editable = cls.status !== 'archived';
   return (
     <div className="min-w-0">
-      <p className="truncate font-semibold text-foreground">
-        {cls.title}
-        {cls.position !== null && <span className="ml-2 text-xs font-normal text-subtle">#{cls.position}</span>}
+      <p className="flex items-baseline gap-2 truncate">
+        {editable ? (
+          <Link href={`/admin/courses/${cls.classLevel}`} className="truncate font-semibold text-foreground underline-offset-4 hover:underline">
+            {cls.title}
+          </Link>
+        ) : (
+          <span className="truncate font-semibold text-foreground">{cls.title}</span>
+        )}
+        {cls.position !== null && <span className="shrink-0 text-[11px] font-medium text-subtle">#{cls.position}</span>}
       </p>
       {subtitle && <p className="truncate text-xs font-medium text-[color-mix(in_srgb,var(--kg)_68%,var(--foreground))]">{subtitle}</p>}
       {cls.subjects.length > 0 ? (
-        <p className="mt-0.5 truncate text-xs text-muted" title={cls.subjects.map((s) => s.title).join(', ')}>
-          {cls.subjects.map((s) => s.title).join(' · ')}
-        </p>
+        <ul className="mt-1.5 flex flex-nowrap gap-1 overflow-hidden" aria-label="Subjects">
+          {cls.subjects.map((s) => (
+            <li
+              key={s.key}
+              className={cn('shrink-0 whitespace-nowrap rounded-md border border-border/80 bg-surface-elevated px-1.5 py-px text-[11px] font-medium text-foreground-soft', !s.isVisible && 'opacity-60')}
+              title={s.isVisible ? undefined : 'Hidden in this class'}
+            >
+              {s.title}
+            </li>
+          ))}
+        </ul>
       ) : (
-        <p className="mt-0.5 text-xs text-muted">No subjects yet</p>
+        <p className="mt-1 text-xs text-muted">No subjects yet</p>
       )}
     </div>
   );
 }
 
+/** A count; zero is muted, so empty classes stand out at a glance. */
+function Count({ n }: { n: number }) {
+  return <span className={cn('tabular-nums', n > 0 ? 'font-semibold text-foreground' : 'text-subtle')}>{n}</span>;
+}
+
 function StatusBadge({ cls }: { cls: AdminClass }) {
   const badge = STATUS_BADGE[statusOf(cls)];
-  return <span className={cn('inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', badge.className)}>{badge.label}</span>;
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold', badge.className)}>
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+      {badge.label}
+    </span>
+  );
 }
 
 function VisibilityBadge({ cls }: { cls: AdminClass }) {
@@ -516,7 +554,7 @@ function VisibilityBadge({ cls }: { cls: AdminClass }) {
     <span
       title={cls.status === 'off' ? 'Switched off in Content → Classes' : undefined}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
         listed ? 'border-emerald-400/30 text-emerald-600 dark:text-emerald-300' : 'border-amber-400/30 bg-amber-500/10 text-amber-600 dark:text-amber-300',
       )}
     >
@@ -526,93 +564,39 @@ function VisibilityBadge({ cls }: { cls: AdminClass }) {
   );
 }
 
-/** A row's actions: the frequent ones as buttons, the rest in a menu. */
-function Actions({
-  cls,
-  onAction,
-  onMove,
-  liveCount,
-  wide = false,
-}: {
-  cls: AdminClass;
-  onAction: (action: NonNullable<Pending>['action']) => void;
-  onMove?: (delta: -1 | 1) => void;
-  liveCount: number;
-  wide?: boolean;
-}) {
+/** A row's actions, all in one ⋮ menu: the everyday ones first (edit, preview, show/hide), then the rest. */
+function Actions({ cls, onAction, onMove, liveCount }: { cls: AdminClass; onAction: (action: NonNullable<Pending>['action']) => void; onMove?: (delta: -1 | 1) => void; liveCount: number }) {
   const router = useRouter();
-  const btn = 'inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover';
-  if (cls.status === 'archived') {
-    return (
-      <div className={cn('flex gap-2', !wide && 'justify-end')}>
-        <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => onAction('restore')} aria-label={`Restore ${cls.title}`}>
-          <ArchiveRestore aria-hidden className="h-4 w-4" />
-          Restore
-        </Button>
-      </div>
-    );
-  }
-  const more: DropdownMenuItem[] = [
-    ...(cls.status === 'visible' ? [{ label: 'View public page', icon: <ExternalLink className="h-4 w-4" />, onClick: () => window.open(`/classes/${cls.slug}`, '_blank', 'noopener') }] : []),
-    { label: 'Generate content', icon: <Sparkles className="h-4 w-4" />, onClick: () => router.push(`/admin/courses/generate?class=${cls.classLevel}`) },
-    ...(cls.counts.draftChapters > 0 && cls.status !== 'draft' ? [{ label: `Publish ${cls.counts.draftChapters} draft chapters`, icon: <Send className="h-4 w-4" />, onClick: () => onAction('publish') }] : []),
-    ...(cls.status !== 'draft' ? [{ label: 'Unpublish (back to draft)', icon: <FileClock className="h-4 w-4" />, onClick: () => onAction('unpublish') }] : []),
-    { label: 'Duplicate', icon: <Copy className="h-4 w-4" />, onClick: () => onAction('duplicate') },
-    { label: 'Delete (archive)', icon: <Archive className="h-4 w-4" />, onClick: () => onAction('archive'), danger: true },
-  ];
+  const icon = 'h-4 w-4';
+  const items: DropdownMenuItem[] =
+    cls.status === 'archived'
+      ? [{ label: 'Restore', icon: <ArchiveRestore className={icon} />, onClick: () => onAction('restore') }]
+      : [
+          { label: 'Edit', icon: <PencilLine className={icon} />, onClick: () => router.push(`/admin/courses/${cls.classLevel}`) },
+          { label: 'Preview', icon: <Eye className={icon} />, onClick: () => router.push(`/admin/courses/${cls.classLevel}/preview`) },
+          cls.status === 'draft'
+            ? { label: 'Publish', icon: <Send className={icon} />, onClick: () => onAction('publish') }
+            : isListed(cls)
+              ? { label: 'Hide', icon: <EyeOff className={icon} />, onClick: () => onAction('hide') }
+              : { label: 'Show', icon: <Eye className={icon} />, onClick: () => onAction('show') },
+          ...(cls.status === 'visible'
+            ? [{ label: 'View public page', icon: <ExternalLink className={icon} />, onClick: () => window.open(`/classes/${cls.slug}`, '_blank', 'noopener'), divider: true }]
+            : []),
+          { label: 'Generate content', icon: <Sparkles className={icon} />, onClick: () => router.push(`/admin/courses/generate?class=${cls.classLevel}`), divider: cls.status !== 'visible' },
+          ...(cls.counts.draftChapters > 0 && cls.status !== 'draft'
+            ? [{ label: `Publish ${cls.counts.draftChapters} draft chapters`, icon: <Send className={icon} />, onClick: () => onAction('publish') }]
+            : []),
+          ...(cls.status !== 'draft' ? [{ label: 'Unpublish (back to draft)', icon: <FileClock className={icon} />, onClick: () => onAction('unpublish') }] : []),
+          ...(onMove && cls.position !== null && cls.position > 1 ? [{ label: 'Move up', icon: <ArrowUp className={icon} />, onClick: () => onMove(-1), divider: true }] : []),
+          ...(onMove && cls.position !== null && cls.position < liveCount
+            ? [{ label: 'Move down', icon: <ArrowDown className={icon} />, onClick: () => onMove(1), divider: !(cls.position > 1) }]
+            : []),
+          { label: 'Duplicate', icon: <Copy className={icon} />, onClick: () => onAction('duplicate'), divider: true },
+          { label: 'Delete (archive)', icon: <Archive className={icon} />, onClick: () => onAction('archive'), danger: true },
+        ];
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', !wide && 'justify-end')}>
-      {onMove && cls.position !== null && (
-        <span className="mr-1 inline-flex">
-          <button
-            type="button"
-            disabled={cls.position <= 1}
-            onClick={() => onMove(-1)}
-            aria-label={`Move ${cls.title} up`}
-            className="flex h-9 w-8 items-center justify-center rounded-l-xl border border-border bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40"
-          >
-            <ArrowUp aria-hidden className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            disabled={cls.position >= liveCount}
-            onClick={() => onMove(1)}
-            aria-label={`Move ${cls.title} down`}
-            className="-ml-px flex h-9 w-8 items-center justify-center rounded-r-xl border border-border bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:opacity-40"
-          >
-            <ArrowDown aria-hidden className="h-4 w-4" />
-          </button>
-        </span>
-      )}
-      <Link
-        href={`/admin/courses/${cls.classLevel}`}
-        className="btn-primary inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-accent-foreground"
-        aria-label={`Edit ${cls.title}`}
-      >
-        <PencilLine aria-hidden className="h-4 w-4" />
-        Edit
-      </Link>
-      <Link href={`/admin/courses/${cls.classLevel}/preview`} title="See the class as visitors will — drafts and hidden content included" className={btn} aria-label={`Preview ${cls.title}`}>
-        <Eye aria-hidden className="h-4 w-4" />
-        Preview
-      </Link>
-      {cls.status === 'draft' ? (
-        <button type="button" className={cn(btn, 'text-accent')} onClick={() => onAction('publish')} aria-label={`Publish ${cls.title}`}>
-          <Send aria-hidden className="h-4 w-4" />
-          Publish
-        </button>
-      ) : isListed(cls) ? (
-        <button type="button" className={btn} onClick={() => onAction('hide')} aria-label={`Hide ${cls.title}`}>
-          <EyeOff aria-hidden className="h-4 w-4" />
-          Hide
-        </button>
-      ) : (
-        <button type="button" className={btn} onClick={() => onAction('show')} aria-label={`Show ${cls.title}`}>
-          <Eye aria-hidden className="h-4 w-4" />
-          Show
-        </button>
-      )}
-      <DropdownMenu items={more} align="right" triggerLabel={`More actions for ${cls.title}`} sheetTitle={cls.title} width={220} />
+    <div className="flex shrink-0 justify-end">
+      <DropdownMenu items={items} align="right" triggerLabel={`Actions for ${cls.title}`} sheetTitle={cls.title} width={230} />
     </div>
   );
 }

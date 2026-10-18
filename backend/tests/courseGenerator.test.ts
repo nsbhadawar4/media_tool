@@ -20,6 +20,8 @@ import { User } from '../src/models/User';
 import { ContentItem } from '../src/models/ContentItem';
 import { Course } from '../src/models/Course';
 import { CourseProgress } from '../src/models/CourseProgress';
+import { CourseGenerationJob } from '../src/models/CourseGenerationJob';
+import { maxRateLimitRetries, rateLimitDelayMs, retryDelays } from '../src/services/curriculum/retryPolicy';
 import { KidGameRecord } from '../src/models/KidGameProgress';
 
 const PASSWORD = 'Strong-Passw0rd';
@@ -48,7 +50,8 @@ async function call(method: string, path: string, body?: unknown, cookie?: strin
 // ------------------------------------------------------------------------------------ a stand-in AI provider
 
 /** What the stand-in answers next: a reply body (JSON text, or a function of the request), a stop reason, or a delay. */
-let next: { text?: string | ((body: Record<string, unknown>) => string); stop?: string; delayMs?: number; status?: number; errorMessage?: string; thought?: string } = {};
+let next: { text?: string | ((body: Record<string, unknown>) => string); stop?: string; delayMs?: number; status?: number; errorMessage?: string; thought?: string; errorBody?: unknown; headers?: Record<string, string> } = {};
+let aiTimes: Array<{ start: number; end: number }> = [];
 let aiCalls: Array<{ path: string; body: Record<string, unknown>; headers: http.IncomingHttpHeaders }> = [];
 let ai: Server;
 let aiUrl: string;
@@ -60,10 +63,12 @@ function startAi() {
     req.on('end', async () => {
       const body = JSON.parse(raw || '{}') as Record<string, unknown>;
       aiCalls.push({ path: req.url ?? '', body, headers: req.headers });
+      const start = Date.now();
       if (next.delayMs) await new Promise((r) => setTimeout(r, next.delayMs));
+      aiTimes.push({ start, end: Date.now() });
       if (next.status) {
-        res.writeHead(next.status, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: next.errorMessage ?? 'upstream secret detail sk-should-not-leak' } }));
+        res.writeHead(next.status, { 'content-type': 'application/json', ...next.headers });
+        res.end(JSON.stringify(next.errorBody ?? { type: 'error', error: { type: 'api_error', message: next.errorMessage ?? 'upstream secret detail sk-should-not-leak' } }));
         return;
       }
       const text = typeof next.text === 'function' ? next.text(body) : (next.text ?? '{}');
@@ -81,9 +86,10 @@ function startAi() {
 }
 
 function useAi(provider: 'anthropic' | 'openai' | 'gemini' | null, extra: Record<string, string> = {}) {
-  for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_TIMEOUT_MS']) delete process.env[k];
+  for (const k of ['AI_PROVIDER', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', 'AI_TIMEOUT_MS', 'AI_MIN_INTERVAL_MS', 'AI_RETRY_DELAYS_MS', 'AI_RETRY_JITTER_MS']) delete process.env[k];
   if (!provider) return;
-  Object.assign(process.env, { AI_PROVIDER: provider, AI_API_KEY: 'sk-test-secret-key', AI_BASE_URL: aiUrl, AI_TIMEOUT_MS: '3000', ...(provider !== 'anthropic' ? { AI_MODEL: 'test-model' } : {}), ...extra });
+  // Pacing off unless a test turns it on (it is on by default in real use).
+  Object.assign(process.env, { AI_PROVIDER: provider, AI_API_KEY: 'sk-test-secret-key', AI_BASE_URL: aiUrl, AI_TIMEOUT_MS: '3000', AI_MIN_INTERVAL_MS: '0', AI_RETRY_DELAYS_MS: '50,100,200,400,800', AI_RETRY_JITTER_MS: '0', ...(provider !== 'anthropic' ? { AI_MODEL: 'test-model' } : {}), ...extra });
 }
 
 // ------------------------------------------------------------------------------------ content helpers
@@ -528,6 +534,230 @@ test('Gemini: a retired model is a clear error naming the reason (key redacted),
   res = await call('POST', '/api/admin/courses/generate/outline', { brief: brief({ chapters: 1 }), engine: 'ai' }, admin);
   assert.equal(res.status, 200, res.message);
   assert.equal(res.data.by.kind, 'ai');
+});
+
+test('rate limits: 429 and RESOURCE_EXHAUSTED are AI_RATE_LIMITED with the provider retry delay; nothing is generated or saved', async () => {
+  useAi('gemini');
+  const before = await Course.countDocuments();
+  const ask = () => call('POST', '/api/admin/courses/generate/chapter', { brief: brief({ chapters: 2 }), engine: 'ai', outline: outlineJson(2, 2), index: 1 }, admin);
+  // Gemini's quota reply: 429 + RESOURCE_EXHAUSTED + RetryInfo.
+  next = { status: 429, errorBody: { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded', details: [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '27s' }] } } };
+  let res = await ask();
+  assert.deepEqual([res.status, res.code], [429, 'AI_RATE_LIMITED']);
+  assert.equal(res.raw.error.details.retryAfterSeconds, 27);
+  assert.ok(!res.data);
+  // A Retry-After header (seconds) is used too.
+  next = { status: 429, headers: { 'retry-after': '12' } };
+  res = await ask();
+  assert.deepEqual([res.status, res.raw.error.details.retryAfterSeconds], [429, 12]);
+  // RESOURCE_EXHAUSTED under another status is still a rate limit, not a hard failure.
+  next = { status: 503, errorBody: { error: { status: 'RESOURCE_EXHAUSTED', message: 'busy' } } };
+  res = await ask();
+  assert.deepEqual([res.status, res.code, res.raw.error.details.retryAfterSeconds], [429, 'AI_RATE_LIMITED', null]);
+  assert.equal(await Course.countDocuments(), before, 'nothing saved');
+  // And after the limit passes, the same chapter request works.
+  next = { text: () => JSON.stringify(chapterJson('Chapter 2', 2, 4)) };
+  res = await ask();
+  assert.equal(res.status, 200, res.message);
+  assert.equal(res.data.by.kind, 'ai');
+});
+
+test('pacing: requests to the provider go one at a time, at least AI_MIN_INTERVAL_MS apart, even when sent together', async () => {
+  useAi('gemini', { AI_MIN_INTERVAL_MS: '300' });
+  aiTimes = [];
+  next = { text: JSON.stringify(outlineJson(1, 2)), delayMs: 100 };
+  const results = await Promise.all([0, 1, 2].map(() => call('POST', '/api/admin/courses/generate/outline', { brief: brief({ chapters: 1 }), engine: 'ai' }, admin)));
+  assert.deepEqual(results.map((r) => r.status), [200, 200, 200]);
+  assert.equal(aiTimes.length, 3);
+  const sorted = [...aiTimes].sort((a, b) => a.start - b.start);
+  for (let i = 1; i < sorted.length; i++) {
+    assert.ok(sorted[i]!.start >= sorted[i - 1]!.end, 'never two at once');
+    assert.ok(sorted[i]!.start - sorted[i - 1]!.end >= 280, `at least the interval apart (${sorted[i]!.start - sorted[i - 1]!.end} ms)`);
+  }
+  useAi('gemini');
+});
+
+// ------------------------------------------------------------------------------------ resumable generation jobs
+
+/** Gemini stand-in replies for a job: the outline, or the chapter its prompt asks for. */
+const geminiCourse = (chapters = 3, lessons = 2, questions = 4) => (body: Record<string, unknown>) => {
+  const prompt = String((body.contents as Array<{ parts: Array<{ text: string }> }>)[0]!.parts[0]!.text);
+  const m = /Write chapter (\d+): "([^"]+)"/.exec(prompt);
+  return JSON.stringify(m ? chapterJson(m[2]!, lessons, questions) : outlineJson(chapters, lessons));
+};
+const chaptersAsked = () =>
+  aiCalls
+    .map((c) => /Write chapter (\d+):/.exec(JSON.stringify(c.body))?.[1])
+    .filter(Boolean)
+    .map(Number);
+const startJob = async (over: Record<string, unknown> = {}) => {
+  const res = await call('POST', '/api/admin/courses/generate/jobs', { brief: brief({ chapters: 3, ...over }), engine: 'ai' }, admin);
+  assert.equal(res.status, 201, res.message);
+  return res.data.id as string;
+};
+const step = (id: string) => call('POST', `/api/admin/courses/generate/jobs/${id}/next`, undefined, admin);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+test('backoff policy: 2, 5, 10, 20, 40 s (5 automatic retries); the provider Retry-After wins when longer (capped at 60 s); jitter under a second', () => {
+  const env = { AI_RETRY_JITTER_MS: '0' };
+  assert.deepEqual(retryDelays({}), [2000, 5000, 10000, 20000, 40000], 'the default schedule');
+  assert.equal(maxRateLimitRetries({}), 5);
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map((n) => rateLimitDelayMs(n, null, env)),
+    [2000, 5000, 10000, 20000, 40000],
+  );
+  assert.equal(rateLimitDelayMs(1, 27_000, env), 27_000, 'Retry-After: 27 s is respected');
+  assert.equal(rateLimitDelayMs(5, 27_000, env), 40_000, 'the schedule wins when longer');
+  assert.equal(rateLimitDelayMs(1, 600_000, env), 60_000, 'never more than a minute');
+  const jittered = rateLimitDelayMs(3, null, {}, () => 0.999);
+  assert.ok(jittered >= 10_000 && jittered < 11_000, `default jitter is under a second (${jittered})`);
+  assert.deepEqual(retryDelays({ AI_RETRY_DELAYS_MS: '1000, 3000' }), [1000, 3000], 'configurable');
+});
+
+test('generation job, normal run: outline then one chapter per call, kept as they arrive; then ready, saved, finished', async () => {
+  useAi('gemini');
+  aiCalls = [];
+  next = { text: geminiCourse() };
+  const id = await startJob();
+  let res = await step(id);
+  assert.deepEqual([res.status, res.data.next, res.data.done, res.data.total], [200, 'chapter:0', 0, 3], res.message);
+  for (let i = 1; i <= 3; i++) {
+    res = await step(id);
+    assert.equal(res.status, 200, res.message);
+    assert.equal(res.data.done, i);
+  }
+  assert.deepEqual([res.data.status, res.data.next], ['ready', null]);
+  assert.deepEqual(res.data.by, { kind: 'ai', provider: 'gemini', model: 'test-model' }, 'AI-generated, labelled');
+  assert.deepEqual(chaptersAsked(), [1, 2, 3], 'each chapter asked for once, in order');
+  const calls = aiCalls.length;
+  res = await step(id);
+  assert.equal(res.data.status, 'ready');
+  assert.equal(aiCalls.length, calls, 'a ready job asks the provider for nothing');
+  // The page finds it again (e.g. after a reload)…
+  const cur = await call('GET', '/api/admin/courses/generate/jobs/current?classLevel=1&subject=hindi', undefined, admin);
+  assert.equal(cur.data.id, id);
+  assert.equal(cur.data.chapters.length, 3);
+  // …and once the course is saved from it, it is finished.
+  assert.equal((await call('POST', `/api/admin/courses/generate/jobs/${id}/finish`, undefined, admin)).status, 200);
+  assert.equal((await call('GET', '/api/admin/courses/generate/jobs/current?classLevel=1&subject=hindi', undefined, admin)).data, null);
+  assert.equal((await step(id)).status, 404);
+});
+
+test('generation job: a 429 with Retry-After is waited out — an early call never reaches the provider — and the retry succeeds', async () => {
+  useAi('gemini');
+  next = { text: geminiCourse() };
+  const id = await startJob();
+  assert.equal((await step(id)).status, 200); // outline
+  aiCalls = [];
+  next = { status: 429, headers: { 'retry-after': '1' }, errorBody: { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded' } } };
+  let res = await step(id);
+  assert.deepEqual([res.status, res.code], [429, 'AI_RATE_LIMITED']);
+  const d = res.raw.error.details;
+  assert.deepEqual([d.gaveUp, d.attempt, d.of, d.chapter, d.retryAfterSeconds], [false, 1, 5, 1, 1], 'Retry-After 1 s beats the 50 ms backoff');
+  assert.equal(res.message, 'Gemini is temporarily rate limiting requests. Your completed chapters are saved. We will automatically retry shortly. (Chapter 1: retry 1 of 5 in 1 s)');
+  assert.equal(d.job.done, 0);
+  // Asked again too soon: answered from the saved wait, the provider is not called.
+  res = await step(id);
+  assert.equal(res.status, 429);
+  assert.equal(aiCalls.length, 1, 'no extra provider call while waiting');
+  await sleep(d.retryAfterMs + 30);
+  next = { text: geminiCourse() };
+  res = await step(id);
+  assert.equal(res.status, 200, res.message);
+  assert.deepEqual([res.data.done, res.data.retry, res.data.status], [1, null, 'running']);
+  assert.deepEqual(chaptersAsked(), [1, 1], 'the same chapter, retried');
+  await call('DELETE', `/api/admin/courses/generate/jobs/${id}`, undefined, admin);
+});
+
+test('generation job: exponential backoff, then it gives up after 5 retries and pauses — completed chapters kept; resuming continues from the failed chapter with no duplicates', async () => {
+  useAi('gemini');
+  next = { text: geminiCourse() };
+  const id = await startJob();
+  await step(id); // outline
+  await step(id); // chapter 1
+  aiCalls = [];
+  next = { status: 429 };
+  const waits: number[] = [];
+  let res = await step(id);
+  while (res.status === 429 && !res.raw.error.details.gaveUp) {
+    waits.push(res.raw.error.details.retryAfterMs);
+    assert.match(res.message!, new RegExp(`^Gemini is temporarily rate limiting requests\\. Your completed chapters are saved\\. We will automatically retry shortly\\. \\(Chapter 2: retry ${waits.length} of 5 in \\d+ s\\)$`));
+    await sleep(res.raw.error.details.retryAfterMs + 20);
+    res = await step(id);
+  }
+  assert.deepEqual(waits, [50, 100, 200, 400, 800], 'the backoff schedule (scaled down in tests)');
+  assert.deepEqual([res.status, res.raw.error.details.gaveUp], [429, true]);
+  assert.equal(res.message, 'Gemini is still rate limiting requests after 5 automatic retries. Your completed chapters are saved — retry from the failed chapter (chapter 2) when you are ready.');
+  assert.equal(aiCalls.length, 1 + maxRateLimitRetries(), 'one try and 5 retries');
+  const paused = await CourseGenerationJob.findById(id).lean();
+  assert.deepEqual([paused!.status, (paused!.chapters as unknown[]).length, paused!.lastError?.rateLimited], ['paused', 1, true], 'chapter 1 is still saved');
+
+  // Later — even after a reload — the page finds the paused job and resumes it from chapter 2.
+  const cur = await call('GET', '/api/admin/courses/generate/jobs/current?classLevel=1&subject=hindi', undefined, admin);
+  assert.deepEqual([cur.data.id, cur.data.status, cur.data.next], [id, 'paused', 'chapter:1']);
+  aiCalls = [];
+  next = { text: geminiCourse() };
+  res = await step(id);
+  res = await step(id);
+  assert.deepEqual([res.status, res.data.status, res.data.done], [200, 'ready', 3]);
+  assert.deepEqual(chaptersAsked(), [2, 3], 'chapter 1 is never generated again');
+  const titles = (res.data.chapters as Array<{ title: string }>).map((c) => c.title);
+  assert.deepEqual(titles, ['Chapter 1', 'Chapter 2', 'Chapter 3'], 'each chapter once, in order');
+  await call('DELETE', `/api/admin/courses/generate/jobs/${id}`, undefined, admin);
+});
+
+test('generation job: two calls at once (double click, two tabs) fill a chapter slot only once', async () => {
+  useAi('gemini');
+  next = { text: geminiCourse() };
+  const id = await startJob();
+  await step(id); // outline
+  next = { text: geminiCourse(), delayMs: 150 };
+  const both = await Promise.all([step(id), step(id)]);
+  assert.deepEqual(
+    both.map((r) => r.status),
+    [200, 200],
+  );
+  const job = await CourseGenerationJob.findById(id).lean();
+  assert.equal((job!.chapters as unknown[]).length, 1, 'no duplicate chapter');
+  // A new generation for the same class and subject sets the unfinished one aside.
+  next = { text: geminiCourse() };
+  const fresh = await startJob();
+  assert.equal((await CourseGenerationJob.findById(id).lean())!.status, 'discarded');
+  assert.equal((await call('GET', '/api/admin/courses/generate/jobs/current?classLevel=1&subject=hindi', undefined, admin)).data.id, fresh);
+  await call('DELETE', `/api/admin/courses/generate/jobs/${fresh}`, undefined, admin);
+});
+
+test('generation job: other failures pause it too (nothing faked, no template); resuming retries the same chapter', async () => {
+  useAi('gemini');
+  next = { text: geminiCourse() };
+  const id = await startJob();
+  await step(id);
+  next = { text: 'not json at all' };
+  let res = await step(id);
+  assert.deepEqual([res.status, res.code], [502, 'AI_MALFORMED']);
+  let job = await CourseGenerationJob.findById(id).lean();
+  assert.deepEqual([job!.status, (job!.chapters as unknown[]).length, job!.lastError?.code], ['paused', 0, 'AI_MALFORMED']);
+  next = { text: geminiCourse() };
+  res = await step(id);
+  assert.deepEqual([res.status, res.data.done, res.data.by.kind], [200, 1, 'ai']);
+  job = await CourseGenerationJob.findById(id).lean();
+  assert.equal(job!.status, 'running');
+  await call('DELETE', `/api/admin/courses/generate/jobs/${id}`, undefined, admin);
+});
+
+test('generation jobs are for administrators only, and never carry the API key', async () => {
+  useAi('gemini');
+  next = { text: geminiCourse() };
+  const body = { brief: brief({ chapters: 3 }), engine: 'ai' };
+  assert.equal((await call('POST', '/api/admin/courses/generate/jobs', body)).status, 401);
+  assert.equal((await call('POST', '/api/admin/courses/generate/jobs', body, user)).status, 403);
+  const id = await startJob();
+  assert.equal((await call('POST', `/api/admin/courses/generate/jobs/${id}/next`, undefined, user)).status, 403);
+  const res = await step(id);
+  assert.ok(!JSON.stringify(res.raw).includes('sk-test-secret-key'));
+  assert.ok(!JSON.stringify(await CourseGenerationJob.findById(id).lean()).includes('sk-test-secret-key'), 'not stored either');
+  assert.equal((await call('GET', '/api/admin/courses/generate/jobs/current?classLevel=1&subject=hindi', undefined, user)).status, 403);
+  await call('DELETE', `/api/admin/courses/generate/jobs/${id}`, undefined, admin);
 });
 
 test('Gemini: one unparseable reply is retried once and the second answer is used; JSON wrapped in prose is read; two bad replies are a clear error', async () => {

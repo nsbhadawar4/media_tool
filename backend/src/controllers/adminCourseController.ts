@@ -42,10 +42,12 @@ import type { SaveCourseInput } from '../validators/courseValidators';
 // ------------------------------------------------------------------------------------ generation
 
 /** Provider and validation failures as clear, safe API errors (never a key, a stack or a raw reply). */
-function generationError(err: unknown): never {
+export function generationError(err: unknown): never {
   if (err instanceof AiProviderError) {
     const status = { not_configured: 503, timeout: 504, rate_limited: 429, refused: 422, truncated: 422, malformed: 502, auth: 502, upstream: 502 }[err.code];
-    throw new AppError(err.message, status, undefined, `AI_${err.code.toUpperCase()}`);
+    // A rate limit says how long to wait (when the provider did), so the admin page can retry on time.
+    const details = err.code === 'rate_limited' ? { retryAfterSeconds: err.retryAfterMs ? Math.ceil(err.retryAfterMs / 1000) : null } : undefined;
+    throw new AppError(err.message, status, details, `AI_${err.code.toUpperCase()}`);
   }
   if (err instanceof GenerationValidationError) throw new AppError('The generated content did not pass validation, so nothing was used. Please regenerate.', 422, err.problems.slice(0, 10).map((message) => ({ path: 'content', message })), 'AI_INVALID');
   throw err;
