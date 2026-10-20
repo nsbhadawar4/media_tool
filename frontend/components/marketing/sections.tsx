@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { Suspense, type CSSProperties, type ReactNode } from "react";
+import { ClassSubjectPicker } from "@/components/courses/ClassSubjectPicker";
 import {
   ArrowRight,
   Check,
@@ -38,9 +39,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { GameMeta } from "@/components/games/games";
-import { SUBJECT_INFO } from "@/lib/kid-games/catalog";
 import type { ClassView } from "@/lib/content/catalog";
-import { ClassCourseCard } from "@/components/kid-games/cards/ClassCourseCard";
+import { ClassCourseCard, classVars } from "@/components/kid-games/cards/ClassCourseCard";
 import { LOGIN_PATH } from "@/lib/auth/routes";
 import { PricingCards } from "@/components/billing/PricingCards";
 import { cn } from "@/utils/cn";
@@ -1072,21 +1072,18 @@ function classRange(classes: readonly ClassView[]): string {
     : `Class ${levels[0]}`;
 }
 
-export interface KidSubjectSummary {
-  key: string;
-  name: string;
-  native: string;
-  glyph: string;
+/** A class in the Kid Games block: how many of its games are on the home page, and its own subjects. */
+export interface KidClassSummary extends ClassView {
   games: number;
+  /** This class's subjects (titles) — never another class's. */
+  subjects: string[];
 }
 
 export function KidGamesSection({
   classes,
-  subjects,
   totalGames,
 }: {
-  classes: readonly ClassView[];
-  subjects: readonly KidSubjectSummary[];
+  classes: readonly KidClassSummary[];
   totalGames: number;
 }) {
   if (classes.length === 0) return null;
@@ -1111,14 +1108,7 @@ export function KidGamesSection({
                   </span>
                 </>
               }
-              description={`${totalGames > 0 ? `${totalGames} learning games` : "Learning games"} for ${range}${
-                subjects.length
-                  ? ` in ${subjects
-                      .map((s) => s.name)
-                      .join(", ")
-                      .replace(/, ([^,]*)$/, " and $1")}`
-                  : ""
-              } — matching, sorting, memory and number games built around each class.`}
+              description={`${totalGames > 0 ? `${totalGames} learning games` : "Learning games"} for ${range} — choose your class, then one of its subjects: matching, sorting, memory and number games built around each class.`}
             />
             <div className="mt-8 grid gap-5 sm:grid-cols-3 lg:grid-cols-1">
               {KID_POINTS.map((point) => (
@@ -1147,46 +1137,29 @@ export function KidGamesSection({
           </div>
 
           <div className="mk-reveal space-y-4">
-            {/* Subjects */}
-            <div
-              className={cn(
-                "grid gap-3",
-                subjects.length >= 3
-                  ? "sm:grid-cols-3"
-                  : subjects.length === 2
-                    ? "sm:grid-cols-2"
-                    : "",
-              )}
-            >
-              {subjects.map((s) => (
-                <article
-                  key={s.key}
-                  className="card-lift relative overflow-hidden rounded-3xl border p-5"
-                  style={{
-                    borderColor: `color-mix(in srgb, var(--kid-${s.key}, var(--accent)) 35%, transparent)`,
-                    backgroundImage: `linear-gradient(160deg, color-mix(in srgb, var(--kid-${s.key}, var(--accent)) 22%, var(--mk-panel)), var(--mk-panel) 75%)`,
-                  }}
-                >
-                  <span
-                    aria-hidden
-                    className="block select-none text-4xl font-bold leading-none opacity-80"
-                    style={{ color: `var(--kid-${s.key}, var(--accent))` }}
-                    lang={s.key === "hindi" ? "hi" : undefined}
+            {/* Class first: each class with its own subjects, opening that class's games. */}
+            <ul aria-label="Choose your class" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {classes.map((c, i) => (
+                <li key={c.key} style={{ ...classVars(c.level), "--i": i } as CSSProperties} className="anim-rise">
+                  <Link
+                    href={`${LOGIN_PATH}?from=/kid-games/${c.key}`}
+                    className="card-lift group flex h-full flex-col gap-3 rounded-3xl border border-(--kg)/35 p-4 transition hover:border-(--kg)"
+                    style={{ backgroundImage: "linear-gradient(160deg, color-mix(in srgb, var(--kg) 20%, var(--mk-panel)), var(--mk-panel) 75%)" }}
                   >
-                    {s.glyph}
-                  </span>
-                  <h3 className="mt-6 text-base font-semibold text-foreground">
-                    {s.name}
-                  </h3>
-                  <p className="mt-0.5 text-[13px] text-muted">
-                    {s.games > 0 ? `${s.games} games` : "Games"} ·{" "}
-                    <span lang={s.key === "hindi" ? "hi" : undefined}>
-                      {s.native}
+                    <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-2xl bg-linear-to-br from-(--kg) to-(--kg-2) text-base font-bold text-white">
+                      {c.level}
                     </span>
-                  </p>
-                </article>
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{c.title}</span>
+                      <span className="mt-0.5 block text-[13px] text-muted">
+                        {c.games} {c.games === 1 ? "game" : "games"}
+                      </span>
+                      {c.subjects.length > 0 && <span className="mt-1 block truncate text-xs text-foreground-soft">{c.subjects.join(" · ")}</span>}
+                    </span>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
 
             {/* A finished round, as the app shows it */}
             <div
@@ -1218,23 +1191,6 @@ export function KidGamesSection({
   );
 }
 
-/** The catalog's subjects, in the shape the Kid Games section shows them. */
-export function kidSubjectSummary(
-  key: string,
-  title: string,
-  games: number,
-): KidSubjectSummary {
-  const info =
-    key in SUBJECT_INFO ? SUBJECT_INFO[key as keyof typeof SUBJECT_INFO] : null;
-  return {
-    key,
-    name: title,
-    native: info?.native ?? title,
-    glyph: info?.glyph ?? title.slice(0, 2),
-    games,
-  };
-}
-
 /* ------------------------------------------------------------------------------------------
  * Learn by Class — the same class cards as the app, from the same catalog
  * ---------------------------------------------------------------------------------------- */
@@ -1248,18 +1204,18 @@ export interface LandingClass extends ClassView {
   marks?: string[];
 }
 
-export function LearnByClassSection({ classes, status = 'ready', retryHref = '/#kid-games' }: { classes: readonly LandingClass[]; status?: 'ready' | 'error'; retryHref?: string }) {
+export function LearnByClassSection({ classes, kidGamesOn, status = 'ready', retryHref = '/#kid-games' }: { classes: readonly LandingClass[]; kidGamesOn: boolean; status?: 'ready' | 'error'; retryHref?: string }) {
   return (
-    // #kid-games: the header's "Kid Games" link lands on these Class 1–5 cards.
+    // #kid-games: the header's "Kid Games" link lands on these classes.
     <Section id="kid-games">
       <SectionHeading
-        eyebrow="Classes"
+        eyebrow="Courses"
         title={
           <>
-            Learn by <Highlight>Class</Highlight>
+            Choose Your <Highlight>Class</Highlight>
           </>
         }
-        description="Fun, engaging and structured learning, class by class."
+        description="Pick your class first — then only that class's subjects appear. Each opens its chapters, lessons and questions."
       />
       {status === 'error' ? (
         <div className="mx-auto mt-12 max-w-md rounded-3xl border border-border bg-surface/70 p-8 text-center shadow-card sm:mt-14">
@@ -1269,34 +1225,13 @@ export function LearnByClassSection({ classes, status = 'ready', retryHref = '/#
             Try Again
           </a>
         </div>
-      ) : classes.length === 0 ? (
-        <p className="mx-auto mt-12 max-w-md rounded-3xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted sm:mt-14">
-          No visible classes are available right now.
-        </p>
       ) : (
-      <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 sm:mt-14">
-        {classes.map((c, i) => (
-          <ClassCourseCard
-            key={c.key}
-            level={c.level}
-            builtIn={c.isCode}
-            title={c.title}
-            subtitle={c.subtitle || undefined}
-            description={c.description || undefined}
-            image={c.thumbnailUrl}
-            href={`/classes/${c.key}`}
-            linkLabel={`Explore ${c.title}`}
-            marks={c.marks}
-            facts={[
-              ...(c.subjects > 0 ? [{ label: `${c.subjects} ${c.subjects === 1 ? "subject" : "subjects"}` }] : []),
-              ...(c.chapters ? [{ label: `${c.chapters} ${c.chapters === 1 ? "chapter" : "chapters"}` }] : []),
-              ...(c.games > 0 ? [{ label: `${c.games} ${c.games === 1 ? "game" : "games"}` }] : []),
-            ]}
-            cta="Explore Class"
-            index={i}
-          />
-        ))}
-      </div>
+        <div className="mt-12 sm:mt-14">
+          {/* Class first, then only that class's subjects (the choice is kept in the address: ?class=class-7). */}
+          <Suspense fallback={<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{classes.map((c) => <div key={c.key} className="h-[4.5rem] animate-pulse rounded-2xl border border-border bg-surface-hover" />)}</div>}>
+            <ClassSubjectPicker classes={classes} kidGamesOn={kidGamesOn} idPrefix="landing" />
+          </Suspense>
+        </div>
       )}
     </Section>
   );

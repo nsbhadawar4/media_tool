@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, BookOpen, Gamepad2 } from 'lucide-react';
+import { ArrowRight, BookOpen, Gamepad2 } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { builtInSubtitle, classPicture, classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { getPublicCurriculum, getServerCatalog } from '@/lib/server/contentCatalog';
@@ -14,6 +14,7 @@ import { resolveCatalog } from '@/lib/content/catalog';
 import { siteMetadataBase } from '@/lib/site';
 import { LOGIN_PATH } from '@/lib/auth/routes';
 import { classGamesPath, classPath, subjectHasChapters, subjectPath } from '@/lib/content/learnPaths';
+import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
  * /classes/class-N — a class as visitors see it before signing in: its picture, what it covers and
@@ -70,10 +71,9 @@ export default async function PublicClassPage({ params }: Params) {
       <div style={classVars(view.level)} className="relative px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8">
         <div aria-hidden className="mk-hero-glow mk-hero-fade pointer-events-none absolute inset-0" />
         <div className="relative mx-auto max-w-6xl">
-          <Link href="/classes" className="group mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-foreground">
-            <ArrowLeft aria-hidden className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            All classes
-          </Link>
+          <div className="mb-6">
+            <CourseBreadcrumb items={[{ label: 'Courses', href: '/classes' }, { label: view.title }]} />
+          </div>
 
           <section className="anim-rise grid items-center gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] border border-border shadow-card">
@@ -133,6 +133,10 @@ export default async function PublicClassPage({ params }: Params) {
           </section>
 
           <section aria-labelledby="class-subjects" className="mt-16">
+            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] mb-2 text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
+              <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-(--kg) text-[11px] text-white">2</span>
+              Step 2 · Choose a subject
+            </p>
             <h2 id="class-subjects" className="text-2xl font-semibold tracking-tight text-foreground">
               Subjects in {view.title}
             </h2>

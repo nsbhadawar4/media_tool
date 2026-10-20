@@ -10,7 +10,7 @@ import { SoundToggle, useGameSound } from '../useGameSound';
 import { chooseBotMove } from './bot';
 import { LudoBoard, type AnimOverride, type BurstFx } from './LudoBoard';
 import { LudoDice } from './LudoDice';
-import { LudoPlayerPanel } from './LudoPlayerPanel';
+import { LudoPlayerPanel, playerLabel } from './LudoPlayerPanel';
 import { LudoRules } from './LudoRules';
 import { GameConfirmDialog } from '../GameLeave';
 import { LudoSetup } from './LudoSetup';
@@ -22,6 +22,7 @@ import { clearLudoSession, saveLudoSession, type PersistedLocalGame } from './pe
 import type { BotLevel, Controller, GameMode, GameState, PlayerColor, PlayerCount } from './ludoTypes';
 
 const PASS_MS = 1000;
+const PLACE = ['1st', '2nd', '3rd', '4th'];
 const EMOJI: Record<PlayerColor, string> = { yellow: '🟡', green: '🟢', red: '🔴', blue: '🔵' };
 
 type Busy = 'idle' | 'rolling' | 'moving' | 'passing';
@@ -62,6 +63,11 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const [confirming, setConfirming] = useState<'restart' | 'setup' | null>(null);
 
   const busyRef = useRef<Busy>('idle');
+  /**
+   * The one game-over switch. The finished state itself (phase 'over', from the engine) is the truth; this
+   * mirrors it synchronously so a roll, move or bot step already scheduled can never act after the end.
+   */
+  const overRef = useRef(restore?.state.phase === 'over');
   const burstId = useRef(0);
   const startedAt = useRef(0);
   // What the saved session needs besides the game state; kept in refs so saving never re-renders.
@@ -150,6 +156,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
       const fresh = createGame(cfg.count);
       setControllers(ctl);
       setConfig(cfg);
+      overRef.current = false;
       setState(fresh);
       startedAt.current = performance.now();
       configRef.current = cfg;
@@ -174,7 +181,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   }, [clearTimers, resetFx]);
 
   const roll = useCallback(() => {
-    if (!state || state.phase !== 'roll' || busyRef.current !== 'idle') return;
+    if (!state || overRef.current || state.phase !== 'roll' || busyRef.current !== 'idle') return;
     const die = rollDie(Math.random);
     dieRef.current = die;
     setBusy('rolling');
@@ -187,6 +194,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
     const res = applyRoll(state, die);
     persist(res.state);
     schedule(() => {
+      if (overRef.current) return;
       if (res.kind === 'move') {
         setState(res.state);
         setNote('');
@@ -196,6 +204,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
       setNote(res.kind === 'forfeit' ? 'Three 6s in a row. Turn lost' : 'No moves possible');
       setBusy('passing');
       schedule(() => {
+        if (overRef.current) return;
         setState(res.state);
         setNote('');
         setBusy('idle');
@@ -205,13 +214,16 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
 
   const moveToken = useCallback(
     (tokenId: number) => {
-      if (!state || state.phase !== 'move' || state.die === null || busyRef.current !== 'idle') return;
+      if (!state || overRef.current || state.phase !== 'move' || state.die === null || busyRef.current !== 'idle') return;
       if (!getValidMoves(state, state.die).includes(tokenId)) return;
       const { state: next, events } = applyMove(state, tokenId);
       // The move is decided: save its final logical result before animating it.
       tallyRef.current = { moves: tallyRef.current.moves + 1, captures: tallyRef.current.captures + events.captures.length };
       if (events.won) secondsRef.current = Math.round((performance.now() - startedAt.current) / 1000);
       dieRef.current = state.die;
+      // Game over is decided here, with the move — before any next turn can exist. From now on every
+      // roll, move, bot step and pending timer is refused; the board only finishes animating this move.
+      if (events.won) overRef.current = true;
       persist(next);
       setBusy('moving');
       setNote('');
@@ -226,6 +238,14 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         setState(next);
         setAnim(null);
         setTally((t) => ({ moves: t.moves + 1, captures: t.captures + events.captures.length }));
+        if (events.won) {
+          // The end: no capture effects or follow-up timers — the result card comes up at once.
+          clearTimers();
+          setSeconds(Math.round((performance.now() - startedAt.current) / 1000));
+          play('win');
+          setBusy('idle');
+          return;
+        }
         if (events.captures.length > 0) {
           burstId.current += 1;
           setBurst({ id: burstId.current, cell: events.captures[0]!.cell, color: events.color });
@@ -236,8 +256,10 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         } else if (events.reachedHome) {
           play('success');
         }
-        if (events.won) {
-          setSeconds(Math.round((performance.now() - startedAt.current) / 1000));
+        if (events.finished) {
+          // 3 or 4 players: this player is done and out of the turn order; the others play on.
+          const who = playerLabel(events.color, controllersRef.current[events.color], configRef.current?.mode === 'bot');
+          setNote(`${EMOJI[events.color]} ${who} finished ${PLACE[(events.place ?? 1) - 1]}!`);
           play('win');
         } else if (events.extraTurn) {
           setNote(extraTurnMessage(events.bonus));
@@ -245,7 +267,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         setBusy('idle');
       }, events.progressSteps.length * STEP_MS + 40);
     },
-    [state, play, schedule, setBusy, persist],
+    [state, play, schedule, setBusy, persist, clearTimers],
   );
 
   const active = state && state.phase !== 'over' ? currentPlayer(state) : null;
@@ -265,6 +287,7 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
     if (!state || !isBotTurn || busy !== 'idle' || state.phase === 'over' || !config || confirming) return;
     const id = window.setTimeout(
       () => {
+        if (overRef.current) return;
         if (state.phase === 'roll') roll();
         else if (state.die !== null) moveToken(chooseBotMove(state, state.die, config.level));
       },
@@ -317,8 +340,9 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
   const winner = state?.winner ?? null;
   const diceColor = activeColor ? COLOR_HEX[activeColor] : '#10b981';
 
+  const winnerLabel = winner ? playerLabel(winner, controllers[winner], vsBot) : '';
   const banner = winner
-    ? `${EMOJI[winner]} ${COLOR_NAME[winner]} wins`
+    ? `${EMOJI[winner]} ${winnerLabel} ${winnerLabel === 'You' ? 'win' : 'wins'}`
     : activeColor
       ? `${EMOJI[activeColor]} ${vsBot && !isBotTurn ? 'Your' : `${COLOR_NAME[activeColor]}'s`} Turn`
       : '';
@@ -450,9 +474,11 @@ export default function LudoLocal({ onMenu, restore }: LudoLocalProps) {
         />
       )}
 
-      {winner && busy === 'idle' && (
+      {state?.phase === 'over' && winner && busy === 'idle' && (
         <LudoWinner
-          winner={winner}
+          state={state}
+          labelOf={(c) => playerLabel(c, controllers[c], vsBot)}
+          youWon={controllers[winner] === 'human'}
           moves={tally.moves}
           captures={tally.captures}
           seconds={seconds}

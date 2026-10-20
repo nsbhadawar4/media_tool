@@ -554,7 +554,7 @@ export class RoomManager {
     if (events.won) {
       room.status = 'finished';
       room.finishedAt = Date.now();
-      this.emitEvent(room, { type: 'GAME_WON', seq: ++game.seq, color: events.color, state });
+      this.emitEvent(room, { type: 'GAME_WON', seq: ++game.seq, color: state.winner!, state });
       this.broadcast(room);
     } else if (currentPlayer(state).color !== events.color) {
       this.emitEvent(room, { type: 'TURN_CHANGED', seq: ++game.seq, color: currentPlayer(state).color, state });

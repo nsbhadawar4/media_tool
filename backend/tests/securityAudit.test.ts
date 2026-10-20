@@ -8,7 +8,7 @@
  */
 import './setupTestEnv';
 
-import test, { before, after } from 'node:test';
+import test, { before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -19,6 +19,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { createApp } from '../src/app';
+import { apiRateLimiter } from '../src/middleware/rateLimit';
 import { env } from '../src/config/env';
 import { User } from '../src/models/User';
 import { Folder } from '../src/models/Folder';
@@ -112,6 +113,9 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/content/classes/:id/subjects/:id',
   // One published chapter of it in full: lessons with practice answers to study; never quiz answers.
   'GET /api/content/classes/:id/subjects/:id/chapters/:id',
+  // Published, visible manual courses of a public class's subject (Admin → Manual Courses).
+  'GET /api/content/classes/:id/subjects/:id/manual-courses',
+  'GET /api/content/classes/:id/subjects/:id/manual-courses/:id',
   // The site's theme rules (light / dark allowed, default): no private data.
   'GET /api/settings/appearance',
 ]);
@@ -149,6 +153,12 @@ before(async () => {
   server = createApp().listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+
+// The route sweeps call every endpoint from one address: each test starts with a fresh whole-API
+// allowance, so a long sweep never leaves the next test answered with 429 instead of what it checks.
+beforeEach(() => {
+  for (const ip of ['127.0.0.1', '::ffff:127.0.0.1', '::1']) apiRateLimiter.resetKey(ip);
 });
 
 after(async () => {

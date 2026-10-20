@@ -166,8 +166,20 @@ export interface QuizResult {
 }
 type Where = { class: string; subject: string; chapter: string };
 
+/** The learner's next lesson, with its class and subject (GET /api/progress/continue). */
+export interface ContinueLearning {
+  class: { slug: string; title: string };
+  subject: { key: string; title: string };
+  chapter: { slug: string; title: string; number: number };
+  lesson: number;
+  lessonCount: number;
+  completedLessons: number;
+}
+
 export const progressApi = {
   classes: () => api.get<Array<{ slug: string; classLevel: number; percent: number; lessons: number; completed: number }>>('/api/progress/classes'),
+  /** Where to pick up (class, subject, chapter, lesson), or null. */
+  continue: () => api.get<ContinueLearning | null>('/api/progress/continue'),
   class: (slug: string) => api.get<ClassProgress>(`/api/progress/classes/${encodeURIComponent(slug)}`),
   lesson: (where: Where, lesson: number, event: 'start' | 'complete') =>
     api.post<{ lesson: number; completed: boolean; chapterCompleted: boolean; completedLessons: number; lessonCount: number }>('/api/progress/lessons', { ...where, lesson, event }),

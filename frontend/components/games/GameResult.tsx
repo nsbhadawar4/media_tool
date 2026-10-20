@@ -17,6 +17,8 @@ interface GameResultProps {
   accent?: string;
   onPlayAgain: () => void;
   playAgainLabel?: string;
+  /** The leave button's text (default "Back to Games"); it leaves through the game's own leave flow. */
+  exitLabel?: string;
   /** 'win' adds the confetti; 'neutral' is a plain score screen. */
   variant?: 'win' | 'neutral';
 }
@@ -66,15 +68,16 @@ export function GameResult({
   variant = 'win',
   children,
   accent,
+  exitLabel,
 }: GameResultProps) {
   return (
     <div
       role="dialog"
       aria-label={title}
-      className="game-safe-top game-safe-bottom animate-fade-in flex items-center justify-center bg-background/75 p-4 backdrop-blur-md max-md:fixed max-md:inset-0 max-md:z-50 max-md:bg-background/95 md:absolute md:inset-0 md:z-30"
+      className="game-safe-top game-safe-bottom animate-fade-in flex justify-center overflow-y-auto bg-background/75 p-4 backdrop-blur-md max-md:fixed max-md:inset-0 max-md:z-50 max-md:bg-background/95 md:absolute md:inset-0 md:z-30"
     >
       <div
-        className="gradient-border anim-rise-scale relative w-full max-w-sm rounded-3xl border border-border-strong bg-surface-elevated p-6 text-center shadow-pop"
+        className="gradient-border anim-rise-scale relative my-auto w-full max-w-sm rounded-3xl border border-border-strong bg-surface-elevated p-6 text-center shadow-pop"
         style={accent ? { boxShadow: `0 0 70px -18px ${accent}, 0 24px 64px -12px rgba(0,0,0,.8)`, borderColor: `${accent}77` } : undefined}
       >
         {variant === 'win' && (
@@ -125,7 +128,7 @@ export function GameResult({
           <RotateCcw className="h-4 w-4" />
           {playAgainLabel}
         </Button>
-        <BackToGames variant="block" className="mt-2.5" />
+        <BackToGames variant="block" className="mt-2.5" label={exitLabel} />
       </div>
     </div>
   );

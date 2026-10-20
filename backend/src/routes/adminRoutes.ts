@@ -24,6 +24,28 @@ import {
   trashItem,
 } from '../controllers/adminLifecycleController';
 import { lifecycleDeleteSchema, lifecycleListQuerySchema, lifecycleMoveSchema, lifecycleRefSchema, lifecycleRestoreSchema } from '../validators/lifecycleValidators';
+import {
+  createManualCourse,
+  deleteManualCourseForever,
+  duplicateManualCourse,
+  getManualCourse,
+  listManualCourses,
+  listManualCourseTrash,
+  manualCourseOptions,
+  manualCourseStats,
+  publishManualCourse,
+  restoreManualCourse,
+  trashManualCourse,
+  unpublishManualCourse,
+  updateManualCourse,
+} from '../controllers/adminManualCourseController';
+import {
+  createManualCourseSchema,
+  listManualCoursesQuerySchema,
+  manualCourseIdParamSchema,
+  permanentDeleteManualCourseSchema,
+  updateManualCourseSchema,
+} from '../validators/manualCourseValidators';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
 import { updateAppearanceSchema } from '../validators/settingsValidators';
@@ -216,5 +238,22 @@ router.get('/courses/:level/:subject', validate(levelSubject), getSubjectCourse)
 router.put('/courses/:level/:subject', validate({ ...levelSubject, body: saveCourseSchema }), saveCourse);
 router.post('/courses/:level/:subject/publish', validate(levelSubject), publishCourse);
 router.post('/courses/:level/:subject/unpublish', validate(levelSubject), unpublishCourse);
+
+// Manual Courses: hand-written courses in their own collection — independent of the AI Course Generator.
+// The fixed paths come before /:id, so "trash", "stats" and "options" are never read as ids.
+const manualId = { params: manualCourseIdParamSchema };
+router.get('/manual-courses/options', manualCourseOptions);
+router.get('/manual-courses/stats', manualCourseStats);
+router.get('/manual-courses/trash', validate({ query: listManualCoursesQuerySchema }), listManualCourseTrash);
+router.get('/manual-courses', validate({ query: listManualCoursesQuerySchema }), listManualCourses);
+router.post('/manual-courses', validate({ body: createManualCourseSchema }), createManualCourse);
+router.get('/manual-courses/:id', validate(manualId), getManualCourse);
+router.patch('/manual-courses/:id', validate({ ...manualId, body: updateManualCourseSchema }), updateManualCourse);
+router.post('/manual-courses/:id/publish', validate(manualId), publishManualCourse);
+router.post('/manual-courses/:id/unpublish', validate(manualId), unpublishManualCourse);
+router.post('/manual-courses/:id/duplicate', validate(manualId), duplicateManualCourse);
+router.post('/manual-courses/:id/restore', validate(manualId), restoreManualCourse);
+router.delete('/manual-courses/:id/permanent', validate({ ...manualId, body: permanentDeleteManualCourseSchema }), deleteManualCourseForever);
+router.delete('/manual-courses/:id', validate(manualId), trashManualCourse);
 
 export default router;

@@ -9,6 +9,7 @@ import { LessonProgress, StudyQuestions } from '@/components/courses/LearnWidget
 import { getPublicChapter } from '@/lib/server/contentCatalog';
 import { chapterPath, classPath, formatMinutes, lessonPath, subjectPath } from '@/lib/content/learnPaths';
 import { siteMetadataBase } from '@/lib/site';
+import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
  * /classes/class-N/<subject>/<chapter>/<n> — one lesson: its explanation, examples and key points,
@@ -40,7 +41,8 @@ export default async function LessonPage({ params }: Params) {
   const read = await getPublicChapter(slug, subjectKey, chapterSlug);
   if (read.status === 'error') return <ClassUnavailable what="chapter" retryHref={`${chapterPath(slug, subjectKey, chapterSlug)}/${raw}`} />;
   if (read.status === 'missing') notFound();
-  const { class: cls, subject, chapter } = read.data;
+  const { class: cls, subject, chapter, chapters } = read.data;
+  const chapterNo = chapters.findIndex((c) => c.slug === chapter.slug) + 1;
   const lesson = chapter.lessons[n - 1];
   if (!lesson) notFound();
   const signedIn = (await currentViewer()) !== 'visitor';
@@ -53,20 +55,15 @@ export default async function LessonPage({ params }: Params) {
     <div style={classVars(cls.classLevel)} className="relative px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8">
       <div aria-hidden className="mk-hero-glow mk-hero-fade pointer-events-none absolute inset-0" />
       <div className="relative mx-auto flex max-w-3xl min-w-0 flex-col gap-6">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-          <Link href={classPath(cls.slug)} className="inline-flex min-h-11 items-center hover:text-foreground">
-            {cls.title}
-          </Link>
-          <span aria-hidden>/</span>
-          <Link href={subjectPath(cls.slug, subject.key)} className="inline-flex min-h-11 items-center hover:text-foreground">
-            {subject.title}
-          </Link>
-          <span aria-hidden>/</span>
-          <Link href={chapterPath(cls.slug, subject.key, chapter.slug)} className="group inline-flex min-h-11 items-center gap-1.5 font-medium hover:text-foreground">
-            <ArrowLeft aria-hidden className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            {chapter.title}
-          </Link>
-        </nav>
+        <CourseBreadcrumb
+          items={[
+            { label: 'Courses', href: '/classes' },
+            { label: cls.title, href: classPath(cls.slug) },
+            { label: subject.title, href: subjectPath(cls.slug, subject.key) },
+            { label: chapterNo > 0 ? `Chapter ${chapterNo}` : chapter.title, href: chapterPath(cls.slug, subject.key, chapter.slug) },
+            { label: `Lesson ${n}` },
+          ]}
+        />
 
         <header className="anim-rise rounded-3xl border border-border bg-surface p-6 shadow-card sm:p-8">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">

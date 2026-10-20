@@ -12,7 +12,11 @@ import { formatMinutes, subjectHasChapters, subjectPath } from '@/lib/content/le
  */
 export function SubjectCards({ classKey, subjects, kidGamesOn }: { classKey: string; subjects: CurriculumSubject<CurriculumChapterSummary>[]; kidGamesOn: boolean }) {
   if (subjects.length === 0) {
-    return <p className="rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted">No subjects available yet. New subjects for this class will appear here.</p>;
+    return (
+      <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
+        <p className="font-semibold text-foreground">No subjects are available for this class yet.</p>
+      </div>
+    );
   }
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -14,6 +14,7 @@ import {
   Library,
   type LucideIcon,
   Navigation,
+  NotebookPen,
   Puzzle,
   Settings,
   Shapes,
@@ -92,6 +93,8 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/admin/users', label: 'Users', icon: Users },
       // The classes (with their subjects) on the website, the user dashboard and Kid Games.
       { href: '/admin/courses', label: 'Manage Courses', icon: GraduationCap },
+      // Hand-written courses (chapters, lessons, questions) — independent of the AI Course Generator.
+      { href: '/admin/manual-courses', label: 'Manual Courses', icon: NotebookPen },
       { href: '/admin/activity', label: 'User activity', icon: Activity },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },

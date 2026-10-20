@@ -8,13 +8,15 @@ interface BackToGamesProps {
   /** 'bar' is the compact pill in the mobile header; 'block' is a full-width button for overlays. */
   variant?: 'bar' | 'block';
   className?: string;
+  /** The block button's text (default "Back to Games"). */
+  label?: string;
 }
 
 /**
  * Back to the games hub. Always /games — never the dashboard and never history — so leaving a
  * game lands in the same place however the player arrived.
  */
-export function BackToGames({ variant = 'bar', className }: BackToGamesProps) {
+export function BackToGames({ variant = 'bar', className, label }: BackToGamesProps) {
   const leave = useGameLeave();
   return (
     <button
@@ -27,7 +29,7 @@ export function BackToGames({ variant = 'bar', className }: BackToGamesProps) {
       )}
     >
       <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
-      {variant === 'bar' ? 'Back' : 'Back to Games'}
+      {variant === 'bar' ? 'Back' : (label ?? 'Back to Games')}
     </button>
   );
 }

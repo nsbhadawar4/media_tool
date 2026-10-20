@@ -14,14 +14,12 @@ import {
   HowItWorks,
   KidGamesSection,
   LearnByClassSection,
-  kidSubjectSummary,
   MediaSection,
   Pricing,
   SecuritySection,
 } from '@/components/marketing/sections';
 import { getServerCatalog } from '@/lib/server/contentCatalog';
 import { resolveCatalog, type ResolvedCatalog } from '@/lib/content/catalog';
-import { SUBJECT_INFO } from '@/lib/kid-games/catalog';
 import { homeBlocks, isSectionOn, type HomeBlock } from '@/lib/content/sections';
 import { classCards } from '@/lib/content/learnPaths';
 import { PublicReviews } from '@/components/reviews/PublicReviews';
@@ -88,23 +86,24 @@ interface Ctx {
 }
 
 /**
- * The Kid Games block's content: the listed classes that have games on the landing page, their
- * subjects and how many of those games each has — so switching games (or a class or subject) off
- * for the landing page is reflected in the counts.
+ * The Kid Games block's content: the listed classes that have games on the landing page, each with
+ * how many of those games it has and its own subjects — class first, never one subject list for all
+ * classes. Switching games (or a class or subject) off for the landing page is reflected here.
  */
 function kidGamesProps(catalog: ResolvedCatalog) {
   // Without the managed catalog there is nothing to list (the block then stays out).
-  if (!catalog.fromServer) return { classes: [], subjects: [], totalGames: 0 };
-  const classes = catalog.classViews.filter((c) => catalog.landingKidGames(c.level).length > 0);
-  const keys = [...new Set(classes.flatMap((c) => catalog.subjectsFor(c.level).map((s) => s.key)))];
-  const subjects = keys
-    .map((key) => {
-      const view = catalog.subjectView(key);
-      const title = view?.title ?? (key in SUBJECT_INFO ? SUBJECT_INFO[key as keyof typeof SUBJECT_INFO].name : key);
-      return kidSubjectSummary(key, title, catalog.landingKidGames(undefined, key).length);
-    })
-    .filter((s) => s.games > 0);
-  return { classes, subjects, totalGames: catalog.landingKidGames().length };
+  if (!catalog.fromServer) return { classes: [], totalGames: 0 };
+  const classes = catalog.classViews
+    .map((c) => ({
+      ...c,
+      games: catalog.landingKidGames(c.level).length,
+      subjects: catalog
+        .subjectsFor(c.level)
+        .filter((s) => catalog.landingKidGames(c.level, s.key).length > 0)
+        .map((s) => s.title),
+    }))
+    .filter((c) => c.games > 0);
+  return { classes, totalGames: catalog.landingKidGames().length };
 }
 
 const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
@@ -120,7 +119,7 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   // Kid Games, so it shows only while that feature is on.
   // The visible classes from Manage Courses (this block has its own switch on the Landing page
   // settings). Game counts only while Kid Games, where the games are played, is open.
-  classes: ({ catalog, featureOn }) => <LearnByClassSection status={catalog.fromServer ? 'ready' : 'error'} classes={classCards(catalog, featureOn('kid-games'))} />,
+  classes: ({ catalog, featureOn }) => <LearnByClassSection status={catalog.fromServer ? 'ready' : 'error'} classes={classCards(catalog, featureOn('kid-games'))} kidGamesOn={featureOn('kid-games')} />,
   // Games and Kid Games: only while the feature is on AND opted in to the home page (homeBlocks);
   // each lists only the games switched on for the landing page. Empty, the block isn't rendered.
   games: ({ catalog }) => <GamesSection games={catalog.landingArcadeGames} />,

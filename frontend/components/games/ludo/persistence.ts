@@ -100,15 +100,23 @@ export function parseGameState(raw: unknown): GameState | null {
   if (die !== null && !isInt(die, 1, 6)) return null;
   if (!isInt(sixes, 0, 2) || !isInt(turns, 1, 1_000_000)) return null;
   if (winner !== null && !isColor(winner)) return null;
-  const state: GameState = { players, current, phase, die: die as number | null, sixes, turns, winner: winner as PlayerColor | null };
+  // The finishing order. Saves from before it existed have none: a finished game then ranks its winner.
+  let ranking: PlayerColor[];
+  if (raw.ranking === undefined) ranking = phase === 'over' && isColor(winner) ? [winner] : [];
+  else if (Array.isArray(raw.ranking) && raw.ranking.every(isColor) && new Set(raw.ranking).size === raw.ranking.length) ranking = [...raw.ranking];
+  else return null;
+  const state: GameState = { players, current, phase, die: die as number | null, sixes, turns, winner: winner as PlayerColor | null, ranking };
 
   // Cross-checks: a state the engine could never have produced is treated as corrupt.
+  const allHome = (c: PlayerColor) => players.find((p) => p.color === c)?.tokens.every((t) => t.progress === PROGRESS_FINISHED) ?? false;
+  if (ranking.some((c) => !players.some((p) => p.color === c))) return null;
   if (phase === 'over') {
-    if (!winner || !players.some((p) => p.color === winner)) return null;
+    if (!winner || !players.some((p) => p.color === winner) || ranking[0] !== winner || !allHome(winner)) return null;
   } else {
     if (winner !== null) return null;
-    const allHome = players[current]!.tokens.every((t) => t.progress === PROGRESS_FINISHED);
-    if (allHome) return null;
+    // Mid-game: exactly the players with all four home have finished, and one of them never has the turn.
+    if (players.some((p) => allHome(p.color) !== ranking.includes(p.color))) return null;
+    if (ranking.length >= players.length - 1 || ranking.includes(players[current]!.color)) return null;
   }
   if (phase === 'move') {
     if (die === null || getValidMoves(state, die as number).length === 0) return null;

@@ -16,6 +16,7 @@ import {
   EyeOff,
   FileClock,
   GraduationCap,
+  NotebookPen,
   PencilLine,
   Plus,
   SearchX,
@@ -214,6 +215,13 @@ export function ClassManager() {
             <Link href="/admin/courses/new" className="btn-primary inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-accent-foreground">
               <Plus aria-hidden className="h-4 w-4" />
               Add Class
+            </Link>
+            <Link
+              href="/admin/manual-courses/new"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/15"
+            >
+              <NotebookPen aria-hidden className="h-4 w-4" />
+              Add Manual Course
             </Link>
             <Link
               href="/admin/courses/generate"

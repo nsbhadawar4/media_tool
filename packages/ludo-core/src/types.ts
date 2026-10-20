@@ -29,7 +29,13 @@ export interface GameState {
   sixes: number;
   /** 1-based count of turns (incremented whenever the turn passes to another player). */
   turns: number;
+  /**
+   * Set only when the game is over: the player who finished first (ranking[0]). With 2 players the
+   * first to bring all four tokens home ends the game; with 3 or 4 the others play on until one is left.
+   */
   winner: PlayerColor | null;
+  /** Colours in the order they brought all four tokens home (finished players take no more turns). When the game is over, the last active player is appended. */
+  ranking: PlayerColor[];
 }
 
 export interface Capture {
@@ -54,6 +60,10 @@ export interface MoveEvents {
   captures: Capture[];
   leftYard: boolean;
   reachedHome: boolean;
+  /** This move brought the mover's fourth token home: they finished, in place `place` (1-based). */
+  finished: boolean;
+  place: number | null;
+  /** This move ended the game (the winner is `state.winner`, not necessarily the mover). */
   won: boolean;
   extraTurn: boolean;
   /** Every reason this move earned the (single) extra turn; empty when the turn passes or the game is won. */

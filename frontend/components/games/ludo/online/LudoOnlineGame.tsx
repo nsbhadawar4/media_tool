@@ -310,7 +310,6 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
             ? `${activeName} is playing…`
             : '');
   const caption = busy === 'rolling' ? 'Rolling…' : canRoll ? 'Roll Dice' : isMyTurn ? 'Wait…' : 'Dice';
-  const winnerName = winner ? (names[winner] ?? COLOR_NAME[winner]) : '';
 
   return (
     <>
@@ -370,8 +369,9 @@ export function LudoOnlineGame({ room, playerId, api, sound, onBackToLobby }: Pr
 
       {winner && busy === 'idle' && (
         <LudoWinner
-          winner={winner}
-          name={winnerName}
+          state={display}
+          labelOf={(c) => (c === myColor ? 'You' : (names[c] ?? COLOR_NAME[c]))}
+          youWon={winner === myColor}
           moves={tally.moves}
           captures={tally.captures}
           seconds={seconds}

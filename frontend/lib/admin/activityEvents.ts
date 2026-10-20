@@ -111,6 +111,14 @@ export const EVENT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'course_restored', label: 'Course restored' },
   { value: 'course_trashed', label: 'Chapter moved to Trash' },
   { value: 'course_permanently_deleted', label: 'Chapter permanently deleted' },
+  { value: 'manual_course_created', label: 'Manual course created' },
+  { value: 'manual_course_updated', label: 'Manual course updated' },
+  { value: 'manual_course_published', label: 'Manual course published' },
+  { value: 'manual_course_unpublished', label: 'Manual course unpublished' },
+  { value: 'manual_course_duplicated', label: 'Manual course duplicated' },
+  { value: 'manual_course_trashed', label: 'Manual course moved to Trash' },
+  { value: 'manual_course_restored', label: 'Manual course restored' },
+  { value: 'manual_course_permanently_deleted', label: 'Manual course permanently deleted' },
 ];
 
 type Tone = 'accent' | 'success' | 'warning' | 'danger' | 'muted';
@@ -187,6 +195,14 @@ const LOOK: Record<string, EventLook> = {
   course_restored: { label: 'Course restored', icon: ArchiveRestore, tone: 'success' },
   course_trashed: { label: 'Chapter moved to Trash', icon: Trash2, tone: 'warning' },
   course_permanently_deleted: { label: 'Chapter permanently deleted', icon: Trash2, tone: 'danger' },
+  manual_course_created: { label: 'Manual course created', icon: LayoutTemplate, tone: 'success' },
+  manual_course_updated: { label: 'Manual course updated', icon: PencilLine, tone: 'accent' },
+  manual_course_published: { label: 'Manual course published', icon: Eye, tone: 'success' },
+  manual_course_unpublished: { label: 'Manual course unpublished', icon: EyeOff, tone: 'muted' },
+  manual_course_duplicated: { label: 'Manual course duplicated', icon: LayoutTemplate, tone: 'success' },
+  manual_course_trashed: { label: 'Manual course moved to Trash', icon: Trash2, tone: 'warning' },
+  manual_course_restored: { label: 'Manual course restored', icon: ArchiveRestore, tone: 'success' },
+  manual_course_permanently_deleted: { label: 'Manual course permanently deleted', icon: Trash2, tone: 'danger' },
 };
 
 const UPLOAD_ICON: Record<string, LucideIcon> = { image: ImageIcon, video: Video, document: FileText };

@@ -58,6 +58,12 @@ export function adminCrumbs(pathname: string): Crumb[] {
       crumbs.push({ label, href });
       continue;
     }
+    // Manual Courses: its list, New, Trash, and one course's Edit / Preview.
+    if (parts[1] === 'manual-courses') {
+      const label = i === 1 ? 'Manual Courses' : segment === 'new' ? 'New manual course' : segment === 'trash' ? 'Trash' : segment === 'edit' ? 'Edit' : segment === 'preview' ? 'Preview' : 'Course';
+      crumbs.push({ label, href: i === 2 && parts[3] ? `${href}/edit` : href });
+      continue;
+    }
     // /admin/content/dashboard manages the users' dashboard, not this one.
     const label = parts[i - 1] === 'content' && segment === 'dashboard' ? 'User dashboard' : LABELS[segment];
     crumbs.push({ label: label ?? DETAIL[parts[i - 1]] ?? 'Details', href });

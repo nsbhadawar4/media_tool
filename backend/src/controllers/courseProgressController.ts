@@ -22,7 +22,7 @@ async function publicChapters(classLevel?: number) {
   const catalog = await getPublicCatalog();
   const classes = catalog.classes.filter((c) => c.classLevel !== null && c.isEnabled && c.isVisible && (classLevel === undefined || c.classLevel === classLevel));
   const levels = classes.map((c) => c.classLevel!);
-  const chapters = await Course.find({ classLevel: { $in: levels }, archivedAt: null, isEnabled: true, isVisible: true, draft: { $ne: true } }, { slug: 1, classLevel: 1, subject: 1, 'lessons._id': 1 }).lean();
+  const chapters = await Course.find({ classLevel: { $in: levels }, archivedAt: null, isEnabled: true, isVisible: true, draft: { $ne: true } }, { slug: 1, title: 1, order: 1, classLevel: 1, subject: 1, 'lessons._id': 1 }).lean();
   return { classes, chapters: chapters.filter((c) => c.subject && isPairOpen(catalog, c.classLevel!, c.subject, true)) };
 }
 
@@ -47,6 +47,38 @@ export const classesProgress = asyncHandler(async (req: Request, res: Response) 
     res,
     classes.map((c) => ({ slug: c.key, classLevel: c.classLevel, ...summarise(chapters.filter((x) => x.classLevel === c.classLevel), records) })),
   );
+});
+
+/**
+ * GET /api/progress/continue — where to pick up: the chapter the learner touched last that is still
+ * open to them (published, visible, in a visible class and subject), and its first lesson not yet
+ * completed — with its class and subject, so "Continue" never loses its context. Null when there is
+ * nothing to continue (no progress yet, or everything started is finished).
+ */
+export const continueLearning = asyncHandler(async (req: Request, res: Response) => {
+  const records = await CourseProgress.find({ userId: userId(req) }, { chapterId: 1, lessons: 1, updatedAt: 1 }).sort({ updatedAt: -1 }).limit(25).lean();
+  if (!records.length) return sendSuccess(res, null);
+  const [{ classes, chapters }, catalog] = await Promise.all([publicChapters(), getPublicCatalog()]);
+  const byId = new Map(chapters.map((c) => [String(c._id), c]));
+  for (const r of records) {
+    const chapter = byId.get(String(r.chapterId));
+    if (!chapter || !chapter.lessons.length) continue; // hidden, archived or deleted since: never suggested
+    const done = new Set(r.lessons.filter((l) => l.completedAt).map((l) => String(l.lessonId)));
+    const next = chapter.lessons.findIndex((l) => !done.has(String(l._id)));
+    if (next === -1) continue; // finished
+    const cls = classes.find((c) => c.classLevel === chapter.classLevel)!;
+    const siblings = chapters.filter((c) => c.classLevel === chapter.classLevel && c.subject === chapter.subject).sort((a, b) => a.order - b.order);
+    const subject = catalog.subjects.find((x) => x.key === chapter.subject);
+    return sendSuccess(res, {
+      class: { slug: cls.key, title: cls.title },
+      subject: { key: chapter.subject, title: subject?.title ?? chapter.subject },
+      chapter: { slug: chapter.slug, title: chapter.title, number: siblings.findIndex((c) => String(c._id) === String(chapter._id)) + 1 },
+      lesson: next + 1,
+      lessonCount: chapter.lessons.length,
+      completedLessons: done.size,
+    });
+  }
+  sendSuccess(res, null);
 });
 
 /** GET /api/progress/classes/:slug — one class: the whole, and each chapter's lessons (by number) and quiz. */

@@ -1,4 +1,5 @@
 import { api } from './client';
+import type { CurriculumChapterSummary, CurriculumSubject } from './adminClasses';
 
 /** One entry of the admin-managed catalog, as the site and app see it (GET /api/content/catalog). */
 export interface CatalogEntry {
@@ -103,4 +104,14 @@ export const contentApi = {
   catalog: () => api.get<PublicCatalog>('/api/content/catalog'),
   courses: (params: { classLevel?: number; subject?: string } = {}) => api.get<CourseSummary[]>('/api/content/courses', { ...params }),
   course: (slug: string) => api.get<Course>(`/api/content/courses/${encodeURIComponent(slug)}`),
+  /**
+   * One visible class and only the subjects it offers (visible, switched on), with their chapters —
+   * the same read as its /classes/class-N page. A hidden, draft, archived or deleted class is a 404.
+   */
+  classCurriculum: (slug: string, signal?: AbortSignal) =>
+    api.get<{ class: { classLevel: number; slug: string; title: string; subtitle: string; description: string }; subjects: CurriculumSubject<CurriculumChapterSummary>[] }>(
+      `/api/content/classes/${encodeURIComponent(slug)}/curriculum`,
+      undefined,
+      signal,
+    ),
 };

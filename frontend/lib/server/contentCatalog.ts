@@ -113,3 +113,16 @@ export interface PublicChapter {
 export const getPublicChapter = cache((slug: string, subject: string, chapter: string) =>
   readPublicClass<PublicChapter>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}/chapters/${encodeURIComponent(chapter)}`, `chapter ${chapter} of ${subject} in ${slug}`),
 );
+
+/** That subject's published, visible manual courses (hand-written in Admin → Manual Courses). */
+export const getPublicManualCourses = cache((slug: string, subject: string) =>
+  readPublicClass<import('@/lib/api/manualCourses').PublicManualCourseSummary[]>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}/manual-courses`, `manual courses of ${subject} in ${slug}`),
+);
+
+/** One such manual course in full: its published chapters and lessons. */
+export const getPublicManualCourse = cache((slug: string, subject: string, course: string) =>
+  readPublicClass<import('@/lib/api/manualCourses').PublicManualCourse>(
+    `${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}/manual-courses/${encodeURIComponent(course)}`,
+    `manual course ${course} of ${subject} in ${slug}`,
+  ),
+);

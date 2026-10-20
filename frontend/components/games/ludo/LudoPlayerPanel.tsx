@@ -40,6 +40,8 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active, names, youC
         const label = names ? `${names[p.color] ?? COLOR_NAME[p.color]}${isYou ? ' (You)' : ''}` : playerLabel(p.color, controller, vsBot);
         const isBot = controller === 'bot' || botColors?.has(p.color);
         const isOffline = offline?.has(p.color);
+        // All four home: finished in this place (3 or 4 players play on without them).
+        const place = state.ranking.indexOf(p.color);
         return (
           <li
             key={p.color}
@@ -71,6 +73,12 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active, names, youC
               <span className="ml-1 text-[9px] font-semibold uppercase tracking-wider text-warning">{isBot ? 'bot' : 'offline'}</span>
             )}
             {/* Always rendered so every card is the same height; only its visibility changes. This is what keeps the layout from shifting when the turn passes. */}
+            {place >= 0 ? (
+              <span className="mt-1 inline-block rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-foreground" style={{ borderColor: hex }}>
+                {place === 0 ? '🏆 ' : ''}
+                {['1st', '2nd', '3rd', '4th'][place]}
+              </span>
+            ) : (
             <span
               aria-hidden={!isActive}
               className={cn(
@@ -81,6 +89,7 @@ export function LudoPlayerPanel({ state, controllers, vsBot, active, names, youC
             >
               {names ? (isYou ? 'Your turn' : 'Turn') : isBot ? 'Bot turn' : vsBot ? 'Your turn' : 'Turn'}
             </span>
+            )}
           </li>
         );
       })}

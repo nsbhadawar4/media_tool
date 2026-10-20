@@ -19,7 +19,7 @@ import { FolderCrudModals } from '@/components/folders/FolderCrudModals';
 import { FadeUp } from '@/components/ui/motion';
 import { KidGamesDashboardCard } from '@/components/kid-games/KidGamesDashboardCard';
 import { GamesDashboardCard } from '@/components/games/GamesDashboardCard';
-import { ClassCardsGrid } from '@/components/kid-games/cards/ClassCardsGrid';
+import { LearnClassPicker } from '@/components/courses/LearnClassPicker';
 import { LearningOverview } from '@/components/kid-games/progress/LearningOverview';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { useMediaViewer } from '@/hooks/useMediaViewer';
@@ -319,14 +319,14 @@ export default function DashboardPage() {
     'kid-games': <KidGamesDashboardCard />,
     // Classes, courses, games completed and this week, with the progress charts — real data only.
     learning: <LearningOverview />,
-    // The same class cards as the Kid Games hub and the public site, with this user's progress.
+    // Class first, then only that class's subjects — with this user's progress in each class.
     classes: (
       <section aria-labelledby="learn-by-class-title">
         <div className="mb-3">
-          <h2 id="learn-by-class-title" className="text-base font-semibold tracking-tight text-foreground">My Classes</h2>
-          <p className="text-xs text-muted">Fun, engaging and structured learning, class by class.</p>
+          <h2 id="learn-by-class-title" className="text-base font-semibold tracking-tight text-foreground">My Learning</h2>
+          <p className="text-xs text-muted">Choose your class, then a subject to continue.</p>
         </div>
-        <ClassCardsGrid />
+        <LearnClassPicker idPrefix="dashboard" />
       </section>
     ),
     'recent-folders': (

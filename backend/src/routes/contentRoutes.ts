@@ -6,6 +6,8 @@ import { courseSlugParamSchema, publicCoursesQuerySchema } from '../validators/c
 import { serveContentImage } from '../controllers/adminClassController';
 import { classChapterParamSchema, classSubjectParamSchema, contentImageParamSchema, slugParamSchema } from '../validators/classValidators';
 import { publicChapter, publicClassCurriculum, publicClassSubject } from '../controllers/adminCurriculumController';
+import { publicManualCourse, publicManualCourses } from '../controllers/adminManualCourseController';
+import { publicManualCourseParamSchema, publicManualCoursesParamSchema } from '../validators/manualCourseValidators';
 
 const router = Router();
 
@@ -19,6 +21,9 @@ router.get('/classes/:slug/curriculum', validate({ params: slugParamSchema }), p
 router.get('/classes/:slug/subjects/:subject', validate({ params: classSubjectParamSchema }), publicClassSubject);
 // Public: one chapter of it in full — lessons with their questions and practice; the quiz without answers.
 router.get('/classes/:slug/subjects/:subject/chapters/:chapter', validate({ params: classChapterParamSchema }), publicChapter);
+// Public: that subject's published, visible manual courses, and one of them (published chapters and lessons only).
+router.get('/classes/:slug/subjects/:subject/manual-courses', validate({ params: publicManualCoursesParamSchema }), publicManualCourses);
+router.get('/classes/:slug/subjects/:subject/manual-courses/:course', validate({ params: publicManualCourseParamSchema }), publicManualCourse);
 
 // Courses are for signed-in users.
 router.get('/courses', requireAuth, validate({ query: publicCoursesQuerySchema }), listPublishedCourses);

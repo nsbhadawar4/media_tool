@@ -7,11 +7,12 @@ import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { Resources } from '@/components/courses/CurriculumView';
 import { ProgressMark } from '@/components/courses/LearnWidgets';
 import { ClassUnavailable } from '@/components/courses/ClassStates';
-import { getPublicClassSubject, getPublicCurriculum, getServerCatalog } from '@/lib/server/contentCatalog';
+import { getPublicClassSubject, getPublicCurriculum, getPublicManualCourses, getServerCatalog } from '@/lib/server/contentCatalog';
 import { isSectionOn } from '@/lib/content/sections';
 import { chapterPath, classPath, formatMinutes, subjectPath } from '@/lib/content/learnPaths';
 import { LOGIN_PATH } from '@/lib/auth/routes';
 import { siteMetadataBase } from '@/lib/site';
+import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
  * /classes/class-N/<subject> — one subject as this class teaches it: its chapters (each opening
@@ -40,7 +41,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ClassSubjectPage({ params }: Params) {
   const { slug, subject: subjectKey } = await params;
   // The class's other subjects too, for previous / next (the same public data as the class page).
-  const [raw, read, curriculum] = await Promise.all([getServerCatalog(), getPublicClassSubject(slug, subjectKey), getPublicCurriculum(slug)]);
+  const [raw, read, curriculum, manual] = await Promise.all([getServerCatalog(), getPublicClassSubject(slug, subjectKey), getPublicCurriculum(slug), getPublicManualCourses(slug, subjectKey)]);
   if (read.status === 'error') return <ClassUnavailable what="subject" retryHref={subjectPath(slug, subjectKey)} />;
   if (read.status === 'missing') notFound();
   const { class: cls, subject } = read.data;
@@ -55,15 +56,16 @@ export default async function ClassSubjectPage({ params }: Params) {
   const at = siblings.findIndex((s) => s.key === subject.key);
   const prevSubject = at > 0 ? siblings[at - 1] : undefined;
   const nextSubject = at >= 0 ? siblings[at + 1] : undefined;
+  // Courses written by hand in Admin → Manual Courses, published and visible (an extra: never required).
+  const manualCourses = manual.status === 'ok' ? manual.data : [];
 
   return (
     <div style={classVars(cls.classLevel)} className="relative px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8">
       <div aria-hidden className="mk-hero-glow mk-hero-fade pointer-events-none absolute inset-0" />
       <div className="relative mx-auto max-w-4xl">
-        <Link href={classPath(cls.slug)} className="group mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-foreground">
-          <ArrowLeft aria-hidden className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-          Back to {cls.title}
-        </Link>
+        <div className="mb-6">
+          <CourseBreadcrumb items={[{ label: 'Courses', href: '/classes' }, { label: cls.title, href: classPath(cls.slug) }, { label: subject.title }]} />
+        </div>
 
         <header className="anim-rise flex flex-col gap-5 sm:flex-row sm:items-center">
           <span aria-hidden className="flex h-16 min-w-16 shrink-0 items-center justify-center self-start rounded-2xl bg-linear-to-br from-(--kg) to-(--kg-2) px-3 text-2xl font-bold text-white shadow-card sm:self-auto">
@@ -124,9 +126,9 @@ export default async function ClassSubjectPage({ params }: Params) {
           {chapters.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-dashed border-border px-6 py-10 text-center">
               <BookOpen aria-hidden className="mx-auto h-8 w-8 text-muted" />
-              <p className="mt-3 font-semibold text-foreground">No curriculum content available yet.</p>
+              <p className="mt-3 font-semibold text-foreground">Course content is being prepared.</p>
               <p className="mt-1 text-sm text-muted">
-                {games > 0 ? `${subject.title} in ${cls.title} is learned through its games for now.` : `Chapters for ${subject.title} in ${cls.title} are on their way.`}
+                {games > 0 ? `Meanwhile, ${subject.title} in ${cls.title} can be learned through its games.` : `Chapters for ${subject.title} in ${cls.title} will appear here.`}
               </p>
               <Link href={classPath(cls.slug)} className="mt-5 inline-flex h-11 items-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
                 See other subjects
@@ -173,6 +175,34 @@ export default async function ClassSubjectPage({ params }: Params) {
             </ol>
           )}
         </section>
+
+        {manualCourses.length > 0 && (
+          <section aria-labelledby="subject-manual-courses" className="mt-12">
+            <h2 id="subject-manual-courses" className="text-2xl font-semibold tracking-tight text-foreground">
+              More courses
+            </h2>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+              {manualCourses.map((c) => (
+                <li key={c.slug}>
+                  <Link
+                    href={`${subjectPath(cls.slug, subject.key)}/manual/${c.slug}`}
+                    className="group flex h-full flex-col gap-2 rounded-2xl border border-border bg-surface p-4 shadow-card transition hover:border-(--kg) hover:shadow-lift sm:p-5"
+                  >
+                    <span className="font-semibold text-foreground">{c.title}</span>
+                    {c.description && <span className="line-clamp-2 text-sm text-muted">{c.description}</span>}
+                    <span className="mt-auto flex items-center gap-3 text-xs text-subtle">
+                      <span className="inline-flex items-center gap-1">
+                        <BookOpen aria-hidden className="h-3.5 w-3.5" />
+                        {c.chapters} {c.chapters === 1 ? 'chapter' : 'chapters'} · {c.lessons} {c.lessons === 1 ? 'lesson' : 'lessons'}
+                      </span>
+                      <ArrowRight aria-hidden className="ml-auto h-4 w-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {(prevSubject || nextSubject) && (
           <nav aria-label="Subjects" className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2">

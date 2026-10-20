@@ -162,6 +162,15 @@ export const ACTIVITY_ACTIONS = [
   'course_restored',
   'course_trashed',
   'course_permanently_deleted',
+  // Admin → Manual Courses (hand-written courses, separate from the generated ones).
+  'manual_course_created',
+  'manual_course_updated',
+  'manual_course_published',
+  'manual_course_unpublished',
+  'manual_course_duplicated',
+  'manual_course_trashed',
+  'manual_course_restored',
+  'manual_course_permanently_deleted',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
@@ -188,6 +197,7 @@ export const ACTIVITY_CATEGORIES = {
     'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored', 'content_trashed', 'content_permanently_deleted',
     'section_enabled', 'section_disabled', 'section_reordered', 'content_bulk_updated', 'settings_updated',
     'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored', 'course_trashed', 'course_permanently_deleted',
+    'manual_course_created', 'manual_course_updated', 'manual_course_published', 'manual_course_unpublished', 'manual_course_duplicated', 'manual_course_trashed', 'manual_course_restored', 'manual_course_permanently_deleted',
   ],
 } as const satisfies Record<string, readonly ActivityAction[]>;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;

@@ -23,7 +23,9 @@ import type { BonusReason, Capture, GameState, MoveEvents, MoveResult, Player, P
  *    its yard. Two or more same-coloured tokens on a non-safe cell form a BLOCK and cannot be captured
  *    (the mover may still land there; the cell is then shared). Safe cells (4 start squares + 4 star
  *    squares) never capture. Own tokens may stack freely.
- *  - First player with all four tokens finished wins.
+ *  - A player with all four tokens home has finished and takes no more turns. The first to finish wins.
+ *    With 2 players that ends the game at once; with 3 or 4 the rest play on for the remaining places,
+ *    and the game ends as soon as only one player is still playing.
  */
 
 /** Uniform die roll 1..6 from a [0,1) rng. */
@@ -36,7 +38,7 @@ export function createGame(playerCount: PlayerCount): GameState {
     color,
     tokens: Array.from({ length: TOKENS_PER_PLAYER }, (_, id) => ({ id, progress: PROGRESS_YARD })),
   }));
-  return { players, current: 0, phase: 'roll', die: null, sixes: 0, turns: 1, winner: null };
+  return { players, current: 0, phase: 'roll', die: null, sixes: 0, turns: 1, winner: null, ranking: [] };
 }
 
 /** A game for an explicit set of colours (online rooms). Turn order is clockwise round the board. */
@@ -46,7 +48,7 @@ export function createGameFromColors(colors: readonly PlayerColor[]): GameState 
     color,
     tokens: Array.from({ length: TOKENS_PER_PLAYER }, (_, id) => ({ id, progress: PROGRESS_YARD })),
   }));
-  return { players, current: 0, phase: 'roll', die: null, sixes: 0, turns: 1, winner: null };
+  return { players, current: 0, phase: 'roll', die: null, sixes: 0, turns: 1, winner: null, ranking: [] };
 }
 
 export function currentPlayer(state: GameState): Player {
@@ -69,10 +71,21 @@ export function getValidMoves(state: GameState, die: number): number[] {
     .map((t) => t.id);
 }
 
+/** True once all four of the player's tokens are home. */
+export function hasFinished(player: Player): boolean {
+  return finishedCount(player) === TOKENS_PER_PLAYER;
+}
+
+/** The turn passes to the next player who is still playing (finished players are skipped). */
 function advanceTurn(state: GameState): GameState {
+  let next = state.current;
+  for (let i = 0; i < state.players.length; i++) {
+    next = (next + 1) % state.players.length;
+    if (!hasFinished(state.players[next]!)) break;
+  }
   return {
     ...state,
-    current: (state.current + 1) % state.players.length,
+    current: next,
     phase: 'roll',
     die: null,
     sixes: 0,
@@ -130,10 +143,13 @@ export function applyMove(state: GameState, tokenId: number): MoveResult {
     }),
   }));
 
-  // Decided from this move's own result (never from earlier state). One bonus turn at most, however
-  // many reasons apply; a winning move ends the game instead.
-  const won = finishedCount(players[state.current]!) === TOKENS_PER_PLAYER;
-  const bonus: BonusReason[] = won
+  // Decided from this move's own result (never from earlier state), right here — before any next turn
+  // exists. A player who finishes takes no bonus turn; the game ends once at most one player is left.
+  const finished = hasFinished(players[state.current]!);
+  const ranking = finished ? [...state.ranking, mover.color] : state.ranking;
+  const stillPlaying = players.filter((p) => !hasFinished(p));
+  const won = finished && stillPlaying.length <= 1;
+  const bonus: BonusReason[] = finished
     ? []
     : [...(die === 6 ? (['six'] as const) : []), ...(captures.length > 0 ? (['capture'] as const) : []), ...(to === PROGRESS_FINISHED ? (['home'] as const) : [])];
   const extraTurn = bonus.length > 0;
@@ -148,6 +164,8 @@ export function applyMove(state: GameState, tokenId: number): MoveResult {
     captures,
     leftYard: from === PROGRESS_YARD,
     reachedHome: to === PROGRESS_FINISHED,
+    finished,
+    place: finished ? ranking.length : null,
     won,
     extraTurn,
     bonus,
@@ -155,10 +173,13 @@ export function applyMove(state: GameState, tokenId: number): MoveResult {
 
   // The one place the turn is decided after a move: game over, same player again, or the next player.
   // A bonus turn keeps the six count (so a third six still forfeits); a non-six roll already reset it.
-  const base: GameState = { ...state, players, die: null };
+  const base: GameState = { ...state, players, die: null, ranking };
   let next: GameState;
-  if (won) next = { ...base, phase: 'over', winner: mover.color };
-  else if (extraTurn) next = { ...base, phase: 'roll' };
+  if (won) {
+    // The last player still playing takes the last place.
+    const final = [...ranking, ...stillPlaying.map((p) => p.color)];
+    next = { ...base, phase: 'over', ranking: final, winner: final[0]! };
+  } else if (extraTurn) next = { ...base, phase: 'roll' };
   else next = advanceTurn(base);
   return { state: next, events };
 }

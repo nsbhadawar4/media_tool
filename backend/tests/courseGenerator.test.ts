@@ -433,6 +433,49 @@ test('progress: lessons started and completed, quiz marked on the server, class 
   await call('POST', '/api/admin/courses/7/science/publish', undefined, admin);
 });
 
+test('class first: a class lists only its own subjects; a subject is served only in a class that offers it (no mixing, no tampering)', async () => {
+  const seven = (await call('GET', '/api/content/classes/class-7/curriculum')).data;
+  assert.deepEqual(
+    seven.subjects.map((s: { key: string }) => s.key),
+    ['science'],
+    'Class 7 offers Science only',
+  );
+  const one = (await call('GET', '/api/content/classes/class-1/curriculum')).data;
+  assert.ok(!one.subjects.some((s: { key: string }) => s.key === 'science'), "Class 1 never shows Class 7's subject");
+  // Class 7's subject asked for under another class, and another class's subject under Class 7: 404.
+  assert.equal((await call('GET', '/api/content/classes/class-1/subjects/science')).status, 404);
+  assert.equal((await call('GET', '/api/content/classes/class-7/subjects/hindi')).status, 404);
+  const ch = seven.subjects[0].chapters[0];
+  assert.equal((await call('GET', `/api/content/classes/class-1/subjects/science/chapters/${ch.slug}`)).status, 404);
+  assert.equal((await call('GET', `/api/content/classes/class-7/subjects/science/chapters/${ch.slug}`)).status, 200);
+});
+
+test('Continue Learning: the last chapter touched, at its first lesson not completed, with its class and subject — never hidden content', async () => {
+  const learner = await signIn('kid3@example.com', 'user');
+  assert.equal((await call('GET', '/api/progress/continue', undefined, learner)).data, null, 'nothing to continue yet');
+  assert.equal((await call('GET', '/api/progress/continue')).status, 401, 'signed-in only');
+  const ch = (await call('GET', '/api/content/classes/class-7/subjects/science')).data.subject.chapters[0];
+  const where = { class: 'class-7', subject: 'science', chapter: ch.slug };
+  await call('POST', '/api/progress/lessons', { ...where, lesson: 1, event: 'start' }, learner);
+  let next = (await call('GET', '/api/progress/continue', undefined, learner)).data;
+  assert.deepEqual(
+    [next.class.slug, next.class.title, next.subject.key, next.subject.title, next.chapter.slug, next.chapter.number, next.lesson],
+    ['class-7', 'Class 7', 'science', 'Science', ch.slug, 1, 1],
+  );
+  await call('POST', '/api/progress/lessons', { ...where, lesson: 1, event: 'complete' }, learner);
+  next = (await call('GET', '/api/progress/continue', undefined, learner)).data;
+  assert.deepEqual([next.lesson, next.completedLessons], [2, 1], 'on to lesson 2');
+  // Its class's progress is its own: another class shows none of it.
+  const six = (await call('GET', '/api/progress/classes', undefined, learner)).data as Array<{ slug: string; completed: number }>;
+  assert.equal(six.find((c) => c.slug === 'class-7')!.completed, 1);
+  assert.ok(six.filter((c) => c.slug !== 'class-7').every((c) => c.completed === 0), "Class 7's progress never shows under another class");
+  // Hidden: never suggested.
+  await call('POST', '/api/admin/courses/7/science/unpublish', undefined, admin);
+  assert.equal((await call('GET', '/api/progress/continue', undefined, learner)).data, null);
+  await call('POST', '/api/admin/courses/7/science/publish', undefined, admin);
+  assert.equal((await call('GET', '/api/progress/continue', undefined, learner)).data.lesson, 2);
+});
+
 test('progress: simultaneous reports (refresh, two tabs) never fail — one entry per lesson, every quiz attempt counted', async () => {
   const ch = (await call('GET', '/api/content/classes/class-7/subjects/science')).data.subject.chapters[0];
   const where = { class: 'class-7', subject: 'science', chapter: ch.slug };

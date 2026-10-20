@@ -28,7 +28,7 @@ export default async function ClassesPage() {
   return (
     <div className="pt-4">
       <h1 className="sr-only">Classes</h1>
-      <LearnByClassSection status={catalog.fromServer ? 'ready' : 'error'} classes={classCards(catalog, isSectionOn(raw, 'kid-games'))} retryHref="/classes" />
+      <LearnByClassSection status={catalog.fromServer ? 'ready' : 'error'} classes={classCards(catalog, isSectionOn(raw, 'kid-games'))} kidGamesOn={isSectionOn(raw, 'kid-games')} retryHref="/classes" />
     </div>
   );
 }
