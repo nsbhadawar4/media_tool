@@ -180,7 +180,7 @@ export function ClassEditor({
     const local: Record<string, string> = {};
     const level = Number(classLevel);
     if (!editing && (!classLevel.trim() || !Number.isInteger(level) || level < 1 || level > 12)) local.classLevel = 'Enter a class number from 1 to 12';
-    else if (!editing && takenLevels.includes(level)) local.classLevel = `Class ${level} already exists (it may be archived)`;
+    else if (!editing && takenLevels.includes(level)) local.classLevel = `Class ${level} already exists (it may be in Archive or Trash)`;
     if (!title.trim()) local.title = 'Class title is required';
     if (then === 'generate' && subjects.length === 0) local.subjects = 'Add at least one subject to generate its course';
     setErrors(local);
@@ -415,11 +415,11 @@ export function ClassEditorPage({ level }: { level?: number }) {
       </div>
     );
   }
-  if (level && (!cls || cls.status === 'archived')) {
+  if (level && (!cls || cls.status === 'archived' || cls.status === 'trashed')) {
     return (
       <div className="mx-auto max-w-md rounded-2xl border border-border bg-surface p-8 text-center shadow-card">
-        <p className="font-semibold text-foreground">{cls ? 'This class is archived' : level > 0 ? `There is no Class ${level}` : 'There is no such class'}</p>
-        <p className="mt-1 text-sm text-muted">{cls ? 'Restore it from Manage Courses to edit it.' : 'It may have been removed.'}</p>
+        <p className="font-semibold text-foreground">{cls ? (cls.status === 'trashed' ? 'This class is in Trash' : 'This class is archived') : level > 0 ? `There is no Class ${level}` : 'There is no such class'}</p>
+        <p className="mt-1 text-sm text-muted">{cls ? `Restore it from ${cls.status === 'trashed' ? 'Trash / Deleted' : 'Archive'} to edit it.` : 'It may have been removed.'}</p>
         <Link href="/admin/courses" className="btn-primary mt-4 inline-flex h-10 items-center rounded-xl px-4 text-sm font-medium text-accent-foreground">
           Back to Manage Courses
         </Link>
@@ -427,5 +427,5 @@ export function ClassEditorPage({ level }: { level?: number }) {
     );
   }
   const rows = list.data ?? [];
-  return <ClassEditor key={cls?.id ?? 'new'} cls={cls} takenLevels={rows.map((c) => c.classLevel)} liveCount={rows.filter((c) => c.status !== 'archived').length} />;
+  return <ClassEditor key={cls?.id ?? 'new'} cls={cls} takenLevels={rows.map((c) => c.classLevel)} liveCount={rows.filter((c) => c.status !== 'archived' && c.status !== 'trashed').length} />;
 }

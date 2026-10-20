@@ -11,7 +11,7 @@ import { useLogoutPrompt } from '@/components/auth/LogoutPrompt';
 import { ADMIN_HOME_PATH, ADMIN_LIBRARY_PATH } from '@/lib/auth/routes';
 import { ADMIN_NAV_GROUPS, TAB_SLOTS, USER_NAV_GROUPS, isNavItemActive, liveNavItems, openNavGroups, type NavItem } from './navItems';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
-import { badgeText, useNavBadges } from './navBadges';
+import { BADGE_MEANING, badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
 /**
@@ -121,7 +121,7 @@ function TabLink({ item, isActive }: { item: NavItem; isActive: boolean }) {
     <Link
       href={item.href}
       aria-current={isActive ? 'page' : undefined}
-      aria-label={badge ? `${item.label}, ${badge} waiting` : undefined}
+      aria-label={badge ? `${item.label}, ${badge} ${BADGE_MEANING[item.href] ?? 'waiting'}` : undefined}
       className="flex flex-1 flex-col items-center justify-center gap-1 pt-1 transition active:scale-95"
     >
       <TabIconSlot isActive={isActive}>

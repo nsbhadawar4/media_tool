@@ -11,7 +11,7 @@ import { CurriculumView } from '@/components/courses/CurriculumView';
 import { builtInSubtitle, classPicture } from '@/components/kid-games/cards/ClassCourseCard';
 import { ThemedPlaceholder } from '@/components/courses/ThemedPlaceholder';
 
-const STATUS_TEXT = { draft: 'Draft — not shown publicly', visible: 'Published and visible', hidden: 'Hidden — not shown publicly', off: 'Switched off', archived: 'Archived' } as const;
+const STATUS_TEXT = { draft: 'Draft — not shown publicly', visible: 'Published and visible', hidden: 'Hidden — not shown publicly', off: 'Switched off', archived: 'Archived', trashed: 'In Trash / Deleted' } as const;
 
 /**
  * /admin/courses/N/preview — a class as visitors will see it (subjects, chapters, lessons, practice,

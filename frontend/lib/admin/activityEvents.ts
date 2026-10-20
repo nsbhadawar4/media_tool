@@ -97,6 +97,8 @@ export const EVENT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'content_reordered', label: 'Content reordered' },
   { value: 'content_archived', label: 'Content archived' },
   { value: 'content_restored', label: 'Content restored' },
+  { value: 'content_trashed', label: 'Content moved to Trash' },
+  { value: 'content_permanently_deleted', label: 'Content permanently deleted' },
   { value: 'section_enabled', label: 'Section Enabled' },
   { value: 'section_disabled', label: 'Section Disabled' },
   { value: 'section_reordered', label: 'Section Reordered' },
@@ -107,6 +109,8 @@ export const EVENT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'course_disabled', label: 'Course disabled' },
   { value: 'course_archived', label: 'Course archived' },
   { value: 'course_restored', label: 'Course restored' },
+  { value: 'course_trashed', label: 'Chapter moved to Trash' },
+  { value: 'course_permanently_deleted', label: 'Chapter permanently deleted' },
 ];
 
 type Tone = 'accent' | 'success' | 'warning' | 'danger' | 'muted';
@@ -166,6 +170,8 @@ const LOOK: Record<string, EventLook> = {
   content_reordered: { label: 'Content reordered', icon: ArrowUpDown, tone: 'muted' },
   content_archived: { label: 'Content archived', icon: Archive, tone: 'danger' },
   content_restored: { label: 'Content restored', icon: ArchiveRestore, tone: 'success' },
+  content_trashed: { label: 'Content moved to Trash', icon: Trash2, tone: 'warning' },
+  content_permanently_deleted: { label: 'Content permanently deleted', icon: Trash2, tone: 'danger' },
   section_enabled: { label: 'Section Enabled', icon: ToggleRight, tone: 'success' },
   section_disabled: { label: 'Section Disabled', icon: ToggleLeft, tone: 'warning' },
   section_reordered: { label: 'Section Reordered', icon: ArrowUpDown, tone: 'muted' },
@@ -179,6 +185,8 @@ const LOOK: Record<string, EventLook> = {
   course_reordered: { label: 'Course reordered', icon: ArrowUpDown, tone: 'muted' },
   course_archived: { label: 'Course archived', icon: Archive, tone: 'danger' },
   course_restored: { label: 'Course restored', icon: ArchiveRestore, tone: 'success' },
+  course_trashed: { label: 'Chapter moved to Trash', icon: Trash2, tone: 'warning' },
+  course_permanently_deleted: { label: 'Chapter permanently deleted', icon: Trash2, tone: 'danger' },
 };
 
 const UPLOAD_ICON: Record<string, LucideIcon> = { image: ImageIcon, video: Video, document: FileText };

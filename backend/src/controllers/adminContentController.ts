@@ -11,6 +11,7 @@ import { ensureCatalogSeeded, invalidateCatalog, nextOrder, siblingFilter } from
 import { classSubjectKey } from '../services/learningStructure';
 import { escapeRegex, pageMeta } from '../services/adminQueries';
 import type { BulkUpdateInput, CreateContentInput, CreateCourseInput, UpdateContentInput, UpdateCourseInput } from '../validators/contentValidators';
+import { ARCHIVED_FILTER, NOT_TRASHED_FILTER, archivedState, markArchived, markRestored, restoredState } from '../services/archive';
 
 /**
  * Admin content management: the catalog (sections, classes, subjects, Kid Games, games) and
@@ -46,8 +47,9 @@ type Status = 'live' | 'active' | 'disabled' | 'hidden' | 'archived' | 'all';
 
 function statusFilter(status: Status): FilterQuery<IContentItem & ICourse> {
   switch (status) {
+    // Archive only: what is in Trash / Deleted is listed there, not here.
     case 'archived':
-      return { archivedAt: { $ne: null } };
+      return { ...ARCHIVED_FILTER };
     case 'active':
       return { archivedAt: null, isEnabled: true, isVisible: true };
     case 'disabled':
@@ -55,7 +57,7 @@ function statusFilter(status: Status): FilterQuery<IContentItem & ICourse> {
     case 'hidden':
       return { archivedAt: null, isVisible: false };
     case 'all':
-      return {};
+      return { ...NOT_TRASHED_FILTER };
     default:
       return { archivedAt: null };
   }
@@ -165,7 +167,7 @@ export const getContentStats = asyncHandler(async (_req: Request, res: Response)
         active: { $sum: { $cond: [{ $and: [{ $eq: ['$archivedAt', null] }, '$isEnabled', '$isVisible'] }, 1, 0] } },
         disabled: { $sum: { $cond: [{ $and: [{ $eq: ['$archivedAt', null] }, { $not: '$isEnabled' }] }, 1, 0] } },
         hidden: { $sum: { $cond: [{ $and: [{ $eq: ['$archivedAt', null] }, { $not: '$isVisible' }] }, 1, 0] } },
-        archived: { $sum: { $cond: [{ $ne: ['$archivedAt', null] }, 1, 0] } },
+        archived: { $sum: { $cond: [{ $and: [{ $ne: ['$archivedAt', null] }, { $eq: [{ $ifNull: ['$trashedAt', null] }, null] }] }, 1, 0] } },
         custom: { $sum: { $cond: [{ $eq: ['$source', 'admin'] }, 1, 0] } },
       },
     },
@@ -177,7 +179,7 @@ export const getContentStats = asyncHandler(async (_req: Request, res: Response)
   const [coursesLive, coursesActive, coursesArchived] = await Promise.all([
     Course.countDocuments({ archivedAt: null }),
     Course.countDocuments({ archivedAt: null, isEnabled: true, isVisible: true }),
-    Course.countDocuments({ archivedAt: { $ne: null } }),
+    Course.countDocuments({ ...ARCHIVED_FILTER }),
   ]);
   sendSuccess(res, { ...byType, course: { total: coursesLive, active: coursesActive, archived: coursesArchived } });
 });
@@ -427,11 +429,10 @@ export const archiveContent = asyncHandler(async (req: Request, res: Response) =
   if (!item) throw AppError.notFound('Content not found');
   if (item.archivedAt) throw AppError.conflict('Already archived');
   if (FIXED_CONTENT_TYPES.includes(item.type)) throw AppError.badRequest('Dashboard blocks and navigation links can’t be archived — switch them off instead');
-  item.archivedAt = new Date();
-  item.updatedBy = new Types.ObjectId(req.user!.id);
+  markArchived(item, new Types.ObjectId(req.user!.id));
   await item.save();
   invalidateCatalog();
-  await auditItem(req, 'content_archived', item, 'Archived');
+  await auditItem(req, 'content_archived', item, 'Archived', { ...archivedState });
   sendSuccess(res, serializeItem(item), 200, undefined, 'Archived');
 });
 
@@ -439,13 +440,12 @@ export const restoreContent = asyncHandler(async (req: Request, res: Response) =
   const item = await ContentItem.findById(req.params.id);
   if (!item) throw AppError.notFound('Content not found');
   if (!item.archivedAt) throw AppError.conflict('This entry is not archived');
-  item.archivedAt = null;
+  markRestored(item, new Types.ObjectId(req.user!.id));
   // Back at the end of its siblings, so it never collides with what was reordered meanwhile.
   item.order = await nextOrder({ ...siblingFilter(item), archivedAt: null });
-  item.updatedBy = new Types.ObjectId(req.user!.id);
   await item.save();
   invalidateCatalog();
-  await auditItem(req, 'content_restored', item, 'Restored');
+  await auditItem(req, 'content_restored', item, 'Restored', { ...restoredState });
   sendSuccess(res, serializeItem(item), 200, undefined, 'Restored');
 });
 
@@ -552,7 +552,7 @@ export function serializeCourse(course: ICourse) {
   };
 }
 
-function auditCourse(req: Request, action: ActivityAction, course: ICourse, verb: string, metadata: Record<string, unknown> = {}) {
+export function auditCourse(req: Request, action: ActivityAction, course: ICourse, verb: string, metadata: Record<string, unknown> = {}) {
   return logActivity(req, {
     action,
     targetType: 'course',
@@ -707,11 +707,10 @@ export const archiveCourse = asyncHandler(async (req: Request, res: Response) =>
   const course = await Course.findById(req.params.id);
   if (!course) throw AppError.notFound('Course not found');
   if (course.archivedAt) throw AppError.conflict('Already archived');
-  course.archivedAt = new Date();
-  course.updatedBy = new Types.ObjectId(req.user!.id);
+  markArchived(course, new Types.ObjectId(req.user!.id));
   await course.save();
   invalidateCatalog();
-  await auditCourse(req, 'course_archived', course, 'Archived');
+  await auditCourse(req, 'course_archived', course, 'Archived', { ...archivedState });
   sendSuccess(res, serializeCourse(course), 200, undefined, 'Archived');
 });
 
@@ -719,11 +718,10 @@ export const restoreCourse = asyncHandler(async (req: Request, res: Response) =>
   const course = await Course.findById(req.params.id);
   if (!course) throw AppError.notFound('Course not found');
   if (!course.archivedAt) throw AppError.conflict('This course is not archived');
-  course.archivedAt = null;
+  markRestored(course, new Types.ObjectId(req.user!.id));
   course.order = (((await Course.findOne({ archivedAt: null }, { order: 1 }).sort({ order: -1 }).lean<{ order: number } | null>())?.order) ?? 0) + 1;
-  course.updatedBy = new Types.ObjectId(req.user!.id);
   await course.save();
   invalidateCatalog();
-  await auditCourse(req, 'course_restored', course, 'Restored');
+  await auditCourse(req, 'course_restored', course, 'Restored', { ...restoredState });
   sendSuccess(res, serializeCourse(course), 200, undefined, 'Restored');
 });

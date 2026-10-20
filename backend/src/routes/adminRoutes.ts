@@ -12,6 +12,18 @@ import {
   startGenerationJobSchema,
 } from '../validators/courseValidators';
 import { currentGenerationJob, discardGenerationJob, finishGenerationJob, nextGenerationStep, startGenerationJob } from '../controllers/courseGenerationJobController';
+import {
+  archiveItem,
+  foreverDeleteFromTrash,
+  lifecycleSummary,
+  listArchive,
+  listTrash,
+  moveArchiveToTrash,
+  restoreFromArchive,
+  restoreFromTrash,
+  trashItem,
+} from '../controllers/adminLifecycleController';
+import { lifecycleDeleteSchema, lifecycleListQuerySchema, lifecycleMoveSchema, lifecycleRefSchema, lifecycleRestoreSchema } from '../validators/lifecycleValidators';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getAdminAppearance, updateAppearance } from '../controllers/settingsController';
 import { updateAppearanceSchema } from '../validators/settingsValidators';
@@ -176,6 +188,19 @@ router.get('/classes/:level/curriculum', validate(classLevel), getClassCurriculu
 
 // AI Course Generator and course editor: a course is one subject of one class. Generating saves nothing.
 const levelSubject = { params: levelSubjectParamSchema };
+// Archive and Trash / Deleted: every lifecycle move of course content, checked against the entry's state
+// (ACTIVE → ARCHIVED / TRASHED, ARCHIVED → ACTIVE / TRASHED, TRASHED → ACTIVE / gone). Nothing is ever removed
+// except by Forever Delete, from Trash, with DELETE typed.
+router.get('/lifecycle/summary', lifecycleSummary);
+router.get('/archive', validate({ query: lifecycleListQuerySchema }), listArchive);
+router.post('/archive', validate({ body: lifecycleRefSchema }), archiveItem);
+router.post('/archive/restore', validate({ body: lifecycleRestoreSchema }), restoreFromArchive);
+router.post('/archive/trash', validate({ body: lifecycleMoveSchema }), moveArchiveToTrash);
+router.get('/trash', validate({ query: lifecycleListQuerySchema }), listTrash);
+router.post('/trash', validate({ body: lifecycleRefSchema }), trashItem);
+router.post('/trash/restore', validate({ body: lifecycleRestoreSchema }), restoreFromTrash);
+router.post('/trash/delete', validate({ body: lifecycleDeleteSchema }), foreverDeleteFromTrash);
+
 router.get('/courses/engine', courseEngine);
 // Resumable generation: one step per request (fits serverless), rate limits retried with backoff, chapters kept as they arrive.
 router.post('/courses/generate/jobs', validate({ body: startGenerationJobSchema }), startGenerationJob);

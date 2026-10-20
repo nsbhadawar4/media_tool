@@ -15,6 +15,7 @@ import { classSubjectKey } from '../services/learningStructure';
 import { getStorageProvider, storageFailure } from '../services/storage';
 import { auditItem } from './adminContentController';
 import { slugify, type CreateClassInput, type UpdateClassInput } from '../validators/classValidators';
+import { ARCHIVED_FILTER, archivedState, markArchived, markRestored, restoredState } from '../services/archive';
 
 /**
  * Manage Courses: each class with the subjects it offers, edited as one thing.
@@ -30,7 +31,8 @@ export const uid = (req: Request) => new Types.ObjectId(req.user!.id);
 export const CLASS_FILTER = { type: 'class' as const };
 
 /** Where a class stands, in words an administrator reads on its card. */
-function statusOf(c: Row): 'draft' | 'visible' | 'hidden' | 'off' | 'archived' {
+function statusOf(c: Row): 'draft' | 'visible' | 'hidden' | 'off' | 'archived' | 'trashed' {
+  if (c.trashedAt) return 'trashed';
   if (c.archivedAt) return 'archived';
   if (c.status === 'draft') return 'draft';
   if (!c.isEnabled) return 'off';
@@ -226,11 +228,10 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
       await auditItem(req, 'content_created', subject, 'Created');
     } else if (subject.archivedAt) {
       // An existing subject is left as it is (other classes show it); only brought back if archived.
-      subject.archivedAt = null;
+      markRestored(subject, uid(req));
       subject.order = await nextOrder({ type: 'subject', archivedAt: null });
-      subject.updatedBy = uid(req);
       await subject.save();
-      await auditItem(req, 'content_restored', subject, 'Restored');
+      await auditItem(req, 'content_restored', subject, 'Restored', { ...restoredState });
     }
 
     // Its link to this class, at this position.
@@ -255,7 +256,7 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
     }
     const wasArchived = Boolean(link.archivedAt);
     const wasVisible = link.isVisible;
-    link.archivedAt = null;
+    if (wasArchived) markRestored(link, uid(req));
     link.order = i + 1;
     link.isVisible = row.isVisible;
     link.description = row.description;
@@ -263,17 +264,16 @@ export async function syncSubjects(req: Request, level: number, rows: SubjectRow
     if (link.isModified()) {
       link.updatedBy = uid(req);
       await link.save();
-      if (wasArchived) await auditItem(req, 'content_restored', link, 'Added back');
+      if (wasArchived) await auditItem(req, 'content_restored', link, 'Added back', { ...restoredState });
       else if (wasVisible !== link.isVisible) await auditItem(req, link.isVisible ? 'content_shown' : 'content_hidden', link, link.isVisible ? 'Showed' : 'Hid');
     }
   }
 
   for (const link of links) {
     if (link.archivedAt || keep.has(link.subject!)) continue;
-    link.archivedAt = new Date();
-    link.updatedBy = uid(req);
+    markArchived(link, uid(req));
     await link.save();
-    await auditItem(req, 'content_archived', link, 'Removed');
+    await auditItem(req, 'content_archived', link, 'Removed', { ...archivedState });
   }
 }
 
@@ -311,7 +311,8 @@ function linkMeta(row: SubjectRow, prev?: IContentItem['meta']): IContentItem['m
 export const listClasses = asyncHandler(async (req: Request, res: Response) => {
   await ensureCatalogSeeded();
   const { status } = req.query as { status: 'live' | 'archived' | 'all' };
-  const filter = status === 'archived' ? { archivedAt: { $ne: null } } : status === 'live' ? { archivedAt: null } : {};
+  // "archived" is Archive only — a class in Trash is listed only under "all" (its number is still taken).
+  const filter = status === 'archived' ? ARCHIVED_FILTER : status === 'live' ? { archivedAt: null } : {};
   const [rows, live] = await Promise.all([ContentItem.find({ ...CLASS_FILTER, ...filter }).sort({ order: 1, _id: 1 }), liveClasses()]);
   const look = await lookups(rows.map((r) => r.classLevel!));
   const position = new Map(live.map((c, i) => [c._id.toString(), i + 1]));
@@ -333,7 +334,11 @@ export const createClass = asyncHandler(async (req: Request, res: Response) => {
   const existing = await ContentItem.findOne({ ...CLASS_FILTER, classLevel: input.classLevel });
   if (existing) {
     throw AppError.conflict(
-      existing.archivedAt ? `Class ${input.classLevel} is archived — restore it instead of adding it again` : `Class ${input.classLevel} already exists`,
+      existing.trashedAt
+        ? `Class ${input.classLevel} is in Trash — restore it from Trash / Deleted instead of adding it again`
+        : existing.archivedAt
+          ? `Class ${input.classLevel} is archived — restore it from Archive instead of adding it again`
+          : `Class ${input.classLevel} already exists`,
     );
   }
   const c = await ContentItem.create({
@@ -428,23 +433,21 @@ export const setClassOrder = asyncHandler(async (req: Request, res: Response) =>
 export const archiveClass = asyncHandler(async (req: Request, res: Response) => {
   const c = await findClass(Number(req.params.level));
   if (c.archivedAt) throw AppError.conflict('This class is already archived');
-  c.archivedAt = new Date();
-  c.updatedBy = uid(req);
+  markArchived(c, uid(req));
   await c.save();
   invalidateCatalog();
-  await auditItem(req, 'content_archived', c, 'Archived');
+  await auditItem(req, 'content_archived', c, 'Archived', { ...archivedState });
   await respondWithClass(res, c, 200, 'Class archived');
 });
 
 export const restoreClass = asyncHandler(async (req: Request, res: Response) => {
   const c = await findClass(Number(req.params.level));
   if (!c.archivedAt) throw AppError.conflict('This class is not archived');
-  c.archivedAt = null;
+  markRestored(c, uid(req));
   c.order = await nextOrder({ ...CLASS_FILTER, archivedAt: null });
-  c.updatedBy = uid(req);
   await c.save();
   invalidateCatalog();
-  await auditItem(req, 'content_restored', c, 'Restored');
+  await auditItem(req, 'content_restored', c, 'Restored', { ...restoredState });
   await respondWithClass(res, c, 200, 'Class restored');
 });
 

@@ -1,7 +1,8 @@
 import { api } from './client';
 
 /** Where a class stands: a draft, listed, hidden from the lists, switched off elsewhere, or archived. */
-export type ClassStatus = 'draft' | 'visible' | 'hidden' | 'off' | 'archived';
+/** archived: in Admin → Archive; trashed: in Admin → Trash / Deleted (both restorable). */
+export type ClassStatus = 'draft' | 'visible' | 'hidden' | 'off' | 'archived' | 'trashed';
 
 export type CurriculumType = 'general' | 'mathematics' | 'science' | 'language' | 'competitive' | 'skills' | 'custom';
 export type ClassLanguage = 'english' | 'hindi' | 'bilingual' | 'other';

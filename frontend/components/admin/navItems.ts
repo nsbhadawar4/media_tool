@@ -1,5 +1,6 @@
 import {
   Activity,
+  Archive,
   BarChart3,
   BookOpenCheck,
   FileText,
@@ -17,6 +18,7 @@ import {
   Settings,
   Shapes,
   Star,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-react';
@@ -94,6 +96,15 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },
       { href: '/admin/documents', label: 'Documents', icon: FileText, planned: true },
+    ],
+  },
+  {
+    // Two separate places: what was intentionally archived, and what was deleted (restorable until
+    // deleted forever). Classes, subjects, courses, chapters, Kid Games, games and sections.
+    label: 'Content management',
+    items: [
+      { href: '/admin/archive', label: 'Archive', icon: Archive },
+      { href: '/admin/trash', label: 'Trash / Deleted', icon: Trash2 },
     ],
   },
   {

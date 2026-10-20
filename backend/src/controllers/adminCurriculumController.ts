@@ -11,6 +11,7 @@ import { classSubjectKey } from '../services/learningStructure';
 import { auditItem } from './adminContentController';
 import { CLASS_FILTER, findClass, respondWithClass, uid } from './adminClassController';
 import { slugify } from '../validators/classValidators';
+import { archiveUpdate } from '../services/archive';
 
 /**
  * A class's curriculum, read three ways: by administrators (everything, drafts and answers included —
@@ -174,7 +175,7 @@ export async function publishDraftChapters(req: Request, level: number, subject?
   if (!drafts.length) return 0;
   const replacing = [...new Set(drafts.filter((d) => d.supersedes !== false).map((d) => d.subject))];
   if (replacing.length) {
-    await Course.updateMany({ classLevel: level, subject: { $in: replacing }, generated: true, draft: { $ne: true }, archivedAt: null }, { $set: { archivedAt: new Date(), updatedBy: uid(req) } }, { session: session ?? undefined });
+    await Course.updateMany({ classLevel: level, subject: { $in: replacing }, generated: true, draft: { $ne: true }, archivedAt: null }, archiveUpdate(uid(req)), { session: session ?? undefined });
   }
   await Course.updateMany({ _id: { $in: drafts.map((d) => d._id) } }, { $set: { draft: false, isVisible: true, updatedBy: uid(req) } }, { session: session ?? undefined });
   return drafts.length;

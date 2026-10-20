@@ -6,6 +6,8 @@ const LABELS: Record<string, string> = {
   users: 'Users',
   activity: 'User activity',
   reviews: 'Reviews',
+  archive: 'Archive',
+  trash: 'Trash / Deleted',
   content: 'Content',
   sections: 'Landing page',
   classes: 'Classes',

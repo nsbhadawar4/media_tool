@@ -13,9 +13,9 @@ import { dashboardApi } from '@/lib/api/dashboard';
 import { adminApi } from '@/lib/api/admin';
 import { formatBytes } from '@/utils/format';
 import { ADMIN_HOME_PATH, ADMIN_LIBRARY_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
-import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, openNavGroups } from './navItems';
+import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, openNavGroups, type NavItem } from './navItems';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
-import { badgeText, useNavBadges } from './navBadges';
+import { BADGE_MEANING, badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
 
 interface SidebarContentProps {
@@ -63,7 +63,7 @@ export function SidebarContent({
   const isAdminArea = variant === 'admin';
   const badges = useNavBadges();
   // Only an administrator is offered the cross-link, and only from the other side.
-  const crossLink = isAdminArea
+  const crossLink: NavItem | null = isAdminArea
     ? { href: ADMIN_LIBRARY_PATH, label: 'My library', icon: FolderClosed }
     : isAdmin
       ? { href: ADMIN_HOME_PATH, label: 'Administration', icon: Users }
@@ -71,7 +71,11 @@ export function SidebarContent({
 
   // Planned entries are rendered too, as disabled "Soon" rows (the user nav has none).
   const catalog = useContentCatalog();
-  const groups = isAdminArea ? ADMIN_NAV_GROUPS : openNavGroups(USER_NAV_GROUPS, catalog.isSectionOn);
+  const groups = [
+    ...(isAdminArea ? ADMIN_NAV_GROUPS : openNavGroups(USER_NAV_GROUPS, catalog.isSectionOn)),
+    // The cross-link is the menu's last section, styled like every other entry.
+    ...(crossLink ? [{ label: isAdminArea ? 'Your files' : 'Admin', items: [crossLink] }] : []),
+  ];
 
   const labelClass = cn(
     'truncate transition-[opacity,max-width] duration-200',
@@ -211,7 +215,7 @@ export function SidebarContent({
                     <span className={labelClass}>{item.label}</span>
                     {badges[item.href] ? (
                       <span
-                        aria-label={`${badges[item.href]} waiting`}
+                        aria-label={`${badges[item.href]} ${BADGE_MEANING[item.href] ?? 'waiting'}`}
                         className={cn(
                           'rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-accent-foreground',
                           collapsed ? 'absolute right-1 top-1' : 'ml-auto',
@@ -228,7 +232,7 @@ export function SidebarContent({
         ))}
       </nav>
 
-      {/* Footer: storage, account, sign out */}
+      {/* Footer: storage, account, sign out (the cross-link is the menu's last section) */}
       <div className={cn('app-safe-bottom shrink-0 space-y-2 border-t border-border pb-4 pt-3', collapsed ? 'px-2' : 'px-3')}>
         {storageUsed !== null && !collapsed && (
           <Link
@@ -249,20 +253,6 @@ export function SidebarContent({
             <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-border">
               <div className="h-full w-1/3 rounded-full bg-linear-to-r from-accent to-accent-2 transition-[width] duration-700 group-hover:w-1/2" />
             </div>
-          </Link>
-        )}
-
-        {crossLink && (
-          <Link
-            href={crossLink.href}
-            onClick={onNavigate}
-            aria-label={collapsed ? crossLink.label : undefined}
-            data-tooltip={collapsed ? crossLink.label : undefined}
-            data-tooltip-side="right"
-            className={cn(linkClass, 'hover:bg-sidebar-hover hover:text-sidebar-active')}
-          >
-            <crossLink.icon className="nav-icon h-[18px] w-[18px] shrink-0" strokeWidth={1.85} />
-            <span className={labelClass}>{crossLink.label}</span>
           </Link>
         )}
 

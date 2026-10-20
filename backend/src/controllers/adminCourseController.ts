@@ -26,6 +26,7 @@ import { chapterSlug, publishDraftChapters, serializeChapter } from './adminCurr
 import { slugify } from '../validators/classValidators';
 import { inTransaction } from '../services/transaction';
 import type { SaveCourseInput } from '../validators/courseValidators';
+import { markArchived, markRestored } from '../services/archive';
 
 /**
  * Admin → Manage Courses: the AI Course Generator and the course editor. A course is one subject
@@ -166,8 +167,7 @@ async function ensureLink(req: Request, cls: IContentItem, key: string, title: s
     subject = created!;
     audits.push(() => auditItem(req, 'content_created', created!, 'Created'));
   } else if (subject.archivedAt) {
-    subject.archivedAt = null;
-    subject.updatedBy = uid(req);
+    markRestored(subject, uid(req));
     await subject.save({ session });
   }
   let link = await ContentItem.findOne({ type: 'class_subject', classLevel: level, subject: key }).session(session);
@@ -192,7 +192,7 @@ async function ensureLink(req: Request, cls: IContentItem, key: string, title: s
     link = added!;
     audits.push(() => auditItem(req, 'content_created', added!, 'Added'));
   } else if (link.archivedAt) {
-    link.archivedAt = null;
+    markRestored(link, uid(req));
     link.order = await nextOrder({ type: 'class_subject', classLevel: level, archivedAt: null });
   }
   return link;
@@ -264,8 +264,7 @@ export const saveCourse = asyncHandler(async (req: Request, res: Response) => {
       const kept = new Set(input.chapters.map((c) => c.id).filter(Boolean));
       for (const c of existing) {
         if (kept.has(String(c._id))) continue;
-        c.archivedAt = new Date();
-        c.updatedBy = uid(req);
+        markArchived(c, uid(req));
         await c.save({ session });
         archived++;
       }

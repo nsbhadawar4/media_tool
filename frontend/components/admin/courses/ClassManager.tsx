@@ -21,8 +21,10 @@ import {
   SearchX,
   Send,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { ADMIN_CLASSES_KEY, adminClassesApi, type AdminClass } from '@/lib/api/adminClasses';
+import { LIFECYCLE_KEY, lifecycleApi } from '@/lib/api/contentLifecycle';
 import { CONTENT_CATALOG_KEY } from '@/lib/content/useContentCatalog';
 import { useToast } from '@/lib/toast/ToastContext';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -30,7 +32,6 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { Select } from '@/components/ui/Select';
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { DangerConfirmDialog } from '@/components/ui/DangerConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { StatCard, StatCardSkeleton } from '@/components/admin/StatCard';
@@ -78,7 +79,7 @@ const isListed = (c: AdminClass) => c.isVisible && c.isEnabled;
 
 /** The pending confirmation: which class, and what the administrator is about to do to it. */
 type Pending = {
-  action: 'hide' | 'show' | 'archive' | 'restore' | 'publish' | 'unpublish' | 'duplicate';
+  action: 'hide' | 'show' | 'archive' | 'delete' | 'restore' | 'publish' | 'unpublish' | 'duplicate';
   cls: AdminClass;
 } | null;
 
@@ -108,19 +109,24 @@ export function ClassManager() {
     queryKey: [...ADMIN_CLASSES_KEY, 'all'],
     queryFn: async () => (await adminClassesApi.list('all')).data,
   });
-  const all = useMemo(() => query.data ?? [], [query.data]);
+  // A class in Trash / Deleted is listed there only (Manage Courses shows active and archived classes).
+  const all = useMemo(() => (query.data ?? []).filter((c) => c.status !== 'trashed'), [query.data]);
   const live = all.filter((c) => c.status !== 'archived');
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ADMIN_CLASSES_KEY });
     void queryClient.invalidateQueries({ queryKey: ['admin', 'content'] });
     void queryClient.invalidateQueries({ queryKey: CONTENT_CATALOG_KEY });
+    // Archive and Trash / Deleted (their lists and sidebar counts) follow every archive, delete and restore.
+    void queryClient.invalidateQueries({ queryKey: LIFECYCLE_KEY });
   };
 
   const act = useMutation({
     mutationFn: async ({ action, cls }: NonNullable<Pending>) => {
       if (action === 'hide' || action === 'show') return adminClassesApi.setVisibility(cls.classLevel, action === 'show');
-      if (action === 'archive') return adminClassesApi.archive(cls.classLevel);
+      // Archive → /admin/archive; Delete → /admin/trash (restorable). Nothing here deletes for good.
+      if (action === 'archive') return lifecycleApi.archive({ kind: 'class', id: cls.id });
+      if (action === 'delete') return lifecycleApi.trash({ kind: 'class', id: cls.id });
       if (action === 'publish') return adminClassesApi.setStatus(cls.classLevel, 'published');
       if (action === 'unpublish') return adminClassesApi.setStatus(cls.classLevel, 'draft');
       if (action === 'duplicate') return adminClassesApi.duplicate(cls.classLevel);
@@ -128,12 +134,13 @@ export function ClassManager() {
     },
     onSuccess: (res, { action, cls }) => {
       if (action === 'duplicate') {
-        toast.success(`Draft Class ${res.data.classLevel} created — review it before publishing`);
+        toast.success(`Draft Class ${(res.data as AdminClass).classLevel} created — review it before publishing`);
       } else {
         const done = {
           hide: 'is now hidden',
           show: 'is visible again',
-          archive: 'was archived',
+          archive: 'was archived — find it in Archive',
+          delete: 'was moved to Trash — restore it from Trash / Deleted',
           restore: 'was restored',
           unpublish: 'is a draft again',
           publish: 'is published',
@@ -456,26 +463,26 @@ export function ClassManager() {
         confirmLabel="Restore Class"
         isDangerous={false}
       />
-      <DangerConfirmDialog
+      <ConfirmDialog
         isOpen={pending?.action === 'archive'}
         onClose={() => setPending(null)}
-        onConfirm={async () => {
-          if (pending) await act.mutateAsync(pending);
-        }}
+        onConfirm={() => pending && act.mutate(pending)}
         isLoading={act.isPending}
-        title="Archive Class?"
-        consequences={
-          pending ? (
-            <>
-              <strong>{pending.cls.title}</strong> will disappear from the landing page, /classes, the user dashboard, Courses and Kid Games ({pending.cls.counts.subjects}{' '}
-              {pending.cls.counts.subjects === 1 ? 'subject' : 'subjects'}, {pending.cls.counts.chapters} {pending.cls.counts.chapters === 1 ? 'chapter' : 'chapters'}), and its pages stop opening.
-              Nothing is erased: learners keep their progress, and you can restore the class from <em>Archived</em> at any time.
-            </>
-          ) : null
-        }
-        confirmationPhrase={pending?.cls.title ?? ''}
-        confirmLabel="Archive Class"
-        warning="It is archived, not erased — but learners lose access to it until you restore it."
+        isDangerous={false}
+        title={`Archive ${pending?.cls.title ?? 'this class'}?`}
+        description={`It leaves the landing page, /classes, the user dashboard, Courses and Kid Games${
+          pending ? ` (${pending.cls.counts.subjects} ${pending.cls.counts.subjects === 1 ? 'subject' : 'subjects'}, ${pending.cls.counts.chapters} ${pending.cls.counts.chapters === 1 ? 'chapter' : 'chapters'})` : ''
+        } and goes to Archive. Nothing is erased — restore it from Archive at any time.`}
+        confirmLabel="Archive"
+      />
+      <ConfirmDialog
+        isOpen={pending?.action === 'delete'}
+        onClose={() => setPending(null)}
+        onConfirm={() => pending && act.mutate(pending)}
+        isLoading={act.isPending}
+        title={`Delete ${pending?.cls.title ?? 'this class'}?`}
+        description="It is removed from every list and moved to Trash / Deleted, with its subjects and chapters. It is not deleted for good — you can restore it from Trash until you delete it forever there."
+        confirmLabel="Move to Trash"
       />
     </div>
   );
@@ -592,7 +599,8 @@ function Actions({ cls, onAction, onMove, liveCount }: { cls: AdminClass; onActi
             ? [{ label: 'Move down', icon: <ArrowDown className={icon} />, onClick: () => onMove(1), divider: !(cls.position > 1) }]
             : []),
           { label: 'Duplicate', icon: <Copy className={icon} />, onClick: () => onAction('duplicate'), divider: true },
-          { label: 'Delete (archive)', icon: <Archive className={icon} />, onClick: () => onAction('archive'), danger: true },
+          { label: 'Archive', icon: <Archive className={icon} />, onClick: () => onAction('archive'), divider: true },
+          { label: 'Delete', icon: <Trash2 className={icon} />, onClick: () => onAction('delete'), danger: true },
         ];
   return (
     <div className="flex shrink-0 justify-end">

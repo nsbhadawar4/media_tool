@@ -75,6 +75,17 @@ export interface IContentItem extends Document {
   course: ICourseInfo | null;
   /** Soft delete: archived entries are gone for users and restorable by an administrator. */
   archivedAt: Date | null;
+  /** Who archived it (Trash / Archive). Null on entries archived before this was recorded. */
+  archivedBy: Types.ObjectId | null;
+  /** The last time it was restored from the trash, and by whom. */
+  restoredAt: Date | null;
+  restoredBy: Types.ObjectId | null;
+  /**
+   * In Trash / Deleted (still restorable) since then, and by whom. An entry in Trash also has
+   * archivedAt set — it is out of every active list — and archivedBy says whether it was archived first.
+   */
+  trashedAt: Date | null;
+  trashedBy: Types.ObjectId | null;
   createdBy: Types.ObjectId | null;
   updatedBy: Types.ObjectId | null;
   createdAt: Date;
@@ -141,6 +152,11 @@ const contentItemSchema = new Schema<IContentItem>(
       default: null,
     },
     archivedAt: { type: Date, default: null },
+    archivedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    restoredAt: { type: Date, default: null },
+    restoredBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    trashedAt: { type: Date, default: null },
+    trashedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   },

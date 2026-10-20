@@ -144,6 +144,8 @@ export const ACTIVITY_ACTIONS = [
   'content_reordered',
   'content_archived',
   'content_restored',
+  'content_trashed',
+  'content_permanently_deleted',
   'section_enabled',
   'section_disabled',
   'section_reordered',
@@ -158,6 +160,8 @@ export const ACTIVITY_ACTIONS = [
   'course_reordered',
   'course_archived',
   'course_restored',
+  'course_trashed',
+  'course_permanently_deleted',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
@@ -181,9 +185,9 @@ export const ACTIVITY_CATEGORIES = {
   ],
   reviews: ['review_submitted', 'review_updated', 'review_approved', 'review_rejected', 'review_published', 'review_unpublished', 'review_deleted'],
   cms: [
-    'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored',
+    'content_created', 'content_updated', 'content_enabled', 'content_disabled', 'content_shown', 'content_hidden', 'content_reordered', 'content_archived', 'content_restored', 'content_trashed', 'content_permanently_deleted',
     'section_enabled', 'section_disabled', 'section_reordered', 'content_bulk_updated', 'settings_updated',
-    'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored',
+    'course_created', 'course_updated', 'course_enabled', 'course_disabled', 'course_shown', 'course_hidden', 'course_reordered', 'course_archived', 'course_restored', 'course_trashed', 'course_permanently_deleted',
   ],
 } as const satisfies Record<string, readonly ActivityAction[]>;
 export type ActivityCategory = keyof typeof ACTIVITY_CATEGORIES;
