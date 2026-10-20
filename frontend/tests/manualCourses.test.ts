@@ -147,3 +147,15 @@ test('navigation: Manual Courses right after Manage Courses; breadcrumbs for lis
   assert.deepEqual(labels('/admin/manual-courses/abc/preview'), ['Admin', 'Manual Courses', 'Course', 'Preview']);
   assert.equal(adminCrumbs('/admin/manual-courses/abc/preview')[2]!.href, '/admin/manual-courses/abc/edit');
 });
+
+test('separation: Manage Courses has no manual-course entry; the sidebar lists the two systems side by side', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const dir = join(process.cwd(), 'frontend', 'components', 'admin', 'courses');
+  for (const file of ['ClassManager.tsx', 'ClassEditor.tsx', 'CourseGenerator.tsx', 'CourseEditor.tsx', 'CourseEditPage.tsx', 'ClassPreview.tsx']) {
+    const src = readFileSync(join(dir, file), 'utf8');
+    assert.ok(!/manual-courses|Add Manual Course|manualCourses/.test(src), `${file} must not link to or use Manual Courses`);
+  }
+  const manage = ADMIN_NAV_GROUPS.find((g) => g.label === 'Manage')!.items.filter((i) => !i.planned).map((i) => i.label);
+  assert.deepEqual(manage, ['Users', 'Manage Courses', 'Manual Courses', 'User activity', 'Reviews']);
+});

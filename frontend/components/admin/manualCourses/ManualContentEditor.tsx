@@ -56,7 +56,7 @@ export function ManualContentEditor(props: ContentEditorProps) {
     const c = pasted(clip);
     onChange(insertAfter(chapters, after, c));
     setOpen(c.uid, true);
-    notify(`Pasted chapter “${c.title || 'Untitled chapter'}”.`);
+    notify('Content pasted successfully');
   };
 
   return (
@@ -77,7 +77,7 @@ export function ManualContentEditor(props: ContentEditorProps) {
             notify('Chapter duplicated.');
           }}
           remove={() => onChange(removeAt(chapters, ci))}
-          copyIt={() => (copy({ kind: 'chapter', title: chapter.title || 'Untitled chapter', data: chapter }), notify('Chapter copied — paste it in any course.'))}
+          copyIt={() => (copy({ kind: 'chapter', title: chapter.title || 'Untitled chapter', data: chapter }), notify('Chapter copied'))}
           pasteBelow={clip?.kind === 'chapter' ? () => pasteChapter(ci) : undefined}
         />
       ))}
@@ -204,7 +204,7 @@ function ChapterCard(p: ChapterCardProps) {
     setLessons(insertAfter(lessons, after, l));
     setOpen(chapter.uid, true);
     setOpen(l.uid, true);
-    notify(`Pasted lesson “${l.title || 'Untitled lesson'}”.`);
+    notify('Content pasted successfully');
   };
   const menu: DropdownMenuItem[] = [
     { label: 'Duplicate chapter', icon: <CopyPlus className="h-4 w-4" />, onClick: p.duplicate },
@@ -295,7 +295,7 @@ function ChapterCard(p: ChapterCardProps) {
                   notify('Lesson duplicated.');
                 }}
                 removeLesson={() => setLessons(removeAt(lessons, li))}
-                copyLesson={() => (copy({ kind: 'lesson', title: lesson.title || 'Untitled lesson', data: lesson }), notify('Lesson copied — paste it into any chapter.'))}
+                copyLesson={() => (copy({ kind: 'lesson', title: lesson.title || 'Untitled lesson', data: lesson }), notify('Lesson copied'))}
                 pasteLessonBelow={clip?.kind === 'lesson' ? () => pasteLesson(li) : undefined}
               />
             ))}
@@ -356,7 +356,7 @@ function LessonCard(p: LessonCardProps) {
     setQuestions(insertAfter(questions, after, q));
     setOpen(lesson.uid, true);
     setOpen(q.uid, true);
-    notify('Question pasted.');
+    notify('Content pasted successfully');
   };
   const menu: DropdownMenuItem[] = [
     { label: 'Duplicate lesson', icon: <CopyPlus className="h-4 w-4" />, onClick: p.duplicateLesson },
@@ -467,7 +467,7 @@ function LessonCard(p: LessonCardProps) {
                   {
                     label: 'Copy question',
                     icon: <Copy className="h-4 w-4" />,
-                    onClick: () => (copy({ kind: 'question', title: question.prompt.slice(0, 60) || 'Untitled question', data: question }), notify('Question copied — paste it into any lesson.')),
+                    onClick: () => (copy({ kind: 'question', title: question.prompt.slice(0, 60) || 'Untitled question', data: question }), notify('Question copied')),
                   },
                   ...(clip?.kind === 'question' ? [{ label: 'Paste question below', icon: <ClipboardPaste className="h-4 w-4" />, onClick: () => pasteQuestion(qi) }] : []),
                   { label: 'Delete question', icon: <Trash2 className="h-4 w-4" />, danger: true, divider: true, onClick: () => setQuestions(removeAt(questions, qi)) },

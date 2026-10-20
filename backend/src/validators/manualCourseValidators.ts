@@ -86,6 +86,9 @@ export const updateManualCourseSchema = z
   .superRefine(uniqueUids);
 export type UpdateManualCourseInput = z.infer<typeof updateManualCourseSchema>;
 
+/** Show / hide for learners — applies at once. */
+export const manualCourseVisibilitySchema = z.object({ isVisible: z.boolean() }).strict();
+
 export const manualCourseIdParamSchema = z.object({ id: objectId }).strict();
 
 export const listManualCoursesQuerySchema = z

@@ -71,6 +71,7 @@ export function ManualCoursePreview({ id }: { id: string }) {
           </a>
         )}
       </div>
+      {c.pendingChanges && <p className="text-xs text-warning">This preview shows your saved draft. Learners still see the last published version until you publish the changes.</p>}
       {!live && <p className="text-xs text-muted">Learners don’t see this course yet — it {c.deletedAt ? 'is in Trash' : c.status !== 'published' ? 'is a draft' : 'is hidden'}.</p>}
       <ManualCourseView course={{ title: c.title, description: c.description, classTitle: c.classTitle, subjectTitle: c.subjectTitle, chapters }} />
     </div>

@@ -19,12 +19,16 @@ import { findPublicClass } from './adminCurriculumController';
  * kept in their own collection (ManualCourse). Nothing here reads or writes the generated courses or
  * the AI Course Generator; the class and subject are the only things shared, and only read.
  *
+ * Saving only ever changes the working copy. Publish copies it to `live` — what learners read — so a
+ * published course's edits stay a draft until it is published again. Visibility is a switch on the
+ * course itself and applies at once.
+ *
  * Deleting moves a course to Manual Courses → Trash (restorable); only a course already in Trash can
  * be deleted for good, with DELETE typed.
  */
 
 const userId = (req: Request) => new Types.ObjectId(req.user!.id);
-const LIVE = { deletedAt: null };
+const NOT_DELETED = { deletedAt: null };
 const TRASHED = { deletedAt: { $ne: null } };
 
 // ------------------------------------------------------------------------------------ class & subject
@@ -154,11 +158,23 @@ async function uniqueSlug(title: string): Promise<string> {
     .replace(/[^a-z0-9]/g, '')}`;
 }
 
-async function findCourse(id: string, filter: FilterQuery<IManualCourse> = LIVE) {
+async function findCourse(id: string, filter: FilterQuery<IManualCourse> = NOT_DELETED) {
   const course = await ManualCourse.findOne({ _id: id, ...filter });
   if (!course) throw AppError.notFound('Manual course not found');
   return course;
 }
+
+/** The working copy as a live copy (same field order as the model's `live`, so they compare equal). */
+const snapshot = (c: IManualCourse | { classLevel: number; subjectKey: string; title: string; description: string; chapters: IManualChapter[] }) => ({
+  classLevel: c.classLevel,
+  subjectKey: c.subjectKey,
+  title: c.title,
+  description: c.description,
+  chapters: JSON.parse(JSON.stringify(c.chapters)) as IManualChapter[],
+});
+
+/** Published, with saved edits learners do not see yet. */
+const hasPendingChanges = (c: IManualCourse) => c.status === 'published' && c.live !== null && JSON.stringify(snapshot(c)) !== JSON.stringify(snapshot(c.live));
 
 const countsOf = (chapters: IManualChapter[]) => ({
   chapters: chapters.length,
@@ -192,6 +208,7 @@ async function serialize(course: IManualCourse) {
     status: course.status,
     isVisible: course.isVisible,
     revision: course.revision,
+    pendingChanges: hasPendingChanges(course),
     chapters: course.chapters.map((c) => ({
       uid: c.uid,
       title: c.title,
@@ -231,7 +248,7 @@ const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 async function listOf(req: Request, res: Response, trashed: boolean) {
   const q = req.query as unknown as ListManualCoursesQuery;
-  const match: FilterQuery<IManualCourse> = trashed ? { ...TRASHED } : { ...LIVE };
+  const match: FilterQuery<IManualCourse> = trashed ? { ...TRASHED } : { ...NOT_DELETED };
   if (q.q) match.title = { $regex: escapeRegex(q.q), $options: 'i' };
   if (q.classLevel) match.classLevel = q.classLevel;
   if (q.subject) match.subjectKey = q.subject;
@@ -257,6 +274,12 @@ async function listOf(req: Request, res: Response, trashed: boolean) {
         createdAt: 1,
         deletedAt: 1,
         publishedAt: 1,
+        pendingChanges: {
+          $and: [
+            { $eq: ['$status', 'published'] },
+            { $ne: [{ classLevel: '$classLevel', subjectKey: '$subjectKey', title: '$title', description: '$description', chapters: '$chapters' }, '$live'] },
+          ],
+        },
         chapters: { $size: '$chapters' },
         lessons: { $sum: { $map: { input: '$chapters', as: 'c', in: { $size: '$$c.lessons' } } } },
         questions: {
@@ -280,6 +303,7 @@ async function listOf(req: Request, res: Response, trashed: boolean) {
       slug: r.slug,
       status: r.status,
       isVisible: r.isVisible,
+      pendingChanges: Boolean(r.pendingChanges),
       counts: { chapters: r.chapters, lessons: r.lessons, questions: r.questions },
       publishedAt: r.publishedAt,
       deletedAt: r.deletedAt,
@@ -300,10 +324,10 @@ export const listManualCourseTrash = asyncHandler(async (req: Request, res: Resp
 /** GET /manual-courses/stats — how many there are, for the list's summary. */
 export const manualCourseStats = asyncHandler(async (_req: Request, res: Response) => {
   const [total, published, drafts, hidden, trashed] = await Promise.all([
-    ManualCourse.countDocuments(LIVE),
-    ManualCourse.countDocuments({ ...LIVE, status: 'published' }),
-    ManualCourse.countDocuments({ ...LIVE, status: 'draft' }),
-    ManualCourse.countDocuments({ ...LIVE, isVisible: false }),
+    ManualCourse.countDocuments(NOT_DELETED),
+    ManualCourse.countDocuments({ ...NOT_DELETED, status: 'published' }),
+    ManualCourse.countDocuments({ ...NOT_DELETED, status: 'draft' }),
+    ManualCourse.countDocuments({ ...NOT_DELETED, isVisible: false }),
     ManualCourse.countDocuments(TRASHED),
   ]);
   sendSuccess(res, { total, published, drafts, hidden, trashed });
@@ -321,7 +345,8 @@ export const createManualCourse = asyncHandler(async (req: Request, res: Respons
   const body = req.body as CreateManualCourseInput;
   await assertClassSubject(body.classLevel, body.subjectKey);
   const chapters = normalizeChapters(body.chapters);
-  if (body.status === 'published') assertPublishable(chapters);
+  const publish = body.status === 'published';
+  if (publish) assertPublishable(chapters);
   const course = await ManualCourse.create({
     classLevel: body.classLevel,
     subjectKey: body.subjectKey,
@@ -331,7 +356,8 @@ export const createManualCourse = asyncHandler(async (req: Request, res: Respons
     status: body.status,
     isVisible: body.isVisible,
     chapters,
-    publishedAt: body.status === 'published' ? new Date() : null,
+    live: publish ? snapshot({ ...body, chapters } as Parameters<typeof snapshot>[0]) : null,
+    publishedAt: publish ? new Date() : null,
     createdBy: userId(req),
     updatedBy: userId(req),
   });
@@ -340,17 +366,17 @@ export const createManualCourse = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
- * PATCH /manual-courses/:id — saves the whole course. Refused (409) when it was saved elsewhere since
- * this copy was loaded; a published course must still qualify for publishing.
+ * PATCH /manual-courses/:id — saves the whole working copy (a draft: it may be incomplete). Learners keep
+ * seeing the published copy until Publish. Refused (409) when it was saved elsewhere since this copy
+ * was loaded. Visibility applies at once.
  */
 export const updateManualCourse = asyncHandler(async (req: Request, res: Response) => {
   const body = req.body as UpdateManualCourseInput;
   const current = await findCourse(String(req.params.id));
   await assertClassSubject(body.classLevel, body.subjectKey);
   const chapters = normalizeChapters(body.chapters);
-  if (current.status === 'published') assertPublishable(chapters);
   const course = await ManualCourse.findOneAndUpdate(
-    { _id: current._id, ...LIVE, revision: body.revision },
+    { _id: current._id, ...NOT_DELETED, revision: body.revision },
     {
       $set: { classLevel: body.classLevel, subjectKey: body.subjectKey, title: body.title, description: body.description, isVisible: body.isVisible, chapters, updatedBy: userId(req) },
       $inc: { revision: 1 },
@@ -362,14 +388,20 @@ export const updateManualCourse = asyncHandler(async (req: Request, res: Respons
   sendSuccess(res, await serialize(course), 200, undefined, 'Course saved successfully.');
 });
 
+/**
+ * Publish: checks the working copy and makes it the live copy (also when already published — that is
+ * how saved edits reach learners). Unpublish: removes the live copy; the course is a draft again.
+ */
 async function setStatus(req: Request, res: Response, status: 'draft' | 'published') {
   const course = await findCourse(String(req.params.id));
+  const changed = status === 'published' ? course.status !== 'published' || hasPendingChanges(course) : course.status !== 'draft';
   if (status === 'published') {
     await assertClassSubject(course.classLevel, course.subjectKey);
     assertPublishable(course.chapters);
   }
-  if (course.status !== status) {
+  if (changed) {
     course.status = status;
+    course.live = status === 'published' ? snapshot(course) : null;
     if (status === 'published') course.publishedAt = new Date();
     course.updatedBy = userId(req);
     course.revision += 1;
@@ -378,6 +410,23 @@ async function setStatus(req: Request, res: Response, status: 'draft' | 'publish
   }
   sendSuccess(res, await serialize(course), 200, undefined, status === 'published' ? 'Course published' : 'Course unpublished — it is a draft again');
 }
+
+/**
+ * PATCH /manual-courses/:id/visibility — show or hide the course for learners, at once (not content:
+ * it never publishes or discards edits).
+ */
+export const setManualCourseVisibility = asyncHandler(async (req: Request, res: Response) => {
+  const course = await findCourse(String(req.params.id));
+  const { isVisible } = req.body as { isVisible: boolean };
+  if (course.isVisible !== isVisible) {
+    course.isVisible = isVisible;
+    course.updatedBy = userId(req);
+    course.revision += 1;
+    await course.save();
+    await audit(req, 'manual_course_updated', course, isVisible ? 'Showed' : 'Hid', { isVisible });
+  }
+  sendSuccess(res, await serialize(course), 200, undefined, isVisible ? 'Course visible to learners' : 'Course hidden from learners');
+});
 
 /** POST /manual-courses/:id/publish */
 export const publishManualCourse = asyncHandler(async (req: Request, res: Response) => setStatus(req, res, 'published'));
@@ -447,11 +496,12 @@ async function publicSubject(classLevel: number, subjectKey: string) {
   return subject;
 }
 
-const PUBLIC = { ...LIVE, status: 'published', isVisible: true };
+const PUBLIC = { ...NOT_DELETED, status: 'published', isVisible: true, live: { $ne: null } };
 
-/** A course as learners read it: published chapters and lessons only, no ids of ours, no authors. */
+/** A course as learners read it: its live copy's published chapters and lessons; no ids of ours, no authors. */
 function publicCourse(course: IManualCourse) {
-  const chapters = course.chapters
+  const live = course.live!;
+  const chapters = live.chapters
     .filter((c) => c.status === 'published')
     .map((c) => ({
       title: c.title,
@@ -466,14 +516,14 @@ function publicCourse(course: IManualCourse) {
         })),
     }))
     .filter((c) => c.lessons.length > 0);
-  return { slug: course.slug, title: course.title, description: course.description, updatedAt: course.updatedAt, chapters };
+  return { slug: course.slug, title: live.title, description: live.description, updatedAt: course.publishedAt ?? course.updatedAt, chapters };
 }
 
 /** GET /api/content/classes/:slug/subjects/:subject/manual-courses — that subject's manual courses. */
 export const publicManualCourses = asyncHandler(async (req: Request, res: Response) => {
   const cls = await findPublicClass(String(req.params.slug));
   await publicSubject(cls.classLevel!, String(req.params.subject));
-  const courses = await ManualCourse.find({ ...PUBLIC, classLevel: cls.classLevel, subjectKey: String(req.params.subject) })
+  const courses = await ManualCourse.find({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': String(req.params.subject) })
     .sort({ publishedAt: -1, _id: -1 })
     .limit(50);
   res.setHeader('Cache-Control', 'no-cache');
@@ -496,7 +546,7 @@ export const publicManualCourses = asyncHandler(async (req: Request, res: Respon
 export const publicManualCourse = asyncHandler(async (req: Request, res: Response) => {
   const cls = await findPublicClass(String(req.params.slug));
   const subject = await publicSubject(cls.classLevel!, String(req.params.subject));
-  const course = await ManualCourse.findOne({ ...PUBLIC, classLevel: cls.classLevel, subjectKey: subject.key, slug: String(req.params.course) });
+  const course = await ManualCourse.findOne({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': subject.key, slug: String(req.params.course) });
   const view = course && publicCourse(course);
   if (!view || !view.chapters.length) throw AppError.notFound('Course not found');
   res.setHeader('Cache-Control', 'no-cache');

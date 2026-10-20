@@ -239,9 +239,32 @@ test('full lifecycle: create → edit → publish → learners see it → unpubl
   const hidden = await call('PATCH', `/api/admin/manual-courses/${cid}`, { ...course({ title: latest.title, chapters: latest.chapters, isVisible: false }), revision: latest.revision });
   assert.equal(hidden.status, 200, hidden.message);
   assert.equal((await call('GET', `${pubBase}/hindi-varnamala`, undefined, '')).status, 404);
-  // A published course can't be saved into an unpublishable state.
-  const emptied = await call('PATCH', `/api/admin/manual-courses/${cid}`, { ...course({ title: latest.title, chapters: [] }), revision: hidden.data.revision });
-  assert.equal(emptied.status, 400);
+  // Visible again, at once, through the visibility switch.
+  const shown = await call('PATCH', `/api/admin/manual-courses/${cid}/visibility`, { isVisible: true });
+  assert.equal(shown.status, 200, shown.message);
+  assert.equal((await call('GET', `${pubBase}/hindi-varnamala`, undefined, '')).status, 200);
+
+  // Edits to a published course are a draft: learners keep the published copy until Publish.
+  const edited2 = await call('PATCH', `/api/admin/manual-courses/${cid}`, { ...course({ title: 'Varnamala — new draft', chapters: [] }), revision: shown.data.revision });
+  assert.equal(edited2.status, 200, 'an incomplete draft of a published course can be saved');
+  assert.equal(edited2.data.status, 'published');
+  assert.equal(edited2.data.pendingChanges, true);
+  const stillLive = await call('GET', `${pubBase}/hindi-varnamala`, undefined, '');
+  assert.equal(stillLive.data.course.title, 'Hindi Varnamala (edited)', 'learners still see the published copy');
+  assert.equal(stillLive.data.course.chapters.length, 1);
+  const listed = (await call('GET', '/api/admin/manual-courses?q=varnamala')).data.find((c: { id: string }) => c.id === cid);
+  assert.equal(listed.pendingChanges, true);
+  // Publishing the incomplete draft is refused; the live copy is untouched.
+  assert.equal((await call('POST', `/api/admin/manual-courses/${cid}/publish`)).status, 400);
+  // A complete draft, published: now learners see it.
+  const fixed = await call('PATCH', `/api/admin/manual-courses/${cid}`, { ...course({ title: 'Varnamala — new draft', chapters: latest.chapters }), revision: edited2.data.revision });
+  const republished = await call('POST', `/api/admin/manual-courses/${cid}/publish`);
+  assert.equal(republished.status, 200, republished.message);
+  assert.equal(republished.data.pendingChanges, false);
+  assert.equal((await call('GET', `${pubBase}/hindi-varnamala`, undefined, '')).data.course.title, 'Varnamala — new draft');
+  void fixed;
+  // Hidden again for the filter checks below.
+  await call('PATCH', `/api/admin/manual-courses/${cid}/visibility`, { isVisible: false });
 
   const unpublished = await call('POST', `/api/admin/manual-courses/${cid}/unpublish`);
   assert.equal(unpublished.data.status, 'draft');
@@ -270,7 +293,7 @@ test('full lifecycle: create → edit → publish → learners see it → unpubl
 
   const restored = await call('POST', `/api/admin/manual-courses/${cid}/restore`);
   assert.equal(restored.status, 200, restored.message);
-  assert.equal(restored.data.title, 'Hindi Varnamala (edited)');
+  assert.equal(restored.data.title, 'Varnamala — new draft');
   assert.equal((await call('GET', '/api/admin/manual-courses/trash')).data.length, 0);
   // Only a course in Trash can be deleted for good.
   assert.equal((await call('DELETE', `/api/admin/manual-courses/${cid}/permanent`, { confirm: 'DELETE' })).status, 404);
@@ -292,6 +315,26 @@ test('full lifecycle: create → edit → publish → learners see it → unpubl
   ]) {
     assert.ok(actions.includes(a as never), a);
   }
+});
+
+test('isolation: manual-course operations never change generated courses or class ↔ subject links', async () => {
+  await Course.create({ title: 'AI Swar', slug: `ai-swar-${Date.now()}`, classLevel: 1, subject: 'hindi', order: 1, description: '', lessons: [], quiz: [], source: { kind: 'ai' } });
+  const before = JSON.stringify(await Promise.all([Course.find().sort({ _id: 1 }).lean(), ContentItem.find().sort({ _id: 1 }).lean()]));
+  const c = await call('POST', '/api/admin/manual-courses', course({ title: 'Isolation check', status: 'published' }));
+  const id = c.data.id as string;
+  await call('PATCH', `/api/admin/manual-courses/${id}`, { ...course({ title: 'Isolation check 2' }), revision: c.data.revision });
+  await call('POST', `/api/admin/manual-courses/${id}/publish`);
+  await call('PATCH', `/api/admin/manual-courses/${id}/visibility`, { isVisible: false });
+  await call('POST', `/api/admin/manual-courses/${id}/unpublish`);
+  const dup = await call('POST', `/api/admin/manual-courses/${id}/duplicate`);
+  for (const x of [id, dup.data.id as string]) {
+    await call('DELETE', `/api/admin/manual-courses/${x}`);
+    await call('POST', `/api/admin/manual-courses/${x}/restore`);
+    await call('DELETE', `/api/admin/manual-courses/${x}`);
+    assert.equal((await call('DELETE', `/api/admin/manual-courses/${x}/permanent`, { confirm: 'DELETE' })).status, 200);
+  }
+  const after = JSON.stringify(await Promise.all([Course.find().sort({ _id: 1 }).lean(), ContentItem.find().sort({ _id: 1 }).lean()]));
+  assert.equal(after, before);
 });
 
 test('duplicate: a draft copy with every part given a new id, structure kept', async () => {

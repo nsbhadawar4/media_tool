@@ -67,6 +67,8 @@ interface Meta {
   id: string;
   revision: number;
   status: ManualStatus;
+  /** Published, with saved edits learners don't see until the next Publish. */
+  pending: boolean;
 }
 
 const toDraft = (c: ManualCourse): ManualCourseDraft => ({
@@ -101,7 +103,7 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
   const queryClient = useQueryClient();
   const { clip, copy } = useManualClipboard();
   const [draft, setDraft] = useState<ManualCourseDraft>(() => (initial ? toDraft(initial) : emptyDraft()));
-  const [meta, setMeta] = useState<Meta | null>(initial ? { id: initial.id, revision: initial.revision, status: initial.status } : null);
+  const [meta, setMeta] = useState<Meta | null>(initial ? { id: initial.id, revision: initial.revision, status: initial.status, pending: initial.pendingChanges } : null);
   const [dirty, setDirty] = useState(false);
   const [errorMode, setErrorMode] = useState<'save' | 'publish' | null>(null);
   const [serverErr, setServerErr] = useState<FieldErrors>({});
@@ -175,21 +177,29 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
       } else {
         if (dirty) {
           saved = (await manualCoursesApi.update(current.id, { ...snapshot, revision: current.revision })).data;
-          current = { id: saved.id, revision: saved.revision, status: saved.status };
+          current = { id: saved.id, revision: saved.revision, status: saved.status, pending: saved.pendingChanges };
           setMeta(current);
         }
-        if (action === 'publish' && current.status !== 'published') saved = (await manualCoursesApi.publish(current.id)).data;
+        // Publish makes the saved working copy the one learners see (also for an already-published course).
+        if (action === 'publish' && (current.status !== 'published' || current.pending)) saved = (await manualCoursesApi.publish(current.id)).data;
         if (action === 'unpublish' && current.status === 'published') saved = (await manualCoursesApi.unpublish(current.id)).data;
       }
       if (saved) {
-        setMeta({ id: saved.id, revision: saved.revision, status: saved.status });
+        setMeta({ id: saved.id, revision: saved.revision, status: saved.status, pending: saved.pendingChanges });
         queryClient.setQueryData(manualCourseKey(saved.id), saved);
       }
       if (latest.current === snapshot) setDirty(false);
       setErrorMode(null);
       void queryClient.invalidateQueries({ queryKey: MANUAL_COURSES_KEY, predicate: (q) => q.queryKey[2] !== 'course' });
+      const stillLive = saved?.status === 'published' && saved.pendingChanges;
       toast.success(
-        action === 'publish' ? 'Course saved successfully. It is now published.' : action === 'unpublish' ? 'Course saved successfully. It is a draft again.' : 'Course saved successfully.',
+        action === 'publish'
+          ? 'Course saved successfully. It is now published.'
+          : action === 'unpublish'
+            ? 'Course saved successfully. It is a draft again.'
+            : stillLive
+              ? 'Course saved successfully. Learners see the published version until you publish these changes.'
+              : 'Course saved successfully.',
       );
       const id = saved?.id ?? current?.id;
       if (action === 'preview' && id) router.push(`/admin/manual-courses/${id}/preview`);
@@ -212,14 +222,14 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
   };
   const copyCourse = () => {
     copy({ kind: 'course', title: draft.title || 'Untitled course', data: { title: draft.title, description: draft.description, chapters: draft.chapters } });
-    toast.success('Course copied — paste it into a new or another manual course.');
+    toast.success('Course copied');
   };
   const pasteCourse = () => {
     if (clip?.kind !== 'course') return;
     const c = pasted(clip);
     change({ ...draft, title: draft.title || c.title, description: draft.description || c.description, chapters: [...draft.chapters, ...c.chapters] });
     openAll(c.chapters.slice(0, 1).map((x) => x.uid));
-    toast.success(`Pasted “${clip.title}” — ${c.chapters.length} ${c.chapters.length === 1 ? 'chapter' : 'chapters'} added.`);
+    toast.success('Content pasted successfully');
   };
 
   const counts = countsOf(draft.chapters);
@@ -230,19 +240,20 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
     if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) e.preventDefault();
   };
 
+  const pending = Boolean(meta?.pending) || (status === 'published' && dirty);
   const actions = (
     <div className="flex flex-wrap gap-2">
-      {!meta ? (
-        <Button type="button" variant="secondary" onClick={() => void submit('draft')} disabled={anyBusy} isLoading={busy === 'draft'} className="gap-1.5">
-          <FileClock aria-hidden className="h-4 w-4" />
-          Save Draft
-        </Button>
-      ) : (
-        <Button type="button" variant="secondary" onClick={() => void submit('save')} disabled={anyBusy || !dirty} isLoading={busy === 'save'} className="gap-1.5">
-          <Save aria-hidden className="h-4 w-4" />
-          Save Changes
-        </Button>
-      )}
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => void submit(meta ? 'save' : 'draft')}
+        disabled={anyBusy || (Boolean(meta) && !dirty)}
+        isLoading={busy === 'draft' || busy === 'save'}
+        className="gap-1.5"
+      >
+        {meta ? <Save aria-hidden className="h-4 w-4" /> : <FileClock aria-hidden className="h-4 w-4" />}
+        Save Draft
+      </Button>
       <Button
         type="button"
         variant="secondary"
@@ -250,20 +261,21 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
         disabled={anyBusy}
         isLoading={busy === 'preview'}
         className="gap-1.5"
-        title={dirty || !meta ? 'Saves the course, then opens its preview' : undefined}
+        title={dirty || !meta ? 'Saves the draft, then opens its preview' : undefined}
       >
         <Eye aria-hidden className="h-4 w-4" />
         Preview
       </Button>
-      {status === 'published' ? (
-        <Button type="button" variant="secondary" onClick={() => void submit('unpublish')} disabled={anyBusy} isLoading={busy === 'unpublish'} className="gap-1.5">
+      {status === 'published' && (
+        <Button type="button" variant="ghost" onClick={() => void submit('unpublish')} disabled={anyBusy} isLoading={busy === 'unpublish'} className="gap-1.5">
           <Undo2 aria-hidden className="h-4 w-4" />
           Unpublish
         </Button>
-      ) : (
+      )}
+      {(status !== 'published' || pending) && (
         <Button type="button" onClick={() => void submit('publish')} disabled={anyBusy} isLoading={busy === 'publish'} className="gap-1.5">
           <Send aria-hidden className="h-4 w-4" />
-          Publish
+          {status === 'published' ? 'Publish Changes' : 'Publish'}
         </Button>
       )}
     </div>
@@ -283,7 +295,8 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
           <span className="flex flex-wrap items-center gap-1.5">
             <Badge variant={status === 'published' ? 'success' : 'warning'}>{status === 'published' ? 'Published' : 'Draft'}</Badge>
             <Badge variant={draft.isVisible ? 'accent' : 'default'}>{draft.isVisible ? 'Visible' : 'Hidden'}</Badge>
-            {dirty && <Badge variant="warning">Unsaved changes</Badge>}
+            {dirty ? <Badge variant="warning">Unsaved Changes</Badge> : meta ? <Badge variant="success">Saved</Badge> : null}
+            {!dirty && meta?.pending && <Badge variant="warning">Changes not published</Badge>}
           </span>
         }
         actions={actions}
@@ -389,7 +402,13 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
               <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-elevated px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Status</p>
-                  <p className="text-xs text-muted">{status === 'published' ? 'Published — learners can open it.' : 'Draft — only admins see it.'} Use Publish / Unpublish.</p>
+                  <p className="text-xs text-muted">
+                    {status === 'published'
+                      ? pending
+                        ? 'Published — learners see the last published version until you publish your changes.'
+                        : 'Published — learners can open it.'
+                      : 'Draft — only admins see it.'}
+                  </p>
                 </div>
                 <Badge variant={status === 'published' ? 'success' : 'warning'}>{status === 'published' ? 'Published' : 'Draft'}</Badge>
               </div>
@@ -468,7 +487,7 @@ function BuilderForm({ initial }: { initial: ManualCourse | null }) {
               ))}
             </dl>
             <div className="mt-4">{actions}</div>
-            <p className="mt-3 text-xs text-muted">{dirty ? 'You have unsaved changes.' : meta ? 'All changes saved.' : 'Not saved yet.'}</p>
+            <p className="mt-3 text-xs text-muted">{dirty ? 'You have unsaved changes.' : !meta ? 'Not saved yet.' : meta.pending ? 'Saved as a draft — not published yet.' : 'All changes saved.'}</p>
           </div>
           {clip && (
             <div className="rounded-2xl border border-accent/30 bg-accent/5 p-4 text-sm">

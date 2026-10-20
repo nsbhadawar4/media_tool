@@ -64,6 +64,8 @@ export interface ManualCourseRow {
   slug: string;
   status: ManualStatus;
   isVisible: boolean;
+  /** Published, with saved edits learners don't see yet (they appear on the next Publish). */
+  pendingChanges: boolean;
   counts: ManualCounts;
   publishedAt: string | null;
   deletedAt: string | null;
@@ -116,6 +118,8 @@ export const manualCoursesApi = {
   create: (body: Body & { status: ManualStatus }) => api.post<ManualCourse>('/api/admin/manual-courses', body),
   /** Saves the whole course; refused (409) when it was saved elsewhere since `revision`. */
   update: (id: string, body: Body & { revision: number }) => api.patch<ManualCourse>(`/api/admin/manual-courses/${id}`, body),
+  /** Show / hide for learners — applies at once. */
+  setVisibility: (id: string, isVisible: boolean) => api.patch<ManualCourse>(`/api/admin/manual-courses/${id}/visibility`, { isVisible }),
   publish: (id: string) => api.post<ManualCourse>(`/api/admin/manual-courses/${id}/publish`),
   unpublish: (id: string) => api.post<ManualCourse>(`/api/admin/manual-courses/${id}/unpublish`),
   duplicate: (id: string) => api.post<ManualCourse>(`/api/admin/manual-courses/${id}/duplicate`),

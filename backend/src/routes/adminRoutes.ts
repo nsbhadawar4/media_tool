@@ -35,6 +35,7 @@ import {
   manualCourseStats,
   publishManualCourse,
   restoreManualCourse,
+  setManualCourseVisibility,
   trashManualCourse,
   unpublishManualCourse,
   updateManualCourse,
@@ -43,6 +44,7 @@ import {
   createManualCourseSchema,
   listManualCoursesQuerySchema,
   manualCourseIdParamSchema,
+  manualCourseVisibilitySchema,
   permanentDeleteManualCourseSchema,
   updateManualCourseSchema,
 } from '../validators/manualCourseValidators';
@@ -249,6 +251,7 @@ router.get('/manual-courses', validate({ query: listManualCoursesQuerySchema }),
 router.post('/manual-courses', validate({ body: createManualCourseSchema }), createManualCourse);
 router.get('/manual-courses/:id', validate(manualId), getManualCourse);
 router.patch('/manual-courses/:id', validate({ ...manualId, body: updateManualCourseSchema }), updateManualCourse);
+router.patch('/manual-courses/:id/visibility', validate({ ...manualId, body: manualCourseVisibilitySchema }), setManualCourseVisibility);
 router.post('/manual-courses/:id/publish', validate(manualId), publishManualCourse);
 router.post('/manual-courses/:id/unpublish', validate(manualId), unpublishManualCourse);
 router.post('/manual-courses/:id/duplicate', validate(manualId), duplicateManualCourse);

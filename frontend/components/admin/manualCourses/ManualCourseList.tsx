@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Pagination } from '@/components/ui/Pagination';
 import { DropdownMenu, type DropdownMenuItem } from '@/components/ui/DropdownMenu';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { DangerConfirmDialog } from '@/components/ui/DangerConfirmDialog';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -105,7 +104,12 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
     onSuccess: () => (toast.success('Course permanently deleted.'), setPending(null), refresh()),
     onError,
   });
-  const busy = publish.isPending || duplicate.isPending || trash.isPending || restore.isPending || forever.isPending;
+  const toggleVisible = useMutation({
+    mutationFn: (row: ManualCourseRow) => manualCoursesApi.setVisibility(row.id, !row.isVisible),
+    onSuccess: (res) => (toast.success(res.data.isVisible ? `“${res.data.title}” is visible to learners.` : `“${res.data.title}” is hidden from learners.`), refresh()),
+    onError,
+  });
+  const busy = publish.isPending || duplicate.isPending || trash.isPending || restore.isPending || forever.isPending || toggleVisible.isPending;
 
   const menuFor = (row: ManualCourseRow): DropdownMenuItem[] =>
     isTrash
@@ -121,6 +125,9 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
           row.status === 'published'
             ? { label: 'Unpublish', icon: <Undo2 className="h-4 w-4" />, onClick: () => publish.mutate(row) }
             : { label: 'Publish', icon: <Send className="h-4 w-4" />, onClick: () => publish.mutate(row) },
+          row.isVisible
+            ? { label: 'Hide', icon: <EyeOff className="h-4 w-4" />, onClick: () => toggleVisible.mutate(row) }
+            : { label: 'Show', icon: <Eye className="h-4 w-4" />, onClick: () => toggleVisible.mutate(row) },
           { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setPending({ action: 'trash', row }), danger: true, divider: true },
         ];
 
@@ -133,7 +140,7 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
         description={
           isTrash
             ? 'Deleted manual courses. Restore one to bring it back as it was, or delete it permanently.'
-            : 'Courses written by hand — chapters, lessons and questions. Separate from the AI Course Generator.'
+            : 'Courses written manually — chapters, lessons and questions. Separate from the AI Course Generator.'
         }
         actions={
           <div className="flex flex-wrap gap-2">
@@ -307,7 +314,7 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
                     {!isTrash && (
                       <>
                         <td className="px-3 py-3">
-                          <StatusBadge status={row.status} />
+                          <StatusBadge status={row.status} pending={row.pendingChanges} />
                         </td>
                         <td className="px-3 py-3">
                           <VisibilityBadge visible={row.isVisible} />
@@ -339,7 +346,7 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
                   <DropdownMenu items={menuFor(row)} triggerLabel={`Actions for ${row.title}`} sheetTitle={row.title} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {!isTrash && <StatusBadge status={row.status} />}
+                  {!isTrash && <StatusBadge status={row.status} pending={row.pendingChanges} />}
                   {!isTrash && <VisibilityBadge visible={row.isVisible} />}
                   <span className="text-xs text-muted">
                     {row.counts.chapters} ch · {row.counts.lessons} lessons · {row.counts.questions} questions
@@ -375,23 +382,13 @@ export function ManualCourseList({ mode }: { mode: 'list' | 'trash' }) {
         confirmLabel="Move to Trash"
         isLoading={trash.isPending}
       />
-      <DangerConfirmDialog
+      <ConfirmDialog
         isOpen={pending?.action === 'forever'}
         onClose={() => setPending(null)}
-        onConfirm={async () => {
-          if (pending) await forever.mutateAsync(pending.row).catch(() => undefined);
-        }}
-        title="Delete this course permanently?"
-        consequences={
-          pending ? (
-            <>
-              “{pending.row.title}” ({pending.row.classTitle} · {pending.row.subjectTitle}) and its {pending.row.counts.chapters} chapters, {pending.row.counts.lessons} lessons and{' '}
-              {pending.row.counts.questions} questions will be deleted permanently.
-            </>
-          ) : null
-        }
-        confirmationPhrase="DELETE"
-        confirmLabel="Delete permanently"
+        onConfirm={() => pending && forever.mutate(pending.row)}
+        title="Delete permanently?"
+        description="This course will be permanently removed and cannot be restored."
+        confirmLabel="Delete Permanently"
         isLoading={forever.isPending}
       />
     </div>
@@ -418,7 +415,12 @@ function TitleCell({ row, isTrash }: { row: ManualCourseRow; isTrash: boolean })
   );
 }
 
-const StatusBadge = ({ status }: { status: ManualCourseRow['status'] }) => <Badge variant={status === 'published' ? 'success' : 'warning'}>{status === 'published' ? 'Published' : 'Draft'}</Badge>;
+const StatusBadge = ({ status, pending }: { status: ManualCourseRow['status']; pending?: boolean }) => (
+  <span className="inline-flex flex-wrap items-center gap-1">
+    <Badge variant={status === 'published' ? 'success' : 'warning'}>{status === 'published' ? 'Published' : 'Draft'}</Badge>
+    {pending && <Badge variant="warning">Changes not published</Badge>}
+  </span>
+);
 const VisibilityBadge = ({ visible }: { visible: boolean }) => <Badge variant={visible ? 'accent' : 'default'}>{visible ? 'Visible' : 'Hidden'}</Badge>;
 
 function WhenCell({ iso }: { iso: string | null }) {

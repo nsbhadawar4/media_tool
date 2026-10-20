@@ -7,6 +7,10 @@ import { Schema, model, Types, type Document } from 'mongoose';
  * order (their position is their display order). Each part has a stable `uid` of its own, so the
  * builder can copy, paste, duplicate and reorder parts without ever reusing one.
  *
+ * Two copies of the content: the working copy the admin edits (saved as a draft at any time), and the
+ * `live` copy learners read — set only by Publish. Editing a published course therefore changes nothing
+ * for learners until it is published again; Unpublish removes the live copy.
+ *
  * Learners see it only when it is published and visible, its class and subject are open to them, and
  * it is not in Trash — then on its class's subject page, with only its published chapters and lessons.
  */
@@ -42,6 +46,15 @@ export interface IManualChapter {
   lessons: IManualLesson[];
 }
 
+/** What learners read: a copy of the content taken when the course was last published. */
+export interface IManualLive {
+  classLevel: number;
+  subjectKey: string;
+  title: string;
+  description: string;
+  chapters: IManualChapter[];
+}
+
 export interface IManualCourse extends Document {
   _id: Types.ObjectId;
   /** Always "manual" — what tells these courses apart from the generated ones. */
@@ -55,6 +68,8 @@ export interface IManualCourse extends Document {
   status: ManualStatus;
   isVisible: boolean;
   chapters: IManualChapter[];
+  /** The published copy (null while a draft). Field order matches the working copy's, so the two can be compared. */
+  live: IManualLive | null;
   /** Bumped on every save: a save based on an older revision is refused (no silent overwrite). */
   revision: number;
   publishedAt: Date | null;
@@ -105,6 +120,17 @@ const chapterSchema = new Schema<IManualChapter>(
   { _id: false },
 );
 
+const liveSchema = new Schema<IManualLive>(
+  {
+    classLevel: { type: Number, required: true },
+    subjectKey: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, default: '' },
+    chapters: { type: [chapterSchema], default: [] },
+  },
+  { _id: false },
+);
+
 const manualCourseSchema = new Schema<IManualCourse>(
   {
     source: { type: String, enum: ['manual'], default: 'manual', immutable: true },
@@ -116,6 +142,7 @@ const manualCourseSchema = new Schema<IManualCourse>(
     status,
     isVisible: { type: Boolean, default: true },
     chapters: { type: [chapterSchema], default: [] },
+    live: { type: liveSchema, default: null },
     revision: { type: Number, default: 1 },
     publishedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
@@ -129,6 +156,6 @@ const manualCourseSchema = new Schema<IManualCourse>(
 manualCourseSchema.index({ slug: 1 }, { unique: true });
 // The admin list (newest first, filters), and a subject's published courses for learners.
 manualCourseSchema.index({ deletedAt: 1, updatedAt: -1 });
-manualCourseSchema.index({ classLevel: 1, subjectKey: 1, status: 1, isVisible: 1, deletedAt: 1 });
+manualCourseSchema.index({ 'live.classLevel': 1, 'live.subjectKey': 1, status: 1, isVisible: 1, deletedAt: 1 });
 
 export const ManualCourse = model<IManualCourse>('ManualCourse', manualCourseSchema);
