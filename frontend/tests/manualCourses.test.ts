@@ -157,5 +157,5 @@ test('separation: Manage Courses has no manual-course entry; the sidebar lists t
     assert.ok(!/manual-courses|Add Manual Course|manualCourses/.test(src), `${file} must not link to or use Manual Courses`);
   }
   const manage = ADMIN_NAV_GROUPS.find((g) => g.label === 'Manage')!.items.filter((i) => !i.planned).map((i) => i.label);
-  assert.deepEqual(manage, ['Users', 'Manage Courses', 'Manual Courses', 'User activity', 'Reviews']);
+  assert.deepEqual(manage, ['Users', 'Manage Courses', 'Manual Courses', 'User activity', 'Reviews', 'Storage Management']);
 });

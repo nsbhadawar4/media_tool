@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { accountLabel } from '@/lib/auth/account';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronsLeft, FolderClosed, HardDrive, LogOut, Users } from 'lucide-react';
+import { ChevronRight, ChevronsLeft, FolderClosed, HardDrive, LogOut, Users } from 'lucide-react';
 import { Logo } from '@/components/brand/Logo';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -13,7 +14,7 @@ import { dashboardApi } from '@/lib/api/dashboard';
 import { adminApi } from '@/lib/api/admin';
 import { formatBytes } from '@/utils/format';
 import { ADMIN_HOME_PATH, ADMIN_LIBRARY_PATH, USER_HOME_PATH } from '@/lib/auth/routes';
-import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, openNavGroups, type NavItem } from './navItems';
+import { ADMIN_NAV_GROUPS, USER_NAV_GROUPS, isNavItemActive, isNavParentActive, openNavGroups, type NavItem } from './navItems';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { BADGE_MEANING, badgeText, useNavBadges } from './navBadges';
 import { cn } from '@/utils/cn';
@@ -54,6 +55,10 @@ export function SidebarContent({
   const storageUsed =
     (variant === 'admin' ? adminStatsQuery.data?.data.storageUsedBytes : statsQuery.data?.data.storageUsedBytes) ?? null;
 
+  // A parent's own open/closed choice lasts for the page it was made on; on any navigation the active
+  // page decides again, so opening Media or Documents (even by URL) expands Storage Management.
+  const [toggled, setToggled] = useState<{ path: string; open: Record<string, boolean> }>({ path: pathname, open: {} });
+
   const { requestLogout } = useLogoutPrompt();
   const handleLogout = () => {
     onNavigate?.();
@@ -86,6 +91,126 @@ export function SidebarContent({
     'nav-link group relative flex items-center rounded-xl py-2.5 text-[13px] font-medium transition-colors duration-150',
     collapsed ? 'justify-center px-0' : 'gap-3 px-3',
   );
+
+  /** One row: a link, a disabled "Soon" row, or (nested) a child of an expandable parent. */
+  const renderItem = (item: NavItem, nested = false) => {
+      const Icon = item.icon;
+      if (item.planned) {
+        // Not a link: the page does not exist yet, and a dead link is worse than a
+        // clearly unavailable row.
+        return (
+          <div
+            key={item.href}
+            aria-disabled="true"
+            aria-label={`${item.label} (coming soon)`}
+            data-tooltip={collapsed ? `${item.label} · Soon` : undefined}
+            data-tooltip-side="right"
+            className={cn(linkClass, 'cursor-default select-none text-sidebar-foreground/45')}
+          >
+            <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.85} />
+            <span className={labelClass}>{item.label}</span>
+            {!collapsed && (
+              <span className="ml-auto rounded-md border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sidebar-foreground/55">
+                Soon
+              </span>
+            )}
+          </div>
+        );
+      }
+      const isActive = isNavItemActive(pathname, item.href, item.exact);
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={onNavigate}
+          aria-current={isActive ? 'page' : undefined}
+          aria-label={collapsed ? item.label : undefined}
+          data-tooltip={collapsed ? item.label : undefined}
+          data-tooltip-side="right"
+          className={cn(
+            linkClass,
+            isActive
+              ? 'nav-active-pill text-sidebar-active'
+              : 'hover:bg-sidebar-hover hover:text-sidebar-active',
+          )}
+        >
+          {/* Marks the active item without relying on colour alone. */}
+          <span
+            aria-hidden
+            className={cn(
+              'absolute top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-accent nav-indicator transition-all duration-300',
+              collapsed ? '-left-2' : nested ? '-left-[9px]' : '-left-3',
+              isActive ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0',
+            )}
+          />
+          <Icon
+            className={cn(
+              'nav-icon h-[18px] w-[18px] shrink-0',
+              isActive ? 'text-accent-2' : 'text-sidebar-foreground/80 group-hover:text-sidebar-active',
+            )}
+            strokeWidth={1.85}
+          />
+          <span className={labelClass}>{item.label}</span>
+          {badges[item.href] ? (
+            <span
+              aria-label={`${badges[item.href]} ${BADGE_MEANING[item.href] ?? 'waiting'}`}
+              className={cn(
+                'rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-accent-foreground',
+                collapsed ? 'absolute right-1 top-1' : 'ml-auto',
+              )}
+            >
+              {badgeText(badges[item.href])}
+            </span>
+          ) : null}
+        </Link>
+      );
+  };
+
+  /** An expandable parent (Storage Management): a link to its overview, a chevron, its pages nested below. */
+  const renderParent = (item: NavItem) => {
+    const Icon = item.icon;
+    const kids = item.children ?? [];
+    // The icon-only rail has no room for a submenu: its pages show as plain rows instead.
+    if (collapsed) return kids.map((child) => renderItem(child));
+    const active = isNavParentActive(pathname, item);
+    const overrides = toggled.path === pathname ? toggled.open : {};
+    const open = overrides[item.label] ?? active;
+    const panelId = `nav-sub-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+    return (
+      <div key={item.label}>
+        <div className={cn('flex items-center rounded-xl transition-colors duration-150', active ? 'text-sidebar-active' : 'text-sidebar-foreground hover:bg-sidebar-hover hover:text-sidebar-active')}>
+          {/* The label opens the overview and opens the group; the chevron only toggles it. */}
+          <Link
+            href={item.href}
+            onClick={() => {
+              setToggled({ path: item.href, open: { ...overrides, [item.label]: true } });
+              onNavigate?.();
+            }}
+            className={cn(linkClass, 'min-w-0 flex-1')}
+          >
+            <Icon className={cn('nav-icon h-[18px] w-[18px] shrink-0', active ? 'text-accent-2' : 'text-sidebar-foreground/80 group-hover:text-sidebar-active')} strokeWidth={1.85} />
+            <span className={labelClass}>{item.label}</span>
+          </Link>
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={panelId}
+            aria-label={`${item.label} submenu`}
+            onClick={() => setToggled({ path: pathname, open: { ...overrides, [item.label]: !open } })}
+            className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/60 transition hover:bg-sidebar-hover hover:text-sidebar-active"
+          >
+            <ChevronRight aria-hidden className={cn('h-4 w-4 transition-transform duration-200', open && 'rotate-90')} />
+          </button>
+        </div>
+        {/* Closed rows are inert (not focusable, not announced); the grid-rows trick animates the height. */}
+        <div id={panelId} inert={!open} className={cn('grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
+          <div className="min-h-0 overflow-hidden">
+            <div className="ml-[21px] mt-0.5 space-y-0.5 border-l border-border pl-2">{kids.map((child) => renderItem(child, true))}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     // The admin panel's sidebar is always deep emerald — a business console beside the user app.
@@ -155,78 +280,7 @@ export function SidebarContent({
                 </p>
               ))}
             <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                if (item.planned) {
-                  // Not a link: the page does not exist yet, and a dead link is worse than a
-                  // clearly unavailable row.
-                  return (
-                    <div
-                      key={item.href}
-                      aria-disabled="true"
-                      aria-label={`${item.label} (coming soon)`}
-                      data-tooltip={collapsed ? `${item.label} · Soon` : undefined}
-                      data-tooltip-side="right"
-                      className={cn(linkClass, 'cursor-default select-none text-sidebar-foreground/45')}
-                    >
-                      <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.85} />
-                      <span className={labelClass}>{item.label}</span>
-                      {!collapsed && (
-                        <span className="ml-auto rounded-md border border-border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sidebar-foreground/55">
-                          Soon
-                        </span>
-                      )}
-                    </div>
-                  );
-                }
-                const isActive = isNavItemActive(pathname, item.href, item.exact);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onNavigate}
-                    aria-current={isActive ? 'page' : undefined}
-                    aria-label={collapsed ? item.label : undefined}
-                    data-tooltip={collapsed ? item.label : undefined}
-                    data-tooltip-side="right"
-                    className={cn(
-                      linkClass,
-                      isActive
-                        ? 'nav-active-pill text-sidebar-active'
-                        : 'hover:bg-sidebar-hover hover:text-sidebar-active',
-                    )}
-                  >
-                    {/* Marks the active item without relying on colour alone. */}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'absolute top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-accent nav-indicator transition-all duration-300',
-                        collapsed ? '-left-2' : '-left-3',
-                        isActive ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0',
-                      )}
-                    />
-                    <Icon
-                      className={cn(
-                        'nav-icon h-[18px] w-[18px] shrink-0',
-                        isActive ? 'text-accent-2' : 'text-sidebar-foreground/80 group-hover:text-sidebar-active',
-                      )}
-                      strokeWidth={1.85}
-                    />
-                    <span className={labelClass}>{item.label}</span>
-                    {badges[item.href] ? (
-                      <span
-                        aria-label={`${badges[item.href]} ${BADGE_MEANING[item.href] ?? 'waiting'}`}
-                        className={cn(
-                          'rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none tabular-nums text-accent-foreground',
-                          collapsed ? 'absolute right-1 top-1' : 'ml-auto',
-                        )}
-                      >
-                        {badgeText(badges[item.href])}
-                      </span>
-                    ) : null}
-                  </Link>
-                );
-              })}
+              {group.items.map((item) => (item.children ? renderParent(item) : renderItem(item)))}
             </div>
           </div>
         ))}
@@ -236,7 +290,7 @@ export function SidebarContent({
       <div className={cn('app-safe-bottom shrink-0 space-y-2 border-t border-border pb-4 pt-3', collapsed ? 'px-2' : 'px-3')}>
         {storageUsed !== null && !collapsed && (
           <Link
-            href={isAdminArea ? ADMIN_HOME_PATH : '/settings'}
+            href={isAdminArea ? ADMIN_HOME_PATH : '/manage-storage'}
             onClick={onNavigate}
             className="gradient-border group block rounded-xl bg-surface/80 px-3.5 py-3 transition-colors hover:bg-surface-elevated"
           >

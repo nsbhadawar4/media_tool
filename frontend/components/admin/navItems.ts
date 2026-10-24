@@ -5,6 +5,7 @@ import {
   BookOpenCheck,
   FileText,
   FolderClosed,
+  FolderTree,
   Gamepad2,
   GraduationCap,
   HardDrive,
@@ -38,12 +39,34 @@ export interface NavItem {
   section?: string;
   /** Lit only on this exact path, not below it (an overview whose sub-pages have their own entries). */
   exact?: boolean;
+  /**
+   * Makes this entry an expandable parent (e.g. Storage Management). The parent is itself a link to
+   * its own `href` (its overview page, which is also its first child) plus a chevron that opens or
+   * closes the children. Desktop and the mobile drawer render the children nested; the mobile tab
+   * bar lists them flat, without the parent (see liveNavItems).
+   */
+  children?: readonly NavItem[];
 }
 
 export interface NavGroup {
   label: string;
   items: readonly NavItem[];
 }
+
+/**
+ * The storage pages, grouped under one expandable parent for users and administrators alike. A
+ * navigation grouping only: every page keeps its own route (the parent reuses /manage-storage).
+ */
+const STORAGE_MANAGEMENT: NavItem = {
+  // The parent opens the overview (/manage-storage); the children are the pages it leads to.
+  href: '/manage-storage', label: 'Storage Management', icon: FolderTree,
+  children: [
+    { href: '/manage-storage', label: 'Storage', icon: HardDrive },
+    { href: '/folders', label: 'Folders', icon: FolderClosed },
+    { href: '/media', label: 'Media', icon: ImageIcon },
+    { href: '/documents', label: 'Documents', icon: FileText },
+  ],
+};
 
 /**
  * One source of truth for navigation, read by both the desktop sidebar and the mobile tab
@@ -60,9 +83,7 @@ export const USER_NAV_GROUPS: readonly NavGroup[] = [
     label: 'Library',
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/folders', label: 'Folders', icon: FolderClosed },
-      { href: '/media', label: 'Media', icon: ImageIcon },
-      { href: '/documents', label: 'Documents', icon: FileText },
+      STORAGE_MANAGEMENT,
       // Courses follow Manage Courses alone: never hidden by the Kid Games switch.
       { href: '/courses', label: 'Courses', icon: BookOpenCheck },
       { href: '/games', label: 'Games', icon: Gamepad2, section: 'games' },
@@ -73,7 +94,6 @@ export const USER_NAV_GROUPS: readonly NavGroup[] = [
     label: 'Account',
     items: [
       { href: '/profile', label: 'Profile', icon: UserRound },
-      { href: '/manage-storage', label: 'Storage', icon: HardDrive },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
@@ -97,8 +117,9 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
       { href: '/admin/manual-courses', label: 'Manual Courses', icon: NotebookPen },
       { href: '/admin/activity', label: 'User activity', icon: Activity },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
-      { href: '/admin/media', label: 'Media', icon: ImageIcon, planned: true },
-      { href: '/admin/documents', label: 'Documents', icon: FileText, planned: true },
+      // Shared with the user app: an administrator's own files live in the same library pages
+      // (see ADMIN_LIBRARY_PATH), so these are the existing routes, not /admin copies.
+      STORAGE_MANAGEMENT,
     ],
   },
   {
@@ -132,12 +153,21 @@ export const ADMIN_NAV_GROUPS: readonly NavGroup[] = [
 
 /** The groups without areas whose website section is switched off. */
 export function openNavGroups(groups: readonly NavGroup[], isSectionOn: (key: string) => boolean): NavGroup[] {
-  return groups.map((group) => ({ ...group, items: group.items.filter((item) => !item.section || isSectionOn(item.section)) }));
+  const open = (items: readonly NavItem[]): NavItem[] =>
+    items.filter((item) => !item.section || isSectionOn(item.section)).map((item) => (item.children ? { ...item, children: open(item.children) } : item));
+  return groups.map((group) => ({ ...group, items: open(group.items) }));
 }
 
 /** Flat list of real pages in display order — what the mobile tab bar slices into tabs and "More". */
 export function liveNavItems(groups: readonly NavGroup[]): NavItem[] {
-  return groups.flatMap((group) => group.items).filter((item) => !item.planned);
+  // A parent contributes its children (in place, so the order is the sidebar's), never itself.
+  const flat = (items: readonly NavItem[]): NavItem[] => items.flatMap((item) => (item.children ? flat(item.children) : [item]));
+  return flat(groups.flatMap((group) => group.items)).filter((item) => !item.planned);
+}
+
+/** A parent is "active" while any of its pages is open (the sidebar then keeps it expanded). */
+export function isNavParentActive(pathname: string, item: NavItem): boolean {
+  return (item.children ?? []).some((child) => !child.planned && isNavItemActive(pathname, child.href, child.exact));
 }
 
 /**

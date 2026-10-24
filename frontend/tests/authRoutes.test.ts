@@ -130,7 +130,10 @@ test('admin and user navigation stay separate; the admin panel links every manag
   ]) {
     assert.ok(admin.includes(href), href);
   }
-  assert.ok(admin.every((h) => h.startsWith('/admin/')), 'no user pages in the admin nav');
+  // The one shared exception: Storage Management, whose pages are the library routes an administrator
+  // uses for their own files (the user app's /manage-storage, /folders, /media, /documents — not /admin copies).
+  const shared = ['/manage-storage', '/folders', '/media', '/documents'];
+  assert.ok(admin.every((h) => h.startsWith('/admin/') || shared.includes(h)), 'no other user pages in the admin nav');
   assert.ok(user.every((h) => !h.startsWith('/admin')), 'no admin pages in the user nav');
   // The content overview lights up on its own page only; its sub-pages have their own entries.
   assert.equal(isNavItemActive('/admin/content', '/admin/content', true), true);

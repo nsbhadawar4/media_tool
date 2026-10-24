@@ -20,7 +20,8 @@ const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? 'mt_s
  * cookie without verifying it (as proxy.ts does): every one of these pages checks the session
  * itself, so a stale cookie at most shows a link that leads to the sign-in page.
  *  - signed out: sign in or sign up (password recovery is reached from the sign-in page);
- *  - a user: their app, their storage and password reset;
+ *  - a user: their app and password reset (private storage pages are reached from inside the app,
+ *    never from the public site);
  *  - an administrator: the admin panel only — no user-only links.
  */
 const ACCOUNT_LINKS: Record<Viewer, ReadonlyArray<{ href: string; label: string }>> = {
@@ -30,7 +31,6 @@ const ACCOUNT_LINKS: Record<Viewer, ReadonlyArray<{ href: string; label: string 
   ],
   user: [
     { href: USER_HOME_PATH, label: 'Dashboard' },
-    { href: '/manage-storage', label: 'Manage Storage' },
     { href: '/forgot-password', label: 'Reset Password' },
   ],
   admin: [{ href: ADMIN_HOME_PATH, label: 'Admin dashboard' }],
