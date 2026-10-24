@@ -205,6 +205,3 @@ export function previewEmoji(parts: string[], max = 3): string[] {
   }
   return out;
 }
-
-/** Hindi/Devanagari text is read aloud in a Hindi voice, everything else in English. */
-export const speechLang = (text: string): string => (/[ऀ-ॿ]/.test(text) ? 'hi-IN' : 'en-IN');

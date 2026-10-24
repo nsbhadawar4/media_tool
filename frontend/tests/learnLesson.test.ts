@@ -6,7 +6,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { CurriculumQuestion } from '../lib/api/adminClasses';
-import { buildSteps, CHEERS, isCorrect, NUDGES, parseExplanation, pick, previewEmoji, questionLayout, rating, speechLang, splitBlank, splitStage, starsFor } from '../lib/learn/lessonFlow';
+import { buildSteps, CHEERS, isCorrect, NUDGES, parseExplanation, pick, previewEmoji, questionLayout, rating, splitBlank, splitStage, starsFor } from '../lib/learn/lessonFlow';
+import { detectLanguage, pickVoice } from '../lib/learn/speech';
 
 const q = (p: Partial<CurriculumQuestion> & { prompt: string }): CurriculumQuestion => ({ type: 'mcq', options: [], ...p });
 
@@ -96,8 +97,16 @@ test('feedback is encouraging: no "wrong", stars are 10 first try and 5 after, r
 test('lesson cards preview the emoji a lesson itself uses, and speech picks Hindi for Devanagari', () => {
   assert.deepEqual(previewEmoji(['1 sun in the sky ☀️', '3 wheels 🛺', 'plain', 'five ✋', 'more ☀️']), ['☀️', '🛺', '✋']);
   assert.deepEqual(previewEmoji(['nothing here']), []);
-  assert.equal(speechLang('अ से अनार'), 'hi-IN');
-  assert.equal(speechLang('A is for apple'), 'en-IN');
+  assert.equal(detectLanguage('अ से अनार'), 'hi');
+  assert.equal(detectLanguage('A is for apple'), 'en');
+  const v = (lang: string, d = false) => ({ lang, default: d });
+  assert.equal(pickVoice([v('en-IN', true), v('en-GB'), v('en-US'), v('hi-IN')], 'en')?.lang, 'en-US');
+  assert.equal(pickVoice([v('en-IN', true), v('en-GB'), v('hi-IN')], 'en')?.lang, 'en-GB');
+  assert.equal(pickVoice([v('en-IN', true), v('en-AU')], 'en')?.lang, 'en-AU');
+  assert.equal(pickVoice([v('en-IN'), v('hi-IN')], 'en')?.lang, 'en-IN');
+  assert.equal(pickVoice([v('hi-IN'), v('en-US')], 'hi')?.lang, 'hi-IN');
+  assert.equal(pickVoice([v('en_US')], 'en')?.lang, 'en_US');
+  assert.equal(pickVoice([v('fr-FR')], 'en'), null);
 });
 
 test('Manual Courses stay separate: their pages and view never use the AI learner layer', async () => {

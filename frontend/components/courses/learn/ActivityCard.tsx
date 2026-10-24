@@ -1,10 +1,11 @@
 'use client';
 
-import { useId, useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react';
-import { Check, Eye, Sparkles, Volume2 } from 'lucide-react';
+import { useId, useMemo, useState, type CSSProperties } from 'react';
+import { Check, Eye, Lightbulb, MessageCircle, PartyPopper, Sparkles, Sprout, Square, Star, ThumbsDown, ThumbsUp, Volume2, type LucideIcon } from 'lucide-react';
 import type { CurriculumQuestion } from '@/lib/api/adminClasses';
-import { CHEERS, isCorrect, NUDGES, pick, questionLayout, speechLang, splitBlank, splitStage, starsFor } from '@/lib/learn/lessonFlow';
+import { CHEERS, isCorrect, NUDGES, pick, questionLayout, splitBlank, splitStage, starsFor } from '@/lib/learn/lessonFlow';
 import { cn } from '@/utils/cn';
+import { useSpeech } from './useSpeech';
 
 export interface Settled {
   /** Stars earned: 10 first time, 5 after a retry, 0 when the answer was shown. */
@@ -12,28 +13,26 @@ export interface Settled {
   firstTry: boolean;
 }
 
-const noop = () => () => {};
-const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
-
-/** Reads text aloud with the browser's own voice, where there is one (nothing is shown otherwise). */
-export function SpeakButton({ text, className }: { text: string; className?: string }) {
-  const supported = useSyncExternalStore(noop, canSpeak, () => false);
+/** Reads text aloud (see useSpeech): tap to listen, tap again to stop. Nothing is shown where speech is unsupported. */
+export function SpeakButton({ text, label = 'Listen', className }: { text: string; label?: string; className?: string }) {
+  const { supported, speaking, toggle } = useSpeech(text);
   if (!supported) return null;
-  const speak = () => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = speechLang(text);
-    u.rate = 0.85;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  };
+  const title = speaking ? 'Stop' : label;
   return (
     <button
       type="button"
-      onClick={speak}
-      aria-label="Read it to me"
-      className={cn('inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-border bg-surface text-accent transition active:scale-90 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)', className)}
+      onClick={toggle}
+      aria-label={title}
+      aria-pressed={speaking}
+      title={title}
+      className={cn(
+        'kl-speak relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border transition duration-200 hover:scale-105 active:scale-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)',
+        speaking ? 'kl-speaking border-(--kg) bg-linear-to-br from-(--kg) to-(--kg-2) text-white shadow-lg' : 'border-border bg-surface text-accent shadow-card hover:border-(--kg)',
+        className,
+      )}
     >
-      <Volume2 aria-hidden className="h-5 w-5" />
+      {speaking ? <Square aria-hidden className="h-4 w-4 fill-current" /> : <Volume2 aria-hidden className="h-5 w-5" />}
+      {speaking && <Volume2 aria-hidden className="kl-wave pointer-events-none absolute -right-1 -top-1 h-4 w-4 rounded-full bg-surface p-0.5 text-(--kg)" />}
     </button>
   );
 }
@@ -62,7 +61,7 @@ function Burst() {
     <div aria-hidden className="kl-burst">
       {BURST.map(([x, y], i) => (
         <span key={i} style={{ '--x': x, '--y': y, '--i': i } as CSSProperties}>
-          ⭐
+          <Star className="h-6 w-6 fill-amber-400 text-amber-500" />
         </span>
       ))}
     </div>
@@ -76,7 +75,7 @@ function Burst() {
  * is never stuck. Nothing is saved here: stars are for this sitting, lesson progress is saved by the
  * lesson once it is finished.
  */
-export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuestion; seed: number; label: string; onSettled: (r: Settled) => void }) {
+export function ActivityCard({ q, seed, label, icon: LabelIcon, onSettled }: { q: CurriculumQuestion; seed: number; label: string; icon?: LucideIcon; onSettled: (r: Settled) => void }) {
   const id = useId();
   const layout = questionLayout(q);
   const { text, stage } = useMemo(() => splitStage(q.prompt), [q.prompt]);
@@ -131,7 +130,14 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
   return (
     <section aria-labelledby={`${id}-p`} className="kl-tint relative overflow-hidden rounded-[2rem] border-2 p-5 shadow-card sm:p-8">
       {status === 'right' && <Burst />}
-      <p className="kl-text text-xs font-extrabold uppercase tracking-[0.16em]">{label}</p>
+      <p className="kl-text flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em]">
+        {LabelIcon && (
+          <span aria-hidden className="kl-badge kl-icon flex h-8 w-8 items-center justify-center rounded-xl text-white">
+            <LabelIcon className="h-4 w-4" strokeWidth={2.5} />
+          </span>
+        )}
+        {label}
+      </p>
 
       <div className="mt-3 flex items-start gap-3">
         <h2 id={`${id}-p`} className="min-w-0 flex-1 text-balance text-2xl font-bold leading-snug text-foreground [overflow-wrap:anywhere] sm:text-3xl">
@@ -147,7 +153,7 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
             <span className="whitespace-pre-line">{text}</span>
           )}
         </h2>
-        <SpeakButton text={blank ? `${blank[0]} ${blank[1]}` : text} />
+        <SpeakButton text={blank ? `${blank[0]} ${blank[1]}` : text} label="Listen to the question" />
       </div>
 
       {stage.length > 0 && (
@@ -161,7 +167,7 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
           <div role="group" aria-labelledby={`${id}-p`} className="grid grid-cols-2 gap-3">
             {options.map((o, i) => (
               <button key={o} type="button" data-option={o} aria-pressed={picked === o} disabled={done || tried.includes(o)} onClick={() => setPicked(o)} className={cn(optionState(o), 'min-h-20 gap-2 rounded-3xl px-3 text-2xl sm:min-h-24 sm:text-3xl')}>
-                <span aria-hidden>{i === 0 ? '👍' : '👎'}</span>
+                {i === 0 ? <ThumbsUp aria-hidden className="h-7 w-7" /> : <ThumbsDown aria-hidden className="h-7 w-7" />}
                 {o}
                 {mark(o)}
               </button>
@@ -215,7 +221,10 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
 
         {layout === 'reflect' && !done && (
           <div className="rounded-3xl border-2 border-dashed border-border bg-surface/60 p-4 text-center">
-            <p className="text-lg font-semibold text-foreground">🗣️ Think about it, or say it out loud!</p>
+            <p className="inline-flex items-center gap-2 text-lg font-semibold text-foreground">
+              <MessageCircle aria-hidden className="h-5 w-5 text-(--kg)" />
+              Think about it, or say it out loud!
+            </p>
             {answer && !revealed && (
               <button type="button" onClick={() => setRevealed(true)} className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-2xl border-2 border-border bg-surface px-5 text-base font-bold text-foreground transition active:scale-95 hover:border-(--kg)">
                 <Eye aria-hidden className="h-5 w-5" />
@@ -231,12 +240,12 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
       <div role="status" aria-live="polite" className="mt-4 min-h-0">
         {status === 'right' && (
           <div className="kl-pop flex flex-wrap items-center gap-x-3 gap-y-1 rounded-3xl bg-(--kid-correct)/14 px-4 py-3">
-            <span aria-hidden className="text-4xl">
-              {cheer.emoji}
+            <span aria-hidden className="kl-badge kl-icon flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ '--t1': 'var(--kid-correct)', '--t2': 'var(--kg-2)' } as CSSProperties}>
+              <PartyPopper className="h-6 w-6" />
             </span>
             <span className="text-xl font-extrabold text-foreground">{cheer.text}</span>
             <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 text-base font-extrabold text-foreground shadow-card">
-              +{starsFor(attempts)} <span aria-hidden>⭐</span>
+              +{starsFor(attempts)} <Star aria-hidden className="h-4 w-4 fill-amber-400 text-amber-500" />
               <span className="sr-only">stars</span>
             </span>
             {q.explanation && <span className="basis-full text-base text-foreground-soft">{q.explanation}</span>}
@@ -244,8 +253,8 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
         )}
         {status === 'nudge' && (
           <div className="kl-pop flex items-center gap-3 rounded-3xl bg-(--kid-retry)/14 px-4 py-3">
-            <span aria-hidden className="text-4xl">
-              {nudge.emoji}
+            <span aria-hidden className="kl-badge kl-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white" style={{ '--t1': 'var(--kid-retry)', '--t2': '#f97316' } as CSSProperties}>
+              <Lightbulb className="h-6 w-6" />
             </span>
             <span className="text-lg font-bold text-foreground">
               {nudge.text} <span className="font-medium text-foreground-soft">{nudge.hint}</span>
@@ -255,7 +264,7 @@ export function ActivityCard({ q, seed, label, onSettled }: { q: CurriculumQuest
         {status === 'shown' && (
           <div className="kl-pop rounded-3xl bg-(--kg)/12 px-4 py-3">
             <p className="text-lg font-bold text-foreground">
-              <span aria-hidden>🌱 </span>Here it is{answer ? `: ${answer}` : ''}. Let&apos;s keep going!
+              <Sprout aria-hidden className="mr-1.5 inline h-5 w-5 align-text-bottom text-(--kid-correct)" />Here it is{answer ? `: ${answer}` : ''}. Let&apos;s keep going!
             </p>
             {q.explanation && <p className="mt-1 text-base text-foreground-soft">{q.explanation}</p>}
           </div>

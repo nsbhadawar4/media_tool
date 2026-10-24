@@ -2498,11 +2498,18 @@ html:has(.mk-root) {
 .kl-tone-2 { --t1: #f59e0b; --t2: #f97316; }
 .kl-tone-3 { --t1: #8b5cf6; --t2: #ec4899; }
 .kl-badge { background-image: linear-gradient(135deg, var(--t1), var(--t2)); }
+/* Icon tile: gradient fill, soft glow in the tone colour, a little life on hover. */
+.kl-icon { box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--t1) 55%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.35); transition: transform 0.2s var(--ease-spring); }
+.kl-icon:hover, article:hover > div > .kl-icon { transform: scale(1.08) rotate(-4deg); }
+@keyframes kl-speak-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--kg) 50%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+@keyframes kl-wave { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+.kl-speaking { animation: kl-speak-pulse 1.2s ease-out infinite; }
+.kl-wave { animation: kl-wave 0.9s ease-in-out infinite; }
 .kl-tint { background-color: color-mix(in srgb, var(--t1) 11%, var(--surface)); border-color: color-mix(in srgb, var(--t1) 32%, var(--border)); }
 .kl-text { color: color-mix(in srgb, var(--t1) 68%, var(--foreground)); }
 @media (prefers-reduced-motion: reduce) {
-  .kl-float { animation: none; }
+  .kl-float, .kl-speaking, .kl-wave, .kl-icon { animation: none; transition: none; }
   .kl-burst { display: none; }
 }
-:root[data-motion='reduce'] .kl-float { animation: none; }
+:root[data-motion='reduce'] .kl-float, :root[data-motion='reduce'] .kl-speaking, :root[data-motion='reduce'] .kl-wave { animation: none; }
 :root[data-motion='reduce'] .kl-burst { display: none; }
