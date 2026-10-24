@@ -92,6 +92,51 @@ export function splitStage(prompt: string): { text: string; stage: string[] } {
   return { text, stage: best.items.slice(0, 40) };
 }
 
+/** One drawn line of a question: groups of emoji joined by signs ("🍎 🍎 + 🍎 = ?"), with an optional "A:" label. */
+export interface StageRow {
+  label: string;
+  parts: Array<{ items: string[] } | { sign: string }>;
+}
+
+const SIGNS = new Set(['+', '−', '-', '×', '=', '?']);
+
+/** A line made only of emoji and + − × = ? (and a leading "A:" label) is a picture, not text. */
+function visualRow(line: string): StageRow | null {
+  const m = /^\s*(?:([A-Za-z])\s*[:：]\s*)?(.*)$/.exec(line);
+  const parts: StageRow['parts'] = [];
+  let items: string[] = [];
+  let emoji = 0;
+  for (const g of graphemes(m![2]!)) {
+    if (/^\s$/.test(g)) continue;
+    if (isEmoji(g)) {
+      items.push(g);
+      emoji++;
+    } else if (SIGNS.has(g)) {
+      if (items.length) parts.push({ items });
+      items = [];
+      parts.push({ sign: g });
+    } else return null;
+  }
+  if (items.length) parts.push({ items });
+  return emoji > 0 && emoji <= 40 ? { label: m![1] ?? '', parts } : null;
+}
+
+/**
+ * Pictures a prompt asks the child to look at: every line of only emoji and signs, lifted out (at most four)
+ * and drawn large; the other lines stay as the question's words. A prompt without such a line comes back whole.
+ */
+export function splitVisual(prompt: string): { text: string; rows: StageRow[] } {
+  const rows: StageRow[] = [];
+  const words: string[] = [];
+  for (const line of prompt.split(/\r?\n/)) {
+    const row = rows.length < 4 ? visualRow(line) : null;
+    if (row) rows.push(row);
+    else words.push(line);
+  }
+  const text = words.join('\n').trim();
+  return rows.length && text ? { text, rows } : { text: prompt, rows: [] };
+}
+
 export type QuestionLayout = 'truefalse' | 'tiles' | 'choices' | 'type' | 'reflect';
 
 /** How to present a question, from its shape alone (never from what it is about). */

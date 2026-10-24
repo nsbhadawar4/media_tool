@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { CurriculumQuestion } from '../lib/api/adminClasses';
-import { buildSteps, CHEERS, isCorrect, NUDGES, parseExplanation, pick, previewEmoji, questionLayout, rating, splitBlank, splitStage, starsFor } from '../lib/learn/lessonFlow';
+import { buildSteps, CHEERS, isCorrect, NUDGES, parseExplanation, pick, previewEmoji, questionLayout, rating, splitBlank, splitStage, splitVisual, starsFor } from '../lib/learn/lessonFlow';
 import { detectLanguage, pickVoice } from '../lib/learn/speech';
 
 const q = (p: Partial<CurriculumQuestion> & { prompt: string }): CurriculumQuestion => ({ type: 'mcq', options: [], ...p });
@@ -129,4 +129,19 @@ test('Manual Courses stay separate: their pages and view never use the AI learne
     const src = readFileSync(join(root, file), 'utf8');
     assert.ok(!/manualCourses|ManualCourse|manual-courses/.test(src), `${file} must not use Manual Courses`);
   }
+});
+
+test('a prompt line of only emoji and signs becomes a picture row; words stay as the question', () => {
+  const eq = splitVisual('🍎 🍎 + 🍎 = ?\nAdd them.');
+  assert.equal(eq.text, 'Add them.');
+  assert.deepEqual(eq.rows[0]!.parts, [{ items: ['🍎', '🍎'] }, { sign: '+' }, { items: ['🍎'] }, { sign: '=' }, { sign: '?' }]);
+  const groups = splitVisual('A: ⭐⭐⭐\nB: ⭐⭐\nWhich group has more?');
+  assert.deepEqual(groups.rows.map((r) => [r.label, r.parts.length]), [['A', 1], ['B', 1]]);
+  assert.equal(groups.text, 'Which group has more?');
+  assert.equal(splitVisual('🐶\nWho is this?').rows.length, 1);
+  assert.equal(splitVisual('3 + 2 = ?').rows.length, 0, 'plain numbers stay text');
+  assert.equal(splitVisual('Count the 🍎 apples').rows.length, 0, 'emoji inside a sentence stay text');
+  const onlyPicture = splitVisual('🍎 🍎');
+  assert.deepEqual([onlyPicture.rows.length, onlyPicture.text], [0, '🍎 🍎'], 'a prompt with no words is left as written');
+  assert.equal(splitVisual('1, 2, ?, 4\nFill the missing number.').rows.length, 0);
 });

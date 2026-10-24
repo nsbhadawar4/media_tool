@@ -3,7 +3,7 @@
 import { useId, useMemo, useState, type CSSProperties } from 'react';
 import { Check, Eye, Lightbulb, MessageCircle, PartyPopper, Sparkles, Sprout, Square, Star, ThumbsDown, ThumbsUp, Volume2, type LucideIcon } from 'lucide-react';
 import type { CurriculumQuestion } from '@/lib/api/adminClasses';
-import { CHEERS, isCorrect, NUDGES, pick, questionLayout, splitBlank, splitStage, starsFor } from '@/lib/learn/lessonFlow';
+import { CHEERS, isCorrect, NUDGES, pick, questionLayout, splitBlank, splitStage, splitVisual, starsFor, type StageRow } from '@/lib/learn/lessonFlow';
 import { cn } from '@/utils/cn';
 import { useSpeech } from './useSpeech';
 
@@ -52,6 +52,41 @@ export function EmojiStage({ items }: { items: string[] }) {
   );
 }
 
+const CLASS_TONE = { '--t1': 'var(--kg)', '--t2': 'var(--kg-2)' } as CSSProperties;
+const SIGN_WORD: Record<string, string> = { '+': 'plus', '−': 'minus', '-': 'minus', '×': 'times', '=': 'equals', '?': 'what' };
+
+/** Pictures from a prompt (see splitVisual): each row is groups of emoji joined by signs, drawn large. */
+export function PictureRows({ rows }: { rows: StageRow[] }) {
+  const alt = rows.map((r) => `${r.label ? `${r.label}: ` : ''}${r.parts.map((p) => ('items' in p ? `${p.items.length} ${p.items.every((e) => e === p.items[0]) ? p.items[0] : p.items.join(' ')}` : SIGN_WORD[p.sign])).join(' ')}`).join('. ');
+  const total = Math.max(...rows.map((r) => r.parts.reduce((n, p) => n + ('items' in p ? p.items.length : 1), 0)));
+  const size = total > 14 ? 'text-3xl sm:text-4xl' : total > 8 ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-6xl';
+  let i = 0;
+  return (
+    <div role="img" aria-label={alt} className="flex flex-col gap-2 rounded-3xl bg-surface/70 px-3 py-4 sm:px-5">
+      {rows.map((r, ri) => (
+        <div key={ri} aria-hidden className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {r.label && <span style={CLASS_TONE} className="kl-badge kl-icon flex h-9 w-9 items-center justify-center rounded-xl text-base font-extrabold text-white">{r.label}</span>}
+          {r.parts.map((p, pi) =>
+            'items' in p ? (
+              <span key={pi} className={cn('flex flex-wrap items-center justify-center gap-x-1.5 leading-none', size)}>
+                {p.items.map((e, k) => (
+                  <span key={k} className="kl-pop inline-block" style={{ '--i': i++ } as CSSProperties}>
+                    {e}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span key={pi} style={p.sign === '?' ? CLASS_TONE : undefined} className={cn('font-extrabold text-(--kg)', p.sign === '?' ? 'kl-badge kl-icon flex h-12 w-12 items-center justify-center rounded-2xl text-2xl text-white' : 'text-4xl')}>
+                {p.sign === '-' ? '−' : p.sign}
+              </span>
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const BURST = [
   ['-90px', '-70px'], ['90px', '-70px'], ['-120px', '0px'], ['120px', '0px'], ['-70px', '70px'], ['70px', '70px'], ['0px', '-95px'], ['0px', '85px'],
 ] as const;
@@ -78,7 +113,8 @@ function Burst() {
 export function ActivityCard({ q, seed, label, icon: LabelIcon, onSettled }: { q: CurriculumQuestion; seed: number; label: string; icon?: LucideIcon; onSettled: (r: Settled) => void }) {
   const id = useId();
   const layout = questionLayout(q);
-  const { text, stage } = useMemo(() => splitStage(q.prompt), [q.prompt]);
+  const visual = useMemo(() => splitVisual(q.prompt), [q.prompt]);
+  const { text, stage } = useMemo(() => (visual.rows.length ? { text: visual.text, stage: [] as string[] } : splitStage(q.prompt)), [q.prompt, visual]);
   const blank = useMemo(() => splitBlank(text), [text]);
   const options = useMemo(() => q.options.filter((o) => o.trim()), [q.options]);
   const answer = (q.answer ?? '').trim();
@@ -156,6 +192,11 @@ export function ActivityCard({ q, seed, label, icon: LabelIcon, onSettled }: { q
         <SpeakButton text={blank ? `${blank[0]} ${blank[1]}` : text} label="Listen to the question" />
       </div>
 
+      {visual.rows.length > 0 && (
+        <div className="mt-4">
+          <PictureRows rows={visual.rows} />
+        </div>
+      )}
       {stage.length > 0 && (
         <div className="mt-4">
           <EmojiStage items={stage} />
