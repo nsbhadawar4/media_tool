@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, BookOpen, Clock, Gamepad2, ListChecks, Target } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
@@ -68,12 +69,12 @@ export default async function ClassSubjectPage({ params }: Params) {
         </div>
 
         <header className="anim-rise flex flex-col gap-5 sm:flex-row sm:items-center">
-          <span aria-hidden className="flex h-16 min-w-16 shrink-0 items-center justify-center self-start rounded-2xl bg-linear-to-br from-(--kg) to-(--kg-2) px-3 text-2xl font-bold text-white shadow-card sm:self-auto">
+          <span aria-hidden className="kl-tone-0 kl-badge kl-float flex h-20 min-w-20 shrink-0 items-center justify-center self-start rounded-3xl px-3 text-4xl font-extrabold text-white shadow-card sm:self-auto">
             {subject.glyph || subject.title.slice(0, 1)}
           </span>
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">{cls.title} · Subject</p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{subject.title}</h1>
+            <h1 className="mt-1 text-4xl font-extrabold tracking-normal text-foreground sm:text-5xl">{subject.title}</h1>
             {subject.description && <p className="mt-2 text-base leading-relaxed text-foreground-soft">{subject.description}</p>}
           </div>
         </header>
@@ -120,8 +121,8 @@ export default async function ClassSubjectPage({ params }: Params) {
         </div>
 
         <section aria-labelledby="subject-chapters" className="mt-12">
-          <h2 id="subject-chapters" className="text-2xl font-semibold tracking-tight text-foreground">
-            Chapters
+          <h2 id="subject-chapters" className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-foreground">
+            <span aria-hidden>🗺️</span>Chapters
           </h2>
           {chapters.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-dashed border-border px-6 py-10 text-center">
@@ -135,40 +136,40 @@ export default async function ClassSubjectPage({ params }: Params) {
               </Link>
             </div>
           ) : (
-            <ol className="mt-6 space-y-3">
+            <ol className="mt-6 grid gap-4">
               {chapters.map((c, i) => (
-                <li key={c.slug}>
+                <li key={c.slug} className="anim-rise" style={{ '--i': i } as CSSProperties}>
                   <Link
                     href={chapterPath(cls.slug, subject.key, c.slug!)}
-                    className="group flex min-h-16 items-center gap-4 rounded-2xl border border-border bg-surface p-4 shadow-card transition hover:border-(--kg) hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg) sm:p-5"
+                    className={`kl-tone-${i % 4} kl-tint group flex min-h-24 items-center gap-4 rounded-[1.75rem] border-2 p-4 shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--t1) sm:p-5`}
                   >
-                    <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-sm font-bold tabular-nums text-accent">
+                    <span aria-hidden className="kl-badge flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl font-extrabold tabular-nums text-white shadow-card">
                       {i + 1}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-foreground">{c.title}</span>
-                      {c.description && <span className="mt-0.5 line-clamp-2 block text-sm text-muted">{c.description}</span>}
-                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-subtle">
+                      <span className="block text-xl font-extrabold leading-snug text-foreground [overflow-wrap:anywhere]">{c.title}</span>
+                      {c.description && <span className="mt-0.5 line-clamp-2 block text-base text-foreground-soft">{c.description}</span>}
+                      <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm font-medium text-foreground-soft">
                         <span className="inline-flex items-center gap-1">
-                          <BookOpen aria-hidden className="h-3.5 w-3.5" />
+                          <BookOpen aria-hidden className="h-4 w-4" />
                           {c.lessonCount} {c.lessonCount === 1 ? 'lesson' : 'lessons'}
                         </span>
                         {c.questionCount > 0 && (
                           <span className="inline-flex items-center gap-1">
-                            <ListChecks aria-hidden className="h-3.5 w-3.5" />
+                            <ListChecks aria-hidden className="h-4 w-4" />
                             {c.questionCount} questions
                           </span>
                         )}
                         {c.estimatedMinutes ? (
                           <span className="inline-flex items-center gap-1">
-                            <Clock aria-hidden className="h-3.5 w-3.5" />
+                            <Clock aria-hidden className="h-4 w-4" />
                             {formatMinutes(c.estimatedMinutes)}
                           </span>
                         ) : null}
                       </span>
                     </span>
                     <ProgressMark classSlug={cls.slug} chapter={c.slug} lessonCount={c.lessonCount} signedIn={signedIn} />
-                    <ArrowRight aria-hidden className="h-5 w-5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+                    <ArrowRight aria-hidden className="h-6 w-6 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                   </Link>
                 </li>
               ))}

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Eye, Loader2, RotateCcw, Trophy, XCircle } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, Lightbulb, Loader2, RotateCcw, Trophy } from 'lucide-react';
 import type { CurriculumQuestion } from '@/lib/api/adminClasses';
 import { progressApi, type QuizResult } from '@/lib/api/courses';
 import { ApiError } from '@/lib/api/client';
@@ -194,7 +194,7 @@ export function ChapterQuiz({ where, questions, signedIn }: { where: Where; ques
         <div role="status" className="flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent/10 p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2 font-semibold text-foreground">
             <Trophy aria-hidden className="h-5 w-5 text-accent" />
-            You scored {result.correct} / {result.total} ({result.score}%){result.attempts > 1 ? ` · best ${result.best}%` : ''}
+            You scored {result.correct} / {result.total} ({result.score}%) ⭐{result.attempts > 1 ? ` · best ${result.best}%` : ''}
           </p>
           <button
             type="button"
@@ -214,7 +214,7 @@ export function ChapterQuiz({ where, questions, signedIn }: { where: Where; ques
           const r = result?.results[i];
           const id = `quiz-${where.chapter}-${i}`;
           return (
-            <li key={`${q.prompt}-${i}`} className={cn('rounded-2xl border bg-surface p-4', r ? (r.correct ? 'border-success/50' : 'border-danger/50') : 'border-border')}>
+            <li key={`${q.prompt}-${i}`} className={cn('rounded-2xl border bg-surface p-4', r ? (r.correct ? 'border-success/50' : 'border-(--kid-retry)/50') : 'border-border')}>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                 {i + 1} · {TYPE_LABEL[q.type] ?? 'Question'}
               </p>
@@ -231,7 +231,7 @@ export function ChapterQuiz({ where, questions, signedIn }: { where: Where; ques
                       aria-checked={answers[i] === o}
                       disabled={Boolean(result)}
                       onClick={() => setAnswers((a) => a.map((x, j) => (j === i ? o : x)))}
-                      className={cn('min-h-10 rounded-xl border px-3 text-sm transition-colors', answers[i] === o ? 'border-accent bg-accent/10 font-semibold text-foreground' : 'border-border text-foreground-soft hover:bg-surface-hover')}
+                      className={cn('min-h-12 rounded-2xl border-2 px-4 text-base font-semibold transition active:scale-95', answers[i] === o ? 'border-accent bg-accent/10 text-foreground' : 'border-border text-foreground-soft hover:border-accent hover:bg-surface-hover')}
                     >
                       {o}
                     </button>
@@ -249,9 +249,9 @@ export function ChapterQuiz({ where, questions, signedIn }: { where: Where; ques
               )}
               {r && (
                 <p className={cn('mt-2 flex items-start gap-1.5 text-sm', r.correct ? 'text-success' : 'text-foreground')}>
-                  {r.correct ? <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-danger" />}
+                  {r.correct ? <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" /> : <Lightbulb aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-(--kid-retry)" />}
                   <span>
-                    {r.correct ? 'Correct' : `Answer: ${r.answer}`}
+                    {r.correct ? '🎉 Great job!' : `💡 Not quite. The answer is ${r.answer}`}
                     {r.explanation && <span className="block text-foreground-soft">{r.explanation}</span>}
                   </span>
                 </p>

@@ -141,7 +141,7 @@ export default async function PublicClassPage({ params }: Params) {
               Subjects in {view.title}
             </h2>
             <div className="mt-6">
-              <SubjectCards classKey={view.key} subjects={subjects} kidGamesOn={kidGamesOpen} />
+              <SubjectCards classKey={view.key} subjects={subjects} kidGamesOn={kidGamesOpen} signedIn={signedIn} />
             </div>
           </section>
         </div>

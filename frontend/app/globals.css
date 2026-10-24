@@ -2458,3 +2458,51 @@ html:has(.mk-root) {
 :root[data-motion='reduce'] .nav-progress {
   transition: none !important;
 }
+
+/* ===========================================================================
+   Learner play-and-learn layer (AI course pages: components/courses/learn, SubjectCards, chapter and
+   lesson pages). Tasteful motion only; with reduced motion the end state shows at once and the
+   continuous floating and the star burst are switched off.
+=========================================================================== */
+@keyframes kl-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.14); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes kl-float {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
+@keyframes kl-wiggle {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+@keyframes kl-burst {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), var(--y)) scale(1.1) rotate(160deg); }
+}
+@keyframes kl-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.kl-pop { animation: kl-pop 0.45s var(--ease-spring) both; animation-delay: calc(min(var(--i, 0), 30) * 55ms); }
+.kl-float { animation: kl-float 3.8s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.7s); }
+.kl-wiggle { animation: kl-wiggle 0.45s ease-in-out; }
+.kl-grow { transform-origin: left; animation: kl-grow 0.7s var(--ease-out) both; }
+.kl-burst { pointer-events: none; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.kl-burst span { position: absolute; font-size: 1.5rem; animation: kl-burst 0.9s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
+/* Each learning card gets one of four tones: the class colour, then three fixed companions. */
+.kl-tone-0 { --t1: var(--kg); --t2: var(--kg-2); }
+.kl-tone-1 { --t1: #0ea5e9; --t2: #22d3ee; }
+.kl-tone-2 { --t1: #f59e0b; --t2: #f97316; }
+.kl-tone-3 { --t1: #8b5cf6; --t2: #ec4899; }
+.kl-badge { background-image: linear-gradient(135deg, var(--t1), var(--t2)); }
+.kl-tint { background-color: color-mix(in srgb, var(--t1) 11%, var(--surface)); border-color: color-mix(in srgb, var(--t1) 32%, var(--border)); }
+.kl-text { color: color-mix(in srgb, var(--t1) 68%, var(--foreground)); }
+@media (prefers-reduced-motion: reduce) {
+  .kl-float { animation: none; }
+  .kl-burst { display: none; }
+}
+:root[data-motion='reduce'] .kl-float { animation: none; }
+:root[data-motion='reduce'] .kl-burst { display: none; }

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, BookOpen, Clock, ListChecks, PencilRuler, Target } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
@@ -9,12 +10,14 @@ import { ClassUnavailable } from '@/components/courses/ClassStates';
 import { ChapterQuiz, ProgressMark, StudyQuestions } from '@/components/courses/LearnWidgets';
 import { getPublicChapter } from '@/lib/server/contentCatalog';
 import { chapterPath, classPath, formatMinutes, lessonPath, subjectPath } from '@/lib/content/learnPaths';
+import { previewEmoji } from '@/lib/learn/lessonFlow';
+import { ChapterStart, LessonDots } from '@/components/courses/learn/ProgressPieces';
 import { siteMetadataBase } from '@/lib/site';
 import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
- * /classes/class-N/<subject>/<chapter> — one chapter: what it teaches, its lessons (each opening its
- * own page), practice, and its quiz (marked on the server for signed-in learners). The API checks
+ * /classes/class-N/<subject>/<chapter> — one chapter as a short learning journey: what it teaches, its
+ * lessons (each opening its own page), practice, and its quiz (marked on the server for signed-in learners). The API checks
  * that the chapter belongs to this class and subject and is published; anything else is "not found".
  */
 export const dynamic = 'force-dynamic';
@@ -47,6 +50,7 @@ export default async function ClassChapterPage({ params }: Params) {
   const next = chapters[index + 1];
   const where = { class: cls.slug, subject: subject.key, chapter: chapter.slug };
   const practice = chapter.activities.filter((a) => a.questions.length);
+  const chapterEmoji = previewEmoji([chapter.title, chapter.description, ...chapter.lessons.flatMap((l) => [l.title, ...l.examples])], 1)[0] ?? '⭐';
 
   return (
     <div style={classVars(cls.classLevel)} className="relative px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8">
@@ -61,84 +65,111 @@ export default async function ClassChapterPage({ params }: Params) {
           ]}
         />
 
-        <header className="anim-rise rounded-3xl border border-border bg-surface p-6 shadow-card sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
-            Chapter {index + 1} of {chapters.length} · {subject.title}
-          </p>
-          <h1 className="mt-2 text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{chapter.title}</h1>
-          {chapter.description && <p className="mt-2 text-sm leading-relaxed text-foreground-soft sm:text-base">{chapter.description}</p>}
-          <ul className="mt-4 flex flex-wrap gap-2 text-xs text-foreground-soft">
-            <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-hover/60 px-2.5 py-1">
-              <BookOpen aria-hidden className="h-3.5 w-3.5 text-accent" />
+        <header className="kl-tone-0 kl-tint anim-rise rounded-[2rem] border-2 p-5 shadow-card sm:p-8">
+          <div className="flex items-start gap-4">
+            <span aria-hidden className="kl-badge kl-float flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl text-4xl shadow-card sm:h-20 sm:w-20 sm:text-5xl">
+              {chapterEmoji}
+            </span>
+            <div className="min-w-0">
+              <p className="kl-text text-xs font-extrabold uppercase tracking-[0.16em]">
+                <span aria-hidden>⭐ </span>Chapter {index + 1} of {chapters.length} · {subject.title}
+              </p>
+              <h1 className="mt-1 text-balance text-3xl font-extrabold leading-tight tracking-normal text-foreground sm:text-4xl">{chapter.title}</h1>
+              {chapter.description && <p className="mt-2 text-lg leading-relaxed text-foreground-soft">{chapter.description}</p>}
+            </div>
+          </div>
+          <div className="mt-5">
+            <LessonDots classSlug={cls.slug} chapter={chapter.slug} lessonCount={chapter.lessons.length} signedIn={signedIn} />
+          </div>
+          <ul className="mt-4 flex flex-wrap gap-2 text-sm font-medium text-foreground-soft">
+            <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
+              <BookOpen aria-hidden className="h-4 w-4 kl-text" />
               {chapter.lessons.length} {chapter.lessons.length === 1 ? 'lesson' : 'lessons'}
             </li>
             {chapter.questionCount > 0 && (
-              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-hover/60 px-2.5 py-1">
-                <ListChecks aria-hidden className="h-3.5 w-3.5 text-accent" />
+              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
+                <ListChecks aria-hidden className="h-4 w-4 kl-text" />
                 {chapter.questionCount} questions
               </li>
             )}
             {chapter.estimatedMinutes ? (
-              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-hover/60 px-2.5 py-1">
-                <Clock aria-hidden className="h-3.5 w-3.5 text-accent" />
+              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
+                <Clock aria-hidden className="h-4 w-4 kl-text" />
                 {formatMinutes(chapter.estimatedMinutes)}
               </li>
             ) : null}
             {chapter.difficulty && (
-              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-hover/60 px-2.5 py-1">
-                <Target aria-hidden className="h-3.5 w-3.5 text-accent" />
+              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
+                <Target aria-hidden className="h-4 w-4 kl-text" />
                 {DIFFICULTY[chapter.difficulty]}
               </li>
             )}
           </ul>
-          {chapter.lessons[0] && (
-            <Link href={lessonPath(cls.slug, subject.key, chapter.slug, 1)} className="mk-btn-primary btn-primary mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-accent-foreground">
-              Start learning
-              <ArrowRight aria-hidden className="h-4 w-4" />
-            </Link>
+          {chapter.lessons.length > 0 && (
+            <div className="mt-6">
+              <ChapterStart classSlug={cls.slug} subject={subject.key} chapter={chapter.slug} lessonCount={chapter.lessons.length} signedIn={signedIn} />
+            </div>
           )}
         </header>
 
         {chapter.objectives.length > 0 && (
-          <section aria-labelledby="chapter-goals" className="rounded-2xl border border-border bg-surface p-5">
-            <h2 id="chapter-goals" className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-muted">
-              <Target aria-hidden className="h-4 w-4 text-accent" />
-              You will learn
+          <section aria-labelledby="chapter-goals" className="kl-tone-1 kl-tint rounded-[2rem] border-2 p-5 sm:p-7">
+            <h2 id="chapter-goals" className="flex items-center gap-2 text-xl font-extrabold text-foreground sm:text-2xl">
+              <span aria-hidden>🎯</span>You will learn
             </h2>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-foreground-soft">
+            <ul className="mt-3 space-y-2">
               {chapter.objectives.map((o) => (
-                <li key={o}>{o}</li>
+                <li key={o} className="flex items-start gap-3 text-lg leading-snug text-foreground">
+                  <span aria-hidden className="mt-0.5">✅</span>
+                  {o}
+                </li>
               ))}
             </ul>
           </section>
         )}
 
         <section aria-labelledby="chapter-lessons">
-          <h2 id="chapter-lessons" className="mb-3 text-lg font-semibold tracking-tight text-foreground">
-            Lessons
+          <h2 id="chapter-lessons" className="mb-4 flex items-center gap-2 text-2xl font-extrabold tracking-tight text-foreground">
+            <span aria-hidden>🗺️</span>Lessons
           </h2>
           {chapter.lessons.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted">Lessons for this chapter are on their way.</p>
+            <p className="rounded-3xl border-2 border-dashed border-border px-5 py-8 text-center text-base text-muted">Lessons for this chapter are on their way.</p>
           ) : (
-            <ol className="flex flex-col gap-3">
-              {chapter.lessons.map((lesson) => (
-                <li key={lesson.number}>
-                  <Link
-                    href={lessonPath(cls.slug, subject.key, chapter.slug, lesson.number)}
-                    className="group flex min-h-16 items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition hover:border-(--kg) hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold tabular-nums text-accent">{lesson.number}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-foreground">{lesson.title}</span>
-                      <span className="mt-0.5 block text-xs text-subtle">
-                        {[lesson.questions.length ? `${lesson.questions.length} questions` : '', lesson.practice.length ? `${lesson.practice.length} practice` : '', lesson.estimatedMinutes ? formatMinutes(lesson.estimatedMinutes) : ''].filter(Boolean).join(' · ') || 'Read the lesson'}
+            <ol className="grid gap-4">
+              {chapter.lessons.map((lesson, i) => {
+                const preview = previewEmoji([lesson.title, ...lesson.examples], 4);
+                const questions = lesson.questions.length + lesson.practice.length;
+                return (
+                  <li key={lesson.number} className="anim-rise" style={{ '--i': i } as CSSProperties}>
+                    <Link
+                      href={lessonPath(cls.slug, subject.key, chapter.slug, lesson.number)}
+                      className={`kl-tone-${i % 4} kl-tint group flex min-h-24 items-center gap-4 rounded-[1.75rem] border-2 p-4 shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--t1) sm:p-5`}
+                    >
+                      <span aria-hidden className="kl-badge flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl font-extrabold tabular-nums text-white shadow-card">
+                        {lesson.number}
                       </span>
-                    </span>
-                    <ProgressMark classSlug={cls.slug} chapter={chapter.slug} lesson={lesson.number} signedIn={signedIn} />
-                    <ArrowRight aria-hidden className="h-5 w-5 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </Link>
-                </li>
-              ))}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-xl font-extrabold leading-snug text-foreground [overflow-wrap:anywhere]">{lesson.title}</span>
+                        {preview.length > 0 && (
+                          <span aria-hidden className="mt-1 block text-3xl leading-none">
+                            {preview.join(' ')}
+                          </span>
+                        )}
+                        <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-sm font-medium text-foreground-soft">
+                          {lesson.estimatedMinutes ? <span>⏱️ {formatMinutes(lesson.estimatedMinutes)}</span> : null}
+                          {questions > 0 && <span>🎯 {questions} activities</span>}
+                        </span>
+                      </span>
+                      <ProgressMark classSlug={cls.slug} chapter={chapter.slug} lesson={lesson.number} signedIn={signedIn} />
+                      <span className="kl-badge hidden h-11 shrink-0 items-center gap-1.5 rounded-2xl px-4 text-base font-extrabold text-white sm:inline-flex">
+                        Start
+                        <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </span>
+                      <ArrowRight aria-hidden className="h-6 w-6 shrink-0 text-muted sm:hidden" />
+                    </Link>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </section>
