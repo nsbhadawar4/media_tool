@@ -27,6 +27,7 @@ import { slugify } from '../validators/classValidators';
 import { inTransaction } from '../services/transaction';
 import type { SaveCourseInput } from '../validators/courseValidators';
 import { markArchived, markRestored } from '../services/archive';
+import { assertNoDuplicateInSlot, duplicateInBatch } from '../services/courseSchedule';
 
 /**
  * Admin → Manage Courses: the AI Course Generator and the course editor. A course is one subject
@@ -224,6 +225,8 @@ function chapterFields(c: ChapterInput, existing: ICourse | null) {
     objectives: c.objectives,
     learningObjective: c.objectives[0] ?? '',
     difficulty: c.difficulty,
+    // Sent = set (a year alone is the whole year); left out = whatever is stored stays.
+    ...(c.academicYear !== undefined ? { academicYear: c.academicYear, month: c.academicYear === null ? null : (c.month ?? null) } : {}),
     estimatedMinutes: minutes ? minutes + (c.quiz.length ? 10 : 0) : (existing?.estimatedMinutes ?? null),
     lessons,
     quiz: c.quiz,
@@ -250,6 +253,13 @@ export const saveCourse = asyncHandler(async (req: Request, res: Response) => {
     if (input.mode === 'new' && existing.length) {
       const subject = await ContentItem.findOne({ type: 'subject', key: subjectKey });
       throw new AppError(`A ${subject?.title ?? subjectKey} course already exists for ${cls.title}.`, 409, { chapters: existing.length }, 'COURSE_EXISTS');
+    }
+    // One chapter is taught once in a slot (class + subject + year + month + title): within this save and against the rest.
+    const dupe = duplicateInBatch(input.chapters.map((c) => ({ academicYear: c.academicYear ?? null, month: c.month ?? null, title: c.title })));
+    if (dupe >= 0) throw AppError.badRequest(`“${input.chapters[dupe]!.title}” appears twice in the same month`, [{ path: `chapters.${dupe}.title`, message: 'Already in this month' }]);
+    const replaced = input.chapters.map((c) => c.id).filter((id): id is string => Boolean(id));
+    for (const c of input.chapters) {
+      if (c.academicYear) await assertNoDuplicateInSlot({ classLevel: level, subject: subjectKey, academicYear: c.academicYear, month: c.month ?? null, title: c.title }, replaced);
     }
     const link = await ensureLink(req, cls, subjectKey, input.subjectTitle, session, audits);
     const source: IContentSource = { kind: input.source.kind, provider: input.source.provider, model: input.source.model, at: new Date() };

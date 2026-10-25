@@ -10,12 +10,27 @@
  * Relative imports only: the frontend tests run this outside Next.js.
  */
 import type { ResolvedCatalog } from './catalog';
+import { scheduleSearch, type Schedule } from './academicCalendar';
 
-export const classPath = (classKey: string) => `/classes/${encodeURIComponent(classKey)}`;
-export const subjectPath = (classKey: string, subject: string) => `${classPath(classKey)}/${encodeURIComponent(subject)}`;
-export const chapterPath = (classKey: string, subject: string, chapter: string) => `${subjectPath(classKey, subject)}/${encodeURIComponent(chapter)}`;
-/** A lesson by its place in the chapter (1-based). */
-export const lessonPath = (classKey: string, subject: string, chapter: string, lesson: number) => `${chapterPath(classKey, subject, chapter)}/${lesson}`;
+/*
+ * A class and a subject can be opened through a calendar place (?year=2026-27&month=04) — a month of the
+ * academic year — and the choice then travels with the links down from there. A chapter and a lesson have
+ * one address each: the database knows which month a chapter belongs to, so those never carry a query.
+ */
+const classBase = (classKey: string) => `/classes/${encodeURIComponent(classKey)}`;
+const subjectBase = (classKey: string, subject: string) => `${classBase(classKey)}/${encodeURIComponent(subject)}`;
+export const classPath = (classKey: string, schedule?: Schedule | null) => `${classBase(classKey)}${scheduleSearch(schedule)}`;
+export const subjectPath = (classKey: string, subject: string, schedule?: Schedule | null) => `${subjectBase(classKey, subject)}${scheduleSearch(schedule)}`;
+export const chapterPath = (classKey: string, subject: string, chapter: string) => `${subjectBase(classKey, subject)}/${encodeURIComponent(chapter)}`;
+/**
+ * A lesson by its place in the chapter (1-based position in `chapter.lessons`, never a stored id).
+ * `parseLessonParam` is its inverse and the only reader of that segment: the lesson page resolves
+ * `lessons[parseLessonParam(segment) - 1]`, so a link built here always finds its lesson.
+ */
+export const lessonPath = (classKey: string, subject: string, chapter: string, position: number) => `${chapterPath(classKey, subject, chapter)}/${position}`;
+
+/** The lesson position in a route segment, or NaN when the segment is not one (→ not found). */
+export const parseLessonParam = (segment: string): number => (/^[1-9]\d{0,1}$/.test(segment) ? Number(segment) : NaN);
 
 /** Where a class's games are played (only while Kid Games is on). */
 export const classGamesPath = (classKey: string) => `/kid-games/${encodeURIComponent(classKey)}`;

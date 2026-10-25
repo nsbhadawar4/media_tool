@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { connection } from 'next/server';
 import type { PublicCatalog } from '@/lib/api/content';
 import { configuredSiteUrl } from '@/lib/site';
+import type { ClassSchedule } from '@/lib/content/academicCalendar';
 
 /** How long one attempt waits for the catalog; a slow first answer (a cold API) gets one longer retry. */
 const TIMEOUT_MS = 3000;
@@ -87,10 +88,17 @@ async function readPublicClass<T>(path: string, what: string): Promise<PublicRea
   }
 }
 
-/** The public curriculum of one class: its details and its subjects with chapters. */
-export const getPublicCurriculum = cache((slug: string) =>
-  readPublicClass<PublicClassCurriculum>(`${encodeURIComponent(slug)}/curriculum`, `class curriculum for ${slug}`),
+/**
+ * The public curriculum of one class: its details and its subjects with chapters. `search` reads it
+ * through a calendar place (scheduleApiSearch(…): a year and month); subjects with nothing in it are
+ * left out. A string, not an object, so one render's repeated reads share one request.
+ */
+export const getPublicCurriculum = cache((slug: string, search = '') =>
+  readPublicClass<PublicClassCurriculum>(`${encodeURIComponent(slug)}/curriculum${search}`, `class curriculum for ${slug}${search}`),
 );
+
+/** Which academic years and months of a class have published content (counts only): what the picker is drawn from. */
+export const getPublicSchedule = cache((slug: string) => readPublicClass<ClassSchedule>(`${encodeURIComponent(slug)}/schedule`, `schedule of ${slug}`));
 
 /** One subject as a class teaches it — the API checks the class offers it — with its chapters. */
 export interface PublicClassSubject {
@@ -98,8 +106,8 @@ export interface PublicClassSubject {
   subject: import('@/lib/api/adminClasses').CurriculumSubject<import('@/lib/api/adminClasses').CurriculumChapterSummary>;
 }
 
-export const getPublicClassSubject = cache((slug: string, subject: string) =>
-  readPublicClass<PublicClassSubject>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}`, `subject ${subject} of ${slug}`),
+export const getPublicClassSubject = cache((slug: string, subject: string, search = '') =>
+  readPublicClass<PublicClassSubject>(`${encodeURIComponent(slug)}/subjects/${encodeURIComponent(subject)}${search}`, `subject ${subject} of ${slug}${search}`),
 );
 
 /** One chapter in full — lessons with their questions and practice, the quiz without answers — and its subject's chapter list. */

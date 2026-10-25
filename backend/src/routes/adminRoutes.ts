@@ -119,6 +119,8 @@ import {
   getCourse,
   listContent,
   listCourses,
+  scheduleCourses,
+  courseLearningStats,
   moveContent,
   moveCourse,
   restoreContent,
@@ -133,6 +135,8 @@ import {
   createCourseSchema,
   listContentQuerySchema,
   listCoursesQuerySchema,
+  scheduleCoursesSchema,
+  courseStatsQuerySchema,
   moveSchema,
   updateContentSchema,
   updateCourseSchema,
@@ -189,6 +193,8 @@ router.delete('/content/items/:id', validate(contentId), archiveContent);
 router.post('/content/items/:id/restore', validate(contentId), restoreContent);
 router.get('/content/courses', validate({ query: listCoursesQuerySchema }), listCourses);
 router.post('/content/courses', validate({ body: createCourseSchema }), createCourse);
+router.post('/content/courses/schedule', validate({ body: scheduleCoursesSchema }), scheduleCourses);
+router.get('/content/courses/stats', validate({ query: courseStatsQuerySchema }), courseLearningStats);
 router.get('/content/courses/:id', validate(contentId), getCourse);
 router.patch('/content/courses/:id', validate({ ...contentId, body: updateCourseSchema }), updateCourse);
 router.post('/content/courses/:id/move', validate({ ...contentId, body: moveSchema }), moveCourse);

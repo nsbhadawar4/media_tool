@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { RefreshCw, SearchX } from 'lucide-react';
+import { CalendarX2, RefreshCw, SearchX } from 'lucide-react';
 
 /**
  * What the public class pages (/classes/…) show while they load, when the API can't be read, and
@@ -113,6 +113,27 @@ export function ClassNotFoundState({ title, description, backHref, backLabel }: 
           {backLabel}
         </Link>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A month (or year) with nothing published in it — shown in place of the subject cards, never a blank.
+ * `what` names what is missing ("courses", "Mathematics lessons"); `offer` is where else to look.
+ */
+export function ScheduleEmptyState({ place, what = 'courses', offer }: { place: string; what?: string; offer?: { href: string; label: string } }) {
+  return (
+    <div role="status" className="rounded-[2rem] border-2 border-dashed border-border bg-surface/60 px-6 py-12 text-center">
+      <CalendarX2 aria-hidden className="mx-auto h-10 w-10 text-(--kg)" />
+      <p className="mt-4 text-xl font-extrabold text-foreground">
+        No {what} are available for {place} yet.
+      </p>
+      <p className="mx-auto mt-2 max-w-md text-base text-foreground-soft">Check another month or come back soon.</p>
+      {offer && (
+        <Link href={offer.href} className="btn-primary mt-6 inline-flex h-11 items-center rounded-xl px-5 text-sm font-semibold text-accent-foreground">
+          {offer.label}
+        </Link>
+      )}
     </div>
   );
 }

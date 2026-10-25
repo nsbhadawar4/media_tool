@@ -12,6 +12,8 @@ import { auditItem } from './adminContentController';
 import { CLASS_FILTER, findClass, respondWithClass, uid } from './adminClassController';
 import { slugify } from '../validators/classValidators';
 import { archiveUpdate } from '../services/archive';
+import { academicYearOf, MONTHS_IN_ORDER } from '../services/academicCalendar';
+import { sameSlot, scheduleFilterOf, scheduleOf } from '../services/courseSchedule';
 
 /**
  * A class's curriculum, read three ways: by administrators (everything, drafts and answers included —
@@ -40,6 +42,7 @@ function chapterSummary(c: CourseDoc) {
     slug: c.slug,
     title: c.title,
     description: c.summary,
+    ...scheduleOf(c),
     difficulty: c.difficulty ?? null,
     estimatedMinutes: c.estimatedMinutes ?? null,
     lessonCount: c.lessons.length,
@@ -88,7 +91,11 @@ const serializeResource = (r: { title: string; author: string | null; source: st
  * A class's subjects with their chapters. Admin: every linked subject and every chapter in full
  * (drafts and answers included). Public: listed subjects and published, visible chapters, as summaries.
  */
-async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onlySubject?: string) {
+/** A schedule to read a class through: one academic year (and a month in it), or only the chapters not scheduled yet. */
+export type ScheduleQuery = { academicYear?: string; month?: number; schedule?: 'unscheduled' };
+const isScheduled = (q?: ScheduleQuery) => Boolean(q && (q.academicYear || q.month || q.schedule));
+
+async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onlySubject?: string, when?: ScheduleQuery) {
   const level = cls.classLevel!;
   const pub = audience === 'public';
   // One subject: still read through this class's own link, so a subject the class doesn't offer is never returned.
@@ -96,7 +103,7 @@ async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onl
   const [links, subjects, courses, games] = await Promise.all([
     ContentItem.find({ type: 'class_subject', classLevel: level, archivedAt: null, ...subjectFilter, ...(pub ? { isEnabled: true, isVisible: true } : {}) }).sort({ order: 1, _id: 1 }),
     ContentItem.find({ type: 'subject', archivedAt: null }),
-    Course.find({ classLevel: level, archivedAt: null, ...subjectFilter, ...(pub ? { isEnabled: true, isVisible: true, draft: { $ne: true } } : {}) }).sort({ order: 1, _id: 1 }),
+    Course.find({ classLevel: level, archivedAt: null, ...subjectFilter, ...scheduleFilterOf(when ?? {}), ...(pub ? { isEnabled: true, isVisible: true, draft: { $ne: true } } : {}) }).sort({ order: 1, _id: 1 }),
     ContentItem.aggregate<{ _id: string; n: number }>([
       { $match: { type: 'kid_game', classLevel: level, archivedAt: null, isEnabled: true, ...subjectFilter, ...(pub ? { isVisible: true } : {}) } },
       { $group: { _id: '$subject', n: { $sum: 1 } } },
@@ -104,8 +111,11 @@ async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onl
   ]);
   const subjectByKey = new Map(subjects.map((s) => [s.key, s]));
   const gamesBy = new Map(games.map((g) => [g._id, g.n]));
+  const scoped = isScheduled(when);
   return links
     .filter((l) => l.subject && (!pub || (subjectByKey.get(l.subject)?.isEnabled && subjectByKey.get(l.subject)?.isVisible)))
+    // Through a schedule only subjects with something published in it are listed — never an empty card.
+    .filter((l) => !scoped || courses.some((c) => c.subject === l.subject))
     .map((l) => {
       const s = subjectByKey.get(l.subject!);
       return {
@@ -116,7 +126,8 @@ async function curriculumOf(cls: IContentItem, audience: 'admin' | 'public', onl
         glyph: s?.glyph ?? null,
         difficulty: l.meta?.difficulty ?? null,
         estimatedMinutes: l.meta?.estimatedMinutes ?? null,
-        games: gamesBy.get(l.subject!) ?? 0,
+        // Games are not scheduled: a month's page doesn't count them.
+        games: scoped ? 0 : (gamesBy.get(l.subject!) ?? 0),
         ...(pub ? {} : { isVisible: l.isVisible }),
         course: l.course ? { title: l.course.title, objectives: l.course.objectives ?? [], language: l.course.language ?? null, level: l.course.level ?? null, ...(pub ? {} : { source: l.course.source ?? null }) } : null,
         resources: (l.resources ?? []).map(serializeResource),
@@ -305,7 +316,54 @@ const publicClassFields = (cls: IContentItem) => ({
 export const publicClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
   const cls = await findPublicClass(String(req.params.slug));
   res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, { class: publicClassFields(cls), subjects: await curriculumOf(cls, 'public') });
+  sendSuccess(res, { class: publicClassFields(cls), subjects: await curriculumOf(cls, 'public', undefined, req.query as ScheduleQuery) });
+});
+
+/**
+ * /api/content/classes/:slug/schedule — which academic years and months have published content in this
+ * class, with what each holds (subjects, chapters, lessons, minutes), and what is not scheduled yet.
+ * Counts only: it is what the year / month picker is drawn from, so it never offers an empty month.
+ */
+export const publicClassSchedule = asyncHandler(async (req: Request, res: Response) => {
+  const cls = await findPublicClass(String(req.params.slug));
+  const subjects = await curriculumOf(cls, 'public');
+  const slots = new Map<string, { academicYear: string | null; month: number | null; subjects: Set<string>; chapters: number; lessons: number; minutes: number }>();
+  for (const s of subjects) {
+    for (const c of s.chapters) {
+      const key = `${c.academicYear ?? ''}|${c.month ?? ''}`;
+      const slot = slots.get(key) ?? { academicYear: c.academicYear, month: c.month, subjects: new Set<string>(), chapters: 0, lessons: 0, minutes: 0 };
+      slot.subjects.add(s.key);
+      slot.chapters += 1;
+      slot.lessons += c.lessonCount;
+      slot.minutes += c.estimatedMinutes ?? 0;
+      slots.set(key, slot);
+    }
+  }
+  const row = (x: { subjects: Set<string>; chapters: number; lessons: number; minutes: number }) => ({ subjects: x.subjects.size, chapters: x.chapters, lessons: x.lessons, minutes: x.minutes });
+  const years = [...new Set([...slots.values()].map((x) => x.academicYear).filter((y): y is string => Boolean(y)))].sort();
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, {
+    currentYear: academicYearOf(new Date()),
+    currentMonth: new Date().getMonth() + 1,
+    // The class as a whole (every chapter, scheduled or not), so its page needs no second read for its headline figures.
+    totals: { subjects: subjects.length, chapters: subjects.reduce((n, s) => n + s.chapters.length, 0), games: subjects.reduce((n, s) => n + s.games, 0) },
+    years: years.map((year) => {
+      const inYear = [...slots.values()].filter((x) => x.academicYear === year);
+      return {
+        academicYear: year,
+        // Whole-year chapters (a year with no month) are listed under month null.
+        months: [...MONTHS_IN_ORDER, null].flatMap((m) => {
+          const slot = inYear.find((x) => x.month === m);
+          return slot ? [{ month: m, ...row(slot) }] : [];
+        }),
+        ...row({ subjects: new Set(inYear.flatMap((x) => [...x.subjects])), chapters: inYear.reduce((n, x) => n + x.chapters, 0), lessons: inYear.reduce((n, x) => n + x.lessons, 0), minutes: inYear.reduce((n, x) => n + x.minutes, 0) }),
+      };
+    }),
+    unscheduled: (() => {
+      const open = [...slots.values()].filter((x) => !x.academicYear);
+      return row({ subjects: new Set(open.flatMap((x) => [...x.subjects])), chapters: open.reduce((n, x) => n + x.chapters, 0), lessons: open.reduce((n, x) => n + x.lessons, 0), minutes: open.reduce((n, x) => n + x.minutes, 0) });
+    })(),
+  });
 });
 
 /**
@@ -316,7 +374,7 @@ export const publicClassCurriculum = asyncHandler(async (req: Request, res: Resp
  */
 export const publicClassSubject = asyncHandler(async (req: Request, res: Response) => {
   const cls = await findPublicClass(String(req.params.slug));
-  const [subject] = await curriculumOf(cls, 'public', String(req.params.subject));
+  const [subject] = await curriculumOf(cls, 'public', String(req.params.subject), req.query as ScheduleQuery);
   if (!subject) throw AppError.notFound('Subject not found in this class');
   res.setHeader('Cache-Control', 'no-cache');
   sendSuccess(res, { class: publicClassFields(cls), subject });
@@ -344,6 +402,7 @@ export const publicChapter = asyncHandler(async (req: Request, res: Response) =>
     class: publicClassFields(cls),
     subject: { key: subject.key, title: subject.title, glyph: subject.glyph },
     chapter: serializeChapter(course, 'public'),
-    chapters: subject.chapters.map((c) => ({ slug: c.slug, title: c.title })),
+    // Previous / next and "chapter N of M" stay inside the month this chapter is taught in.
+    chapters: subject.chapters.filter((c) => sameSlot(c, course)).map((c) => ({ slug: c.slug, title: c.title })),
   });
 });

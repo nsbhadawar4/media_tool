@@ -1,4 +1,5 @@
 import { Schema, model, Types, type Document } from 'mongoose';
+import { isAcademicYear, scheduleProblem } from '../services/academicCalendar';
 
 /**
  * A course: an administrator-authored sequence of lessons, optionally tied to a Kid Games class
@@ -84,6 +85,9 @@ export interface ICourse extends Document {
   recap: string;
   classLevel: number | null;
   subject: string | null;
+  /** The academic year ("2026-27") and month (1–12) this chapter is taught in; null until an administrator schedules it. */
+  academicYear: string | null;
+  month: number | null;
   thumbnailUrl: string | null;
   difficulty: 'easy' | 'medium' | 'hard' | null;
   /** e.g. "6–8 years". */
@@ -196,6 +200,18 @@ const courseSchema = new Schema<ICourse>(
     recap: { type: String, default: '', trim: true, maxlength: 1500 },
     classLevel: { type: Number, default: null, min: 1, max: 12 },
     subject: { type: String, default: null },
+    academicYear: {
+      type: String,
+      default: null,
+      validate: { validator: (v: string | null) => v === null || isAcademicYear(v), message: 'Use an academic year like 2026-27' },
+    },
+    month: {
+      type: Number,
+      default: null,
+      min: 1,
+      max: 12,
+      validate: { validator: (v: number | null) => v === null || v === undefined || Number.isInteger(v), message: 'Month must be a whole number' },
+    },
     thumbnailUrl: { type: String, default: null },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard', null], default: null },
     ageGroup: { type: String, default: null, trim: true, maxlength: 40 },
@@ -228,5 +244,13 @@ const courseSchema = new Schema<ICourse>(
 courseSchema.index({ slug: 1 }, { unique: true });
 courseSchema.index({ archivedAt: 1, order: 1 });
 courseSchema.index({ classLevel: 1, subject: 1, order: 1 });
+// Year / month filtering (learner schedule pages, admin filters).
+courseSchema.index({ classLevel: 1, academicYear: 1, month: 1, subject: 1 });
+// A month never exists without its year, however the record was written.
+courseSchema.pre('validate', function (next) {
+  const problem = scheduleProblem(this.academicYear, this.month);
+  if (problem) this.invalidate(this.month != null && this.academicYear == null ? 'academicYear' : 'month', problem);
+  next();
+});
 
 export const Course = model<ICourse>('Course', courseSchema);

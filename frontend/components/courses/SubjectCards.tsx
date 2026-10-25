@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { ArrowRight, BookOpen, Clock, Gamepad2, ListChecks } from 'lucide-react';
 import type { CurriculumChapterSummary, CurriculumSubject } from '@/lib/api/adminClasses';
 import { formatMinutes, subjectHasChapters, subjectPath } from '@/lib/content/learnPaths';
+import type { Schedule } from '@/lib/content/academicCalendar';
 import { SubjectProgress } from '@/components/courses/learn/ProgressPieces';
 
 /**
@@ -12,7 +13,7 @@ import { SubjectProgress } from '@/components/courses/learn/ProgressPieces';
  * decide whether a subject opens. Colours come from the page's class colours (--kg), with three fixed
  * companion tones so neighbouring cards differ; each card shows the learner's own progress when signed in.
  */
-export function SubjectCards({ classKey, subjects, kidGamesOn, signedIn = false }: { classKey: string; subjects: CurriculumSubject<CurriculumChapterSummary>[]; kidGamesOn: boolean; signedIn?: boolean }) {
+export function SubjectCards({ classKey, subjects, kidGamesOn, signedIn = false, schedule = null }: { classKey: string; subjects: CurriculumSubject<CurriculumChapterSummary>[]; kidGamesOn: boolean; signedIn?: boolean; schedule?: Schedule | null }) {
   if (subjects.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
@@ -23,7 +24,9 @@ export function SubjectCards({ classKey, subjects, kidGamesOn, signedIn = false 
   return (
     <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {subjects.map((s, i) => {
-        const minutes = s.estimatedMinutes ?? s.chapters.reduce((n, c) => n + (c.estimatedMinutes ?? 0), 0);
+        // A month's card shows that month's time; the subject's own estimate is for the whole subject.
+        const chapterMinutes = s.chapters.reduce((n, c) => n + (c.estimatedMinutes ?? 0), 0);
+        const minutes = schedule ? chapterMinutes : (s.estimatedMinutes ?? chapterMinutes);
         const lessons = s.chapters.reduce((n, c) => n + c.lessonCount, 0);
         const games = kidGamesOn ? s.games : 0;
         const ready = subjectHasChapters(s);
@@ -32,7 +35,7 @@ export function SubjectCards({ classKey, subjects, kidGamesOn, signedIn = false 
           <li key={s.key} className="anim-rise" style={{ '--i': i } as CSSProperties}>
             <article className={`kl-tone-${i % 4} kl-tint group relative flex h-full min-w-0 flex-col gap-4 overflow-hidden rounded-[2rem] border-2 p-5 shadow-card transition duration-200 hover:-translate-y-1 hover:shadow-lift focus-within:-translate-y-1 sm:p-6`}>
               <Link
-                href={subjectPath(classKey, s.key)}
+                href={subjectPath(classKey, s.key, schedule)}
                 aria-label={`${s.title}: ${s.chapters.length} ${s.chapters.length === 1 ? 'chapter' : 'chapters'}`}
                 className="absolute inset-0 z-10 rounded-[2rem] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--t1)"
               />
@@ -68,7 +71,7 @@ export function SubjectCards({ classKey, subjects, kidGamesOn, signedIn = false 
                 )}
               </ul>
               {ready ? (
-                <SubjectProgress classSlug={classKey} subject={s.key} lessons={lessons} signedIn={signedIn} />
+                <SubjectProgress classSlug={classKey} subject={s.key} chapters={s.chapters.map((c) => c.slug)} lessons={lessons} signedIn={signedIn} />
               ) : (
                 <span className="mt-auto inline-flex items-center gap-1.5 text-base font-bold kl-text">
                   Open subject

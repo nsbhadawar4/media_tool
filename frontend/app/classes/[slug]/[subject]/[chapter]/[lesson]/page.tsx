@@ -7,8 +7,9 @@ import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { ClassUnavailable } from '@/components/courses/ClassStates';
 import { KidLesson } from '@/components/courses/learn/KidLesson';
 import { getPublicChapter } from '@/lib/server/contentCatalog';
-import { chapterPath, classPath, lessonPath, subjectPath } from '@/lib/content/learnPaths';
+import { chapterPath, classPath, lessonPath, parseLessonParam, subjectPath } from '@/lib/content/learnPaths';
 import { siteMetadataBase } from '@/lib/site';
+import { scheduleOfChapter } from '@/lib/content/academicCalendar';
 import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic';
 
 type Params = { params: Promise<{ slug: string; subject: string; chapter: string; lesson: string }> };
 
-const lessonNumber = (raw: string) => (/^\d{1,2}$/.test(raw) ? Number(raw) : NaN);
+const lessonNumber = parseLessonParam;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug, subject, chapter, lesson } = await params;
@@ -43,6 +44,8 @@ export default async function LessonPage({ params }: Params) {
   if (read.status === 'error') return <ClassUnavailable what="chapter" retryHref={`${chapterPath(slug, subjectKey, chapterSlug)}/${raw}`} />;
   if (read.status === 'missing') notFound();
   const { class: cls, subject, chapter, chapters } = read.data;
+  // The month the database says this chapter is taught in: the way back to the subject and class keeps it.
+  const when = scheduleOfChapter(chapter);
   const chapterNo = chapters.findIndex((c) => c.slug === chapter.slug) + 1;
   const lesson = chapter.lessons[n - 1];
   if (!lesson) notFound();
@@ -59,8 +62,8 @@ export default async function LessonPage({ params }: Params) {
         <CourseBreadcrumb
           items={[
             { label: 'Courses', href: '/classes' },
-            { label: cls.title, href: classPath(cls.slug) },
-            { label: subject.title, href: subjectPath(cls.slug, subject.key) },
+            { label: cls.title, href: classPath(cls.slug, when) },
+            { label: subject.title, href: subjectPath(cls.slug, subject.key, when) },
             { label: chapterNo > 0 ? `Chapter ${chapterNo}` : chapter.title, href: chapterPath(cls.slug, subject.key, chapter.slug) },
             { label: `Lesson ${n}` },
           ]}
@@ -88,10 +91,10 @@ export default async function LessonPage({ params }: Params) {
             <ArrowLeft aria-hidden className="h-4 w-4" />
             Back to the chapter
           </Link>
-          <Link href={subjectPath(cls.slug, subject.key)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
+          <Link href={subjectPath(cls.slug, subject.key, when)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
             Back to {subject.title}
           </Link>
-          <Link href={classPath(cls.slug)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
+          <Link href={classPath(cls.slug, when)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
             Back to {cls.title}
           </Link>
         </div>

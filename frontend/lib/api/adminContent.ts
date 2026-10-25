@@ -109,6 +109,9 @@ export interface CourseInput {
   summary?: string;
   classLevel: number;
   subject: string;
+  /** Left out = unchanged on an edit; null = not scheduled. A month needs its year. */
+  academicYear?: string | null;
+  month?: number | null;
   thumbnailUrl?: string | null;
   difficulty?: Difficulty | null;
   ageGroup?: string | null;
@@ -123,6 +126,9 @@ export interface ListCoursesParams {
   status?: ContentStatus;
   classLevel?: number;
   subject?: string;
+  academicYear?: string;
+  month?: number;
+  schedule?: 'scheduled' | 'unscheduled';
   sort?: ContentSort;
   page?: number;
   limit?: number;
@@ -145,4 +151,36 @@ export const adminContentApi = {
   moveCourse: (id: string, direction: 'up' | 'down') => api.post<Course>(`/api/admin/content/courses/${id}/move`, { direction }),
   archiveCourse: (id: string) => api.delete<Course>(`/api/admin/content/courses/${id}`),
   restoreCourse: (id: string) => api.post<Course>(`/api/admin/content/courses/${id}/restore`),
+  /** Puts courses in an academic year and month (or clears it): how existing, unscheduled courses get mapped. */
+  scheduleCourses: (ids: string[], academicYear: string | null, month: number | null) => api.post<{ changed: number }>('/api/admin/content/courses/schedule', { ids, academicYear, month }),
+  /** Learners per course, for a year, month, class and subject, and how many courses still need a schedule. */
+  courseStats: (params: CourseStatsParams = {}) => api.get<CourseStats>('/api/admin/content/courses/stats', { ...params }),
 };
+
+export interface CourseStatsParams {
+  classLevel?: number;
+  subject?: string;
+  academicYear?: string;
+  month?: number;
+  schedule?: 'scheduled' | 'unscheduled';
+}
+export interface CourseStat {
+  id: string;
+  title: string;
+  slug: string;
+  classLevel: number | null;
+  subject: string | null;
+  academicYear: string | null;
+  month: number | null;
+  lessons: number;
+  started: number;
+  inProgress: number;
+  completed: number;
+  averageProgress: number;
+  averageScore: number | null;
+}
+export interface CourseStats {
+  unscheduled: number;
+  totals: { courses: number; started: number; inProgress: number; completed: number; averageProgress: number; averageScore: number | null };
+  courses: CourseStat[];
+}

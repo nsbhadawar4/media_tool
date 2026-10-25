@@ -5,8 +5,9 @@ import { getCatalog, getPublishedCourse, listPublishedCourses } from '../control
 import { courseSlugParamSchema, publicCoursesQuerySchema } from '../validators/contentValidators';
 import { serveContentImage } from '../controllers/adminClassController';
 import { classChapterParamSchema, classSubjectParamSchema, contentImageParamSchema, slugParamSchema } from '../validators/classValidators';
-import { publicChapter, publicClassCurriculum, publicClassSubject } from '../controllers/adminCurriculumController';
+import { publicChapter, publicClassCurriculum, publicClassSchedule, publicClassSubject } from '../controllers/adminCurriculumController';
 import { publicManualCourse, publicManualCourses } from '../controllers/adminManualCourseController';
+import { publicScheduleQuerySchema } from '../validators/scheduleValidators';
 import { publicManualCourseParamSchema, publicManualCoursesParamSchema } from '../validators/manualCourseValidators';
 
 const router = Router();
@@ -16,9 +17,11 @@ router.get('/catalog', getCatalog);
 // Public: pictures administrators uploaded for classes (shown on the home page signed out).
 router.get('/images/:name', validate({ params: contentImageParamSchema }), serveContentImage);
 // Public: a published, visible class with its subjects and chapters (no quiz answers).
-router.get('/classes/:slug/curriculum', validate({ params: slugParamSchema }), publicClassCurriculum);
+router.get('/classes/:slug/curriculum', validate({ params: slugParamSchema, query: publicScheduleQuerySchema }), publicClassCurriculum);
+// Public: which academic years and months of that class have published content (counts only).
+router.get('/classes/:slug/schedule', validate({ params: slugParamSchema }), publicClassSchedule);
 // Public: one subject of such a class (checked to belong to it), with its chapters (no quiz answers).
-router.get('/classes/:slug/subjects/:subject', validate({ params: classSubjectParamSchema }), publicClassSubject);
+router.get('/classes/:slug/subjects/:subject', validate({ params: classSubjectParamSchema, query: publicScheduleQuerySchema }), publicClassSubject);
 // Public: one chapter of it in full — lessons with their questions and practice; the quiz without answers.
 router.get('/classes/:slug/subjects/:subject/chapters/:chapter', validate({ params: classChapterParamSchema }), publicChapter);
 // Public: that subject's published, visible manual courses, and one of them (published chapters and lessons only).

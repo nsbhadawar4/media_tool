@@ -5,6 +5,8 @@ import { ArrowDown, ArrowUp, BookOpen, ChevronDown, Copy, ListChecks, Loader2, P
 import type { ChapterDifficulty, CurriculumChapter, CurriculumQuestion, QuestionType } from '@/lib/api/adminClasses';
 import type { ChapterStatus, GeneratedChapter, GeneratedLesson, SaveCourseInput } from '@/lib/api/courses';
 import { Button } from '@/components/ui/Button';
+import { ScheduleFields, scheduleToValue, valueToSchedule } from '@/components/admin/content/ScheduleFields';
+import { monthName } from '@/lib/content/academicCalendar';
 import { cn } from '@/utils/cn';
 
 /**
@@ -48,6 +50,11 @@ export interface DraftChapter {
   objectives: string[];
   difficulty: ChapterDifficulty | null;
   status: ChapterStatus;
+  /** When in the academic year it is taught (from the database; null = not scheduled yet). */
+  academicYear?: string | null;
+  month?: number | null;
+  /** The administrator changed it here: only then is it sent on save, so a stale editor never overwrites a mapping made elsewhere. */
+  scheduleEdited?: boolean;
   lessons: DraftLesson[];
   quiz: DraftQuestion[];
 }
@@ -81,6 +88,9 @@ export const toDraftChapter = (c: GeneratedChapter | (CurriculumChapter & { stat
   objectives: [...c.objectives],
   difficulty: c.difficulty ?? null,
   status: 'status' in c && c.status ? c.status : status,
+  academicYear: 'academicYear' in c ? (c.academicYear ?? null) : null,
+  month: 'month' in c ? (c.month ?? null) : null,
+  scheduleEdited: 'scheduleEdited' in c ? Boolean((c as { scheduleEdited?: boolean }).scheduleEdited) : false,
   lessons: c.lessons.map(toDraftLesson),
   quiz: c.quiz.map(toDraftQuestion),
 });
@@ -101,6 +111,8 @@ export function toSaveChapters(chapters: DraftChapter[], keepIds: boolean): Save
     objectives: c.objectives.map((o) => o.trim()).filter(Boolean),
     difficulty: c.difficulty,
     status: c.status,
+    // A new chapter says where it goes; a saved one only when the schedule was changed here.
+    ...((c.scheduleEdited || !c.id || !keepIds) && c.academicYear !== undefined ? { academicYear: c.academicYear ?? null, month: c.academicYear ? (c.month ?? null) : null } : {}),
     lessons: c.lessons.map((l) => ({
       ...(keepIds && l.id ? { id: l.id } : {}),
       title: l.title.trim(),
@@ -412,6 +424,7 @@ export function CourseEditor({
                     <span className="block truncate font-semibold text-foreground">{ch.title || 'Untitled chapter'}</span>
                     <span className="block text-xs text-muted">
                       {ch.lessons.length} lessons · {qCount} questions
+                      {ch.academicYear ? ` · ${ch.month ? monthName(ch.month) + ' ' : ''}${ch.academicYear}` : ' · no month yet'}
                     </span>
                   </span>
                   <ChevronDown aria-hidden className={cn('ml-auto h-5 w-5 shrink-0 text-muted transition-transform', isOpen && 'rotate-180')} />
@@ -433,7 +446,7 @@ export function CourseEditor({
                       onClick={() => run(`c${ch.key}`, async () => {
                         const fresh = await regenerate.chapter!(ci);
                         // Same place, same id (if saved) and status: only this chapter's content changes.
-                        setChapter(ci, { ...fresh, key: ch.key, id: ch.id, status: ch.status });
+                        setChapter(ci, { ...fresh, key: ch.key, id: ch.id, status: ch.status, academicYear: ch.academicYear, month: ch.month, scheduleEdited: ch.scheduleEdited });
                       })}
                     >
                       {busy === `c${ch.key}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
@@ -477,6 +490,15 @@ export function CourseEditor({
                         <option value="hard">Hard</option>
                       </select>
                     </div>
+                  </div>
+                  <div>
+                    <ScheduleFields
+                      compact
+                      value={scheduleToValue(ch)}
+                      onChange={(v) => setChapter(ci, { ...valueToSchedule(v), scheduleEdited: true })}
+                      inUse={value.chapters.map((x) => x.academicYear)}
+                    />
+                    <p className="mt-1 text-[11px] text-subtle">Learners see this chapter in the year and month chosen here. Leave it unscheduled to list it under “Anytime”.</p>
                   </div>
                   <LinesField id={`${ch.key}-o`} label="Learning objectives" value={ch.objectives} rows={2} onChange={(objectives) => setChapter(ci, { objectives })} />
                   <div>

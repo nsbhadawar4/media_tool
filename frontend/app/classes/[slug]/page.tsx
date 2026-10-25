@@ -5,9 +5,11 @@ import { notFound } from 'next/navigation';
 import { ArrowRight, BookOpen, Gamepad2 } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { builtInSubtitle, classPicture, classVars } from '@/components/kid-games/cards/ClassCourseCard';
-import { getPublicCurriculum, getServerCatalog } from '@/lib/server/contentCatalog';
+import { getPublicCurriculum, getPublicSchedule, getServerCatalog } from '@/lib/server/contentCatalog';
 import { SubjectCards } from '@/components/courses/SubjectCards';
-import { ClassUnavailable } from '@/components/courses/ClassStates';
+import { SchedulePicker } from '@/components/courses/SchedulePicker';
+import { hasCalendar, parseSchedule, resolveSchedule, scheduleApiSearch, scheduleLabel } from '@/lib/content/academicCalendar';
+import { ClassUnavailable, ScheduleEmptyState } from '@/components/courses/ClassStates';
 import { ClassProgressBar } from '@/components/courses/LearnWidgets';
 import { ThemedPlaceholder } from '@/components/courses/ThemedPlaceholder';
 import { resolveCatalog } from '@/lib/content/catalog';
@@ -28,7 +30,7 @@ import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
  */
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ slug: string }> };
+type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ year?: string | string[]; month?: string | string[] }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
@@ -42,10 +44,18 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function PublicClassPage({ params }: Params) {
+export default async function PublicClassPage({ params, searchParams }: Params) {
   const { slug } = await params;
-  const [raw, curriculum] = await Promise.all([getServerCatalog(), getPublicCurriculum(slug)]);
-  if (!raw || curriculum.status === 'error') return <ClassUnavailable what="class" retryHref={classPath(slug)} />;
+  const asked = parseSchedule(await searchParams);
+  const [raw, calendar] = await Promise.all([getServerCatalog(), getPublicSchedule(slug)]);
+  if (!raw) return <ClassUnavailable what="class" retryHref={classPath(slug)} />;
+  // The class may have a calendar (chapters an administrator scheduled): the year and month in the address, or the
+  // current ones, decide which subjects and chapters are read from the database. Without one — or if the calendar
+  // cannot be read — everything shows as it always has.
+  const schedule = calendar.status === 'ok' && hasCalendar(calendar.data) ? calendar.data : null;
+  const { selected } = schedule ? resolveSchedule(schedule, asked) : { selected: null };
+  const curriculum = await getPublicCurriculum(slug, scheduleApiSearch(selected));
+  if (curriculum.status === 'error') return <ClassUnavailable what="class" retryHref={classPath(slug, selected)} />;
   const catalog = resolveCatalog(raw);
   // Published, visible classes only (drafts and hidden classes are previewed in Manage Courses).
   // The Kid Games switch doesn't matter here; it only decides whether the class's games can be played.
@@ -57,12 +67,25 @@ export default async function PublicClassPage({ params }: Params) {
   const signedIn = viewer !== 'visitor';
   // Games are counted only while Kid Games, where they are played, is open.
   const subjects = curriculum.data.subjects.map((s) => ({ ...s, games: kidGamesOpen ? s.games : 0 }));
-  const games = subjects.reduce((n, s) => n + s.games, 0);
-  const chapters = subjects.reduce((n, s) => n + s.chapters.length, 0);
-  // Studying needs no account and no Kid Games: start at the first subject with chapters (or the
-  // subjects list). The class's games are a second way in, only while Kid Games is open.
+  // The headline figures are for the whole class, whichever month is shown (the calendar read carries them).
+  const totals = schedule?.totals ?? { subjects: subjects.length, chapters: subjects.reduce((n, s) => n + s.chapters.length, 0), games: subjects.reduce((n, s) => n + s.games, 0) };
+  const games = kidGamesOpen ? totals.games : 0;
+  const chapters = totals.chapters;
+  // Where to look instead when the chosen place is empty: the first month that has something.
+  const firstOpen = (() => {
+    const y = schedule?.years.find((x) => x.academicYear === schedule.currentYear) ?? schedule?.years[0];
+    const m = y?.months.find((x) => x.month !== null);
+    if (y && m) return { schedule: { year: y.academicYear, month: m.month }, label: scheduleLabel({ year: y.academicYear, month: m.month }) };
+    return null;
+  })();
+  // Studying needs no account and no Kid Games: start at the first subject with chapters (or, in an empty month,
+  // at the first month that has some, or the subjects list). The class's games are a second way in.
   const firstSubject = subjects.find(subjectHasChapters) ?? subjects[0];
-  const start = firstSubject ? { href: subjectPath(view.key, firstSubject.key), label: 'Start learning' } : { href: '#class-subjects', label: 'See subjects' };
+  const start = firstSubject
+    ? { href: subjectPath(view.key, firstSubject.key, selected), label: 'Start learning' }
+    : firstOpen
+      ? { href: classPath(view.key, firstOpen.schedule), label: 'Start learning' }
+      : { href: '#class-subjects', label: 'See subjects' };
   const gamesHref = signedIn ? classGamesPath(view.key) : `${LOGIN_PATH}?from=${classGamesPath(view.key)}`;
   const picture = classPicture(view.level, view.thumbnailUrl, view.title, view.isCode);
   const subtitle = view.subtitle || (view.isCode ? builtInSubtitle(view.level) : undefined);
@@ -101,7 +124,7 @@ export default async function PublicClassPage({ params }: Params) {
               <ul className="mt-6 flex flex-wrap gap-2 text-sm" aria-label="About this class">
                 <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-foreground-soft">
                   <BookOpen aria-hidden className="h-4 w-4 text-accent" />
-                  {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}
+                  {totals.subjects} {totals.subjects === 1 ? 'subject' : 'subjects'}
                 </li>
                 {chapters > 0 && (
                   <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/70 px-3 py-1.5 text-foreground-soft">
@@ -132,16 +155,36 @@ export default async function PublicClassPage({ params }: Params) {
             </div>
           </section>
 
-          <section aria-labelledby="class-subjects" className="mt-16">
-            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] mb-2 text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
-              <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-(--kg) text-[11px] text-white">2</span>
-              Step 2 · Choose a subject
+          {schedule && selected && hasCalendar(schedule) && (
+            <section aria-labelledby="class-calendar" className="mt-16">
+              <p className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
+                <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-(--kg) text-[11px] text-white">2</span>
+                Step 2 · Choose the year and month
+              </p>
+              <h2 id="class-calendar" className="mb-6 text-2xl font-semibold tracking-tight text-foreground">
+                When do you want to learn?
+              </h2>
+              <SchedulePicker classKey={view.key} schedule={schedule} selected={selected} />
+            </section>
+          )}
+
+          <section aria-labelledby="class-subjects" className="mt-12 scroll-mt-24" id="class-subjects-section">
+            <p className="mb-2 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
+              <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-(--kg) text-[11px] text-white">{schedule && selected && hasCalendar(schedule) ? 3 : 2}</span>
+              Step {schedule && selected && hasCalendar(schedule) ? 3 : 2} · Choose a subject
             </p>
             <h2 id="class-subjects" className="text-2xl font-semibold tracking-tight text-foreground">
-              Subjects in {view.title}
+              {selected ? `Your subjects · ${scheduleLabel(selected)}` : `Subjects in ${view.title}`}
             </h2>
             <div className="mt-6">
-              <SubjectCards classKey={view.key} subjects={subjects} kidGamesOn={kidGamesOpen} signedIn={signedIn} />
+              {selected && subjects.length === 0 ? (
+                <ScheduleEmptyState
+                  place={scheduleLabel(selected)}
+                  offer={firstOpen ? { href: classPath(view.key, firstOpen.schedule), label: `See ${firstOpen.label}` } : undefined}
+                />
+              ) : (
+                <SubjectCards classKey={view.key} subjects={subjects} kidGamesOn={kidGamesOpen} signedIn={signedIn} schedule={selected} />
+              )}
             </div>
           </section>
         </div>

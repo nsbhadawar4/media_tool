@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, BookOpen, CircleCheck, Gamepad2, Globe, Info, Lightbulb, Hand, Loader2, PartyPopper, PenLine, RotateCcw, Sparkles, Star, Target, Timer, Trophy, type LucideIcon } from 'lucide-react';
 import type { CurriculumQuestion } from '@/lib/api/adminClasses';
-import { progressApi } from '@/lib/api/courses';
+import { progressApi, type ClassProgress } from '@/lib/api/courses';
 import { ApiError } from '@/lib/api/client';
 import { LOGIN_PATH } from '@/lib/auth/routes';
 import { buildSteps, parseExplanation, previewEmoji, rating, STARS_PER_LESSON, type LessonSection, type Step } from '@/lib/learn/lessonFlow';
@@ -94,9 +94,13 @@ export function KidLesson({ lesson, total, chapterTitle, where, signedIn, young,
   const progress = useQuery({ queryKey: progressKey(where.class), queryFn: async () => (await progressApi.class(where.class)).data, enabled: signedIn, retry: false });
   const alreadyDone = Boolean(progress.data?.chapters.find((c) => c.chapter === where.chapter)?.completedLessons.includes(lesson.number));
   const start = useMutation({ mutationFn: () => progressApi.lesson(where, lesson.number, 'start') });
+  // Finished in one sitting → the score counts; a lesson resumed part-way has no full record of its questions, so none is sent.
+  const resumedFrom = useRef(0);
+  const score = questionCount > 0 ? Math.round((firstTry / questionCount) * 100) : 100;
   const complete = useMutation({
-    mutationFn: () => progressApi.lesson(where, lesson.number, 'complete'),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: progressKey(where.class) }),
+    mutationFn: () => progressApi.lesson(where, lesson.number, 'complete', resumedFrom.current === 0 ? { score } : {}),
+    // Everything that counts lessons (this class, continue, the dashboard) is read again.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['progress'] }),
   });
   useEffect(() => {
     if (signedIn) start.mutate();
@@ -113,6 +117,36 @@ export function KidLesson({ lesson, total, chapterTitle, where, signedIn, young,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atFinish, signedIn, alreadyDone, progress.isFetched]);
   const unauthorised = progress.error instanceof ApiError && progress.error.status === 401;
+
+  // Resume: the step the learner left this lesson at is in the database; once it is known and nothing
+  // has been done yet, pick up there (and say so, with a way to start over). Never for a finished lesson.
+  const savedStep = progress.data?.chapters.find((c) => c.chapter === where.chapter)?.positions[String(lesson.number)] ?? 0;
+  const [resumed, setResumed] = useState(false);
+  const moved = useRef(false);
+  useEffect(() => {
+    if (!signedIn || moved.current || alreadyDone || savedStep <= 0 || savedStep >= steps.length - 1) return;
+    moved.current = true;
+    resumedFrom.current = savedStep;
+    setIndex(savedStep);
+    setResumed(true);
+    // Once, when the saved step first arrives.
+  }, [signedIn, savedStep, alreadyDone, steps.length]);
+
+  // Save the step as the learner moves (immediately — it is one small write), so closing the tab loses nothing.
+  const lastSaved = useRef(0);
+  useEffect(() => {
+    if (!signedIn || step.kind === 'finish' || index === lastSaved.current) return;
+    lastSaved.current = index;
+    void progressApi
+      .lesson(where, lesson.number, 'position', { position: index })
+      .then(() =>
+        queryClient.setQueryData<ClassProgress>(progressKey(where.class), (old) =>
+          old ? { ...old, chapters: old.chapters.map((c) => (c.chapter === where.chapter ? { ...c, positions: { ...c.positions, [String(lesson.number)]: index } } : c)) } : old,
+        ),
+      )
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
   const saved = alreadyDone || complete.isSuccess;
 
   // Each new step starts at the top of the lesson; a settled question puts focus on "Next".
@@ -125,8 +159,13 @@ export function KidLesson({ lesson, total, chapterTitle, where, signedIn, young,
     if (settled && step.kind === 'question') nextBtn.current?.focus({ preventScroll: true });
   }, [settled, step.kind]);
 
-  const go = (to: number) => setIndex(Math.max(0, Math.min(steps.length - 1, to)));
+  const go = (to: number) => {
+    moved.current = true;
+    setIndex(Math.max(0, Math.min(steps.length - 1, to)));
+  };
   const restart = () => {
+    resumedFrom.current = 0;
+    setResumed(false);
     setResults({});
     asked.current = false;
     go(0);
@@ -161,6 +200,18 @@ export function KidLesson({ lesson, total, chapterTitle, where, signedIn, young,
           </div>
         </div>
       </header>
+
+      {resumed && index > 0 && step.kind !== 'finish' && (
+        <div role="status" className="kl-tone-1 kl-tint flex flex-col gap-3 rounded-2xl border-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-2 text-base font-bold text-foreground">
+            <RotateCcw aria-hidden className="h-5 w-5 kl-text" />
+            Welcome back! We saved your place in this lesson.
+          </span>
+          <button type="button" onClick={restart} className="inline-flex h-11 items-center justify-center rounded-xl border-2 border-border bg-surface px-4 text-sm font-bold text-foreground transition hover:border-(--kg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)">
+            Start from the beginning
+          </button>
+        </div>
+      )}
 
       {step.kind === 'learn' && (
         <div className="flex flex-col gap-4">

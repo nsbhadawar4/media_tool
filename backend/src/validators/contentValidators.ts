@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CONTENT_TYPES, DIFFICULTIES, FIXED_CONTENT_TYPES, GAME_TYPES } from '../config/constants';
+import { academicYearField, monthField, monthNeedsYear, scheduleBody, scheduleFilter } from './scheduleValidators';
 
 /**
  * Admin content management input. Every body schema is strict: a field the API doesn't take
@@ -192,7 +193,10 @@ const courseFields = {
   isVisible: z.boolean().default(true),
 };
 
-export const createCourseSchema = z.object(courseFields).strict();
+export const createCourseSchema = z
+  .object({ ...courseFields, ...scheduleBody })
+  .strict()
+  .superRefine((v, ctx) => monthNeedsYear(v, ctx));
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 
 export const updateCourseSchema = z
@@ -207,6 +211,7 @@ export const updateCourseSchema = z
     ageGroup: z.string().trim().max(40, 'Keep the age group short').nullable().optional(),
     learningObjective: z.string().trim().max(1000, 'Learning objective is too long').optional(),
     lessons: z.array(lesson).max(50, 'A course can have at most 50 lessons').optional(),
+    ...scheduleBody,
     isEnabled: z.boolean().optional(),
     isVisible: z.boolean().optional(),
   })
@@ -219,9 +224,24 @@ export const listCoursesQuerySchema = z.object({
   status,
   classLevel: classLevel.optional(),
   subject: key.optional(),
+  ...scheduleFilter,
   sort: z.enum(['order', 'title', 'updated', 'created']).default('order'),
   ...pageParams,
 });
+
+/** Schedules several chapters at once (the way to map existing, unscheduled chapters). null clears. */
+export const scheduleCoursesSchema = z
+  .object({
+    ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i, 'Invalid id')).min(1, 'Pick at least one course').max(200, 'Up to 200 at a time'),
+    academicYear: academicYearField.nullable(),
+    month: z.number().int().min(1, 'Choose a month from 1 to 12').max(12, 'Choose a month from 1 to 12').nullable().default(null),
+  })
+  .strict()
+  .superRefine((v, ctx) => monthNeedsYear(v, ctx));
+export type ScheduleCoursesInput = z.infer<typeof scheduleCoursesSchema>;
+
+/** Learning statistics, for a year, a month, a class and a subject — any of them. */
+export const courseStatsQuerySchema = z.object({ classLevel: classLevel.optional(), subject: key.optional(), academicYear: academicYearField.optional(), month: monthField.optional(), schedule: z.enum(['scheduled', 'unscheduled']).optional() });
 
 export const courseSlugParamSchema = z.object({ slug: key });
 

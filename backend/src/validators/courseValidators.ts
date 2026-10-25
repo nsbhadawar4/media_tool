@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { LANGUAGES, LEVELS, LIMITS, QUESTION_TYPES, questionProblems } from '../services/curriculum/course';
 import { subjectKey } from './classValidators';
+import { monthNeedsYear, scheduleBody } from './scheduleValidators';
 
 /**
  * The AI Course Generator and the course editor (Admin → Manage Courses). Generation requests are
@@ -121,10 +122,13 @@ const chapter = z
     difficulty: z.enum(['easy', 'medium', 'hard']).nullable().default(null),
     /** Draft: admins only. Published: learners see it. Hidden: published but not shown. */
     status: z.enum(['draft', 'published', 'hidden']),
+    /** When in the academic year it is taught. Left out = unchanged; null = not scheduled. */
+    ...scheduleBody,
     lessons: z.array(lesson).max(20).default([]),
     quiz: z.array(question).max(30).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((c, ctx) => monthNeedsYear(c, ctx));
 
 /**
  * Saving a course (one subject of one class):

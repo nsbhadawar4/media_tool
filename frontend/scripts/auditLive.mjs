@@ -33,6 +33,11 @@ const api = async (path) => {
       continue;
     }
     if (r.status === 404) return null;
+    // A 5xx or a dropped connection while the API is busy is retried, never read as a bad record.
+    if ((r.status >= 500 || r.status === 0) && attempt < 3) {
+      await sleep(3000 * (attempt + 1));
+      continue;
+    }
     if (r.status !== 200) throw new Error(`API ${path} answered ${r.status}`);
     return (await r.json()).data ?? null;
   }

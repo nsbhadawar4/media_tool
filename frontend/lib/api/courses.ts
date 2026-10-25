@@ -92,6 +92,9 @@ export interface SaveCourseInput {
     objectives: string[];
     difficulty: ChapterDifficulty | null;
     status: ChapterStatus;
+    /** When it is taught. Left out = unchanged; null = not scheduled. */
+    academicYear?: string | null;
+    month?: number | null;
     lessons: Array<{ id?: string; title: string; explanation: string; examples: string[]; keyPoints: string[]; questions: CurriculumQuestion[]; practice: CurriculumQuestion[]; estimatedMinutes: number | null }>;
     quiz: CurriculumQuestion[];
   }>;
@@ -149,12 +152,38 @@ export interface GenerationJob {
 
 // ------------------------------------------------------------------------------------ progress
 
+export interface SubjectProgressRow {
+  subject: string;
+  title: string;
+  chapters: number;
+  lessons: number;
+  completed: number;
+  percent: number;
+}
+export interface ChapterProgressRow {
+  subject: string;
+  chapter: string;
+  academicYear: string | null;
+  month: number | null;
+  lessonCount: number;
+  completedLessons: number[];
+  startedLessons: number[];
+  /** Lesson number → the step the learner stopped at inside it (only lessons left part-way). */
+  positions: Record<string, number>;
+  /** The first lesson not yet completed (1-based), or null when the chapter is finished. */
+  nextLesson: number | null;
+  completed: boolean;
+  quiz: { best: number; last: number; attempts: number; total: number } | null;
+}
 export interface ClassProgress {
   slug: string;
+  academicYear: string | null;
+  month: number | null;
   percent: number;
   lessons: number;
   completed: number;
-  chapters: Array<{ subject: string; chapter: string; lessonCount: number; completedLessons: number[]; startedLessons: number[]; completed: boolean; quiz: { best: number; last: number; attempts: number; total: number } | null }>;
+  subjects: SubjectProgressRow[];
+  chapters: ChapterProgressRow[];
 }
 export interface QuizResult {
   correct: number;
@@ -172,16 +201,60 @@ export interface ContinueLearning {
   subject: { key: string; title: string };
   chapter: { slug: string; title: string; number: number };
   lesson: number;
+  lessonTitle: string;
   lessonCount: number;
   completedLessons: number;
+  /** The step inside the lesson where the learner stopped (0 = its start). */
+  position: number;
+  academicYear: string | null;
+  month: number | null;
+  /** Nothing of it started yet: the button says Start, not Continue. */
+  fresh?: boolean;
 }
+
+/** The dashboard: this month's progress, its subjects, recent chapters and where to continue (GET /api/progress/overview). */
+export interface ProgressOverview {
+  academicYear: string;
+  month: number;
+  /** "month": the subjects scheduled this month; "all": nothing is scheduled in it, so everything the learner can study. */
+  scope: 'month' | 'all';
+  monthProgress: { lessons: number; completed: number; percent: number };
+  yearProgress: { lessons: number; completed: number; percent: number };
+  subjects: Array<{
+    class: { slug: string; title: string };
+    subject: { key: string; title: string };
+    academicYear: string | null;
+    month: number | null;
+    chapters: number;
+    lessons: number;
+    completed: number;
+    percent: number;
+    continue: ContinueLearning | null;
+  }>;
+  recent: Array<{
+    class: { slug: string; title: string };
+    subject: { key: string; title: string };
+    chapter: { slug: string; title: string };
+    academicYear: string | null;
+    month: number | null;
+    lessonCount: number;
+    completedLessons: number;
+    percent: number;
+    nextLesson: number | null;
+    lastAccessedAt: string | null;
+  }>;
+  continue: ContinueLearning | null;
+}
+
+export type LessonEvent = 'start' | 'position' | 'complete';
 
 export const progressApi = {
   classes: () => api.get<Array<{ slug: string; classLevel: number; percent: number; lessons: number; completed: number }>>('/api/progress/classes'),
-  /** Where to pick up (class, subject, chapter, lesson), or null. */
-  continue: () => api.get<ContinueLearning | null>('/api/progress/continue'),
+  /** Where to pick up (class, subject, chapter, lesson, step), or null. Optionally for one class, subject or month. */
+  continue: (scope: { class?: string; subject?: string; academicYear?: string; month?: string } = {}) => api.get<ContinueLearning | null>('/api/progress/continue', { ...scope }),
+  overview: (scope: { academicYear?: string; month?: string } = {}) => api.get<ProgressOverview>('/api/progress/overview', { ...scope }),
   class: (slug: string) => api.get<ClassProgress>(`/api/progress/classes/${encodeURIComponent(slug)}`),
-  lesson: (where: Where, lesson: number, event: 'start' | 'complete') =>
-    api.post<{ lesson: number; completed: boolean; chapterCompleted: boolean; completedLessons: number; lessonCount: number }>('/api/progress/lessons', { ...where, lesson, event }),
+  lesson: (where: Where, lesson: number, event: LessonEvent, extra: { position?: number; score?: number } = {}) =>
+    api.post<{ lesson: number; completed: boolean; position: number; score: number | null; attempts: number; chapterCompleted: boolean; completedLessons: number; lessonCount: number }>('/api/progress/lessons', { ...where, lesson, event, ...extra }),
   quiz: (where: Where, answers: string[]) => api.post<QuizResult>('/api/progress/quiz', { ...where, answers }),
 };

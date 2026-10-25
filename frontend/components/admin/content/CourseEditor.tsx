@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { cn } from '@/utils/cn';
 import { useTaxonomy } from './useTaxonomy';
+import { ScheduleFields, scheduleToValue, valueToSchedule, type ScheduleValue } from './ScheduleFields';
 
 interface LessonDraft {
   key: string;
@@ -50,6 +51,8 @@ export function CourseEditor({ course }: { course?: Course }) {
   const [summary, setSummary] = useState(course?.summary ?? '');
   const [classLevel, setClassLevel] = useState(course?.classLevel ? String(course.classLevel) : '');
   const [subject, setSubject] = useState(course?.subject ?? '');
+  // When in the academic year it is taught (stored in the database, so learners can filter by it).
+  const [when, setWhen] = useState<ScheduleValue>(() => scheduleToValue(course));
   const [thumbnailUrl, setThumbnailUrl] = useState(course?.thumbnailUrl ?? '');
   const [difficulty, setDifficulty] = useState<string>(course?.difficulty ?? '');
   const [ageGroup, setAgeGroup] = useState(course?.ageGroup ?? '');
@@ -78,6 +81,7 @@ export function CourseEditor({ course }: { course?: Course }) {
         summary: summary.trim(),
         classLevel: Number(classLevel),
         subject,
+        ...valueToSchedule(when),
         thumbnailUrl: thumbnailUrl.trim() || null,
         difficulty: (difficulty || null) as Difficulty | null,
         ageGroup: ageGroup.trim() || null,
@@ -97,7 +101,8 @@ export function CourseEditor({ course }: { course?: Course }) {
       else setSlug(res.data.slug);
     },
     onError: (err: Error) => {
-      setErrors(err instanceof ApiError && err.status === 409 ? { slug: err.message } : fieldErrors(err));
+      // A clash over the month (same course already scheduled there) belongs to the month field, not the address.
+      setErrors(err instanceof ApiError && err.status === 409 ? (/scheduled for/.test(err.message) ? { month: err.message } : { slug: err.message }) : fieldErrors(err));
       toast.error(err.message);
     },
   });
@@ -108,6 +113,7 @@ export function CourseEditor({ course }: { course?: Course }) {
     if (!title.trim()) found.title = 'Title is required';
     if (!classLevel) found.classLevel = 'Choose a class';
     if (!subject) found.subject = 'Choose a subject this class offers';
+    if (when.month && !when.academicYear) found.academicYear = 'Choose an academic year for the month';
     if (thumbnailUrl.trim() && !/^https?:\/\/\S+$/i.test(thumbnailUrl.trim())) found.thumbnailUrl = 'Links must start with http:// or https://';
     if (slug.trim() && !/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug.trim().toLowerCase())) found.slug = 'Lowercase letters, numbers and hyphens only';
     lessons.forEach((l, i) => {
@@ -209,6 +215,10 @@ export function CourseEditor({ course }: { course?: Course }) {
               {classLevel && subjectOptions.length === 0 && <p className="mt-1 text-[11px] text-subtle">This class offers no subjects yet — assign one on the Subjects page.</p>}
               <FieldError message={errors.subject} />
             </div>
+          </div>
+          <div>
+            <ScheduleFields value={when} onChange={setWhen} errors={{ academicYear: errors.academicYear, month: errors.month }} inUse={[course?.academicYear]} />
+            {!when.academicYear && <p className="mt-1.5 text-[11px] text-subtle">Not scheduled: learners find it under “Anytime”. Choose a year and month to place it in the calendar.</p>}
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

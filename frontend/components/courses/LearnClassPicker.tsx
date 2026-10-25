@@ -6,7 +6,7 @@ import { RefreshCw } from 'lucide-react';
 import { useContentCatalog } from '@/lib/content/useContentCatalog';
 import { progressApi } from '@/lib/api/courses';
 import { ClassSubjectPicker, type PickerClass } from './ClassSubjectPicker';
-import { ContinueLearningCard } from './ContinueLearningCard';
+import { ThisMonthLearning } from './ThisMonthLearning';
 
 const TILE_SKELETON = (
   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-busy="true" aria-label="Loading classes">
@@ -42,8 +42,8 @@ export function LearnClassPicker({ idPrefix = 'learn' }: { idPrefix?: string }) 
   }
   return (
     <div className="space-y-4">
-      {/* Already learning: one click back to the lesson, its class and subject included. */}
-      <ContinueLearningCard />
+      {/* This academic month: where to continue, progress per subject, recent courses — from the learner's saved progress. */}
+      <ThisMonthLearning />
       <Suspense fallback={TILE_SKELETON}>
         <ClassSubjectPicker classes={classes} kidGamesOn={catalog.isSectionOn('kid-games')} progress={progress} idPrefix={idPrefix} />
       </Suspense>

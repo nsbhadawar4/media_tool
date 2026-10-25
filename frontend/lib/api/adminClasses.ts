@@ -150,6 +150,9 @@ export interface CurriculumChapterSummary {
   lessonCount: number;
   questionCount: number;
   lessons: Array<{ number: number; title: string }>;
+  /** The academic year ("2026-27") and month (1–12) it is taught in; null until an administrator schedules it. */
+  academicYear: string | null;
+  month: number | null;
 }
 
 /** Who wrote content: an AI provider, the template generator, or a person. */

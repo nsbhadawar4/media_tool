@@ -109,6 +109,8 @@ const PUBLIC_ENDPOINTS = new Set([
   'GET /api/content/images/:id',
   // A published, visible class's subjects and chapters (no quiz answers, no internal ids).
   'GET /api/content/classes/:id/curriculum',
+  // Counts of what is published per academic year and month: the picker's data, nothing private (like curriculum).
+  'GET /api/content/classes/:id/schedule',
   // One subject of such a class (checked to belong to it), with its chapters — same rules.
   'GET /api/content/classes/:id/subjects/:id',
   // One published chapter of it in full: lessons with practice answers to study; never quiz answers.

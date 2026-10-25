@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, BookOpen, Clock, ListChecks, PencilRuler, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Clock, ListChecks, PencilRuler, Target } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { Resources } from '@/components/courses/CurriculumView';
@@ -13,6 +13,7 @@ import { chapterPath, classPath, formatMinutes, lessonPath, subjectPath } from '
 import { previewEmoji } from '@/lib/learn/lessonFlow';
 import { ChapterStart, LessonDots } from '@/components/courses/learn/ProgressPieces';
 import { siteMetadataBase } from '@/lib/site';
+import { scheduleLabel, scheduleOfChapter } from '@/lib/content/academicCalendar';
 import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 
 /**
@@ -44,6 +45,8 @@ export default async function ClassChapterPage({ params }: Params) {
   if (read.status === 'error') return <ClassUnavailable what="chapter" retryHref={chapterPath(slug, subjectKey, chapterSlug)} />;
   if (read.status === 'missing') notFound();
   const { class: cls, subject, chapter, chapters } = read.data;
+  // The month the database says this chapter is taught in: the way back to the subject and class keeps it.
+  const when = scheduleOfChapter(chapter);
   const signedIn = (await currentViewer()) !== 'visitor';
   const index = chapters.findIndex((c) => c.slug === chapter.slug);
   const prev = chapters[index - 1];
@@ -59,8 +62,8 @@ export default async function ClassChapterPage({ params }: Params) {
         <CourseBreadcrumb
           items={[
             { label: 'Courses', href: '/classes' },
-            { label: cls.title, href: classPath(cls.slug) },
-            { label: subject.title, href: subjectPath(cls.slug, subject.key) },
+            { label: cls.title, href: classPath(cls.slug, when) },
+            { label: subject.title, href: subjectPath(cls.slug, subject.key, when) },
             { label: `Chapter ${index + 1}` },
           ]}
         />
@@ -86,6 +89,12 @@ export default async function ClassChapterPage({ params }: Params) {
               <BookOpen aria-hidden className="h-4 w-4 kl-text" />
               {chapter.lessons.length} {chapter.lessons.length === 1 ? 'lesson' : 'lessons'}
             </li>
+            {when && (
+              <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
+                <CalendarDays aria-hidden className="h-4 w-4 kl-text" />
+                {scheduleLabel(when)}
+              </li>
+            )}
             {chapter.questionCount > 0 && (
               <li className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5">
                 <ListChecks aria-hidden className="h-4 w-4 kl-text" />
@@ -142,7 +151,7 @@ export default async function ClassChapterPage({ params }: Params) {
                 return (
                   <li key={lesson.number} className="anim-rise" style={{ '--i': i } as CSSProperties}>
                     <Link
-                      href={lessonPath(cls.slug, subject.key, chapter.slug, lesson.number)}
+                      href={lessonPath(cls.slug, subject.key, chapter.slug, i + 1)}
                       className={`kl-tone-${i % 4} kl-tint group flex min-h-24 items-center gap-4 rounded-[1.75rem] border-2 p-4 shadow-card transition duration-200 hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--t1) sm:p-5`}
                     >
                       <span aria-hidden className="kl-badge flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl font-extrabold tabular-nums text-white shadow-card">
@@ -232,7 +241,7 @@ export default async function ClassChapterPage({ params }: Params) {
               <span className="truncate font-semibold text-foreground">{next.title}</span>
             </Link>
           ) : (
-            <Link href={subjectPath(cls.slug, subject.key)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 text-right transition hover:border-(--kg)">
+            <Link href={subjectPath(cls.slug, subject.key, when)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 text-right transition hover:border-(--kg)">
               <span className="text-xs font-medium text-muted">Finished the last chapter</span>
               <span className="font-semibold text-foreground">Back to {subject.title}</span>
             </Link>
@@ -240,11 +249,11 @@ export default async function ClassChapterPage({ params }: Params) {
         </nav>
 
         <div className="flex flex-col gap-2 border-t border-border pt-5 sm:flex-row sm:justify-center">
-          <Link href={subjectPath(cls.slug, subject.key)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
+          <Link href={subjectPath(cls.slug, subject.key, when)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
             <ArrowLeft aria-hidden className="h-4 w-4" />
             Back to {subject.title}
           </Link>
-          <Link href={classPath(cls.slug)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
+          <Link href={classPath(cls.slug, when)} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
             Back to {cls.title}
           </Link>
         </div>

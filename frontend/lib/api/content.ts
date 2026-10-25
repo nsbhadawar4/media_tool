@@ -76,6 +76,9 @@ export interface Course {
   summary: string;
   classLevel: number | null;
   subject: string | null;
+  /** The academic year ("2026-27") and month (1–12) it is taught in; null until scheduled ("Year/Month needs mapping"). */
+  academicYear: string | null;
+  month: number | null;
   thumbnailUrl: string | null;
   difficulty: 'easy' | 'medium' | 'hard' | null;
   ageGroup: string | null;

@@ -7,7 +7,9 @@ import { currentViewer } from '@/components/marketing/MarketingShell';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { Resources } from '@/components/courses/CurriculumView';
 import { ProgressMark } from '@/components/courses/LearnWidgets';
-import { ClassUnavailable } from '@/components/courses/ClassStates';
+import { ClassUnavailable, ScheduleEmptyState } from '@/components/courses/ClassStates';
+import { SubjectStart } from '@/components/courses/learn/ProgressPieces';
+import { parseSchedule, scheduleApiSearch, scheduleLabel } from '@/lib/content/academicCalendar';
 import { getPublicClassSubject, getPublicCurriculum, getPublicManualCourses, getServerCatalog } from '@/lib/server/contentCatalog';
 import { isSectionOn } from '@/lib/content/sections';
 import { chapterPath, classPath, formatMinutes, subjectPath } from '@/lib/content/learnPaths';
@@ -23,7 +25,7 @@ import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
  */
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ slug: string; subject: string }> };
+type Params = { params: Promise<{ slug: string; subject: string }>; searchParams: Promise<{ year?: string | string[]; month?: string | string[] }> };
 
 const DIFFICULTY = { easy: 'Easy', medium: 'Medium', hard: 'Challenging' } as const;
 
@@ -39,17 +41,42 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
-export default async function ClassSubjectPage({ params }: Params) {
+export default async function ClassSubjectPage({ params, searchParams }: Params) {
   const { slug, subject: subjectKey } = await params;
+  // A month in the address (a malformed one is ignored): only that month's chapters are read from the database.
+  const asked = parseSchedule(await searchParams);
+  const when = asked && asked !== 'invalid' ? asked : null;
+  const search = scheduleApiSearch(when);
   // The class's other subjects too, for previous / next (the same public data as the class page).
-  const [raw, read, curriculum, manual] = await Promise.all([getServerCatalog(), getPublicClassSubject(slug, subjectKey), getPublicCurriculum(slug), getPublicManualCourses(slug, subjectKey)]);
-  if (read.status === 'error') return <ClassUnavailable what="subject" retryHref={subjectPath(slug, subjectKey)} />;
-  if (read.status === 'missing') notFound();
+  const [raw, read, curriculum, manual] = await Promise.all([getServerCatalog(), getPublicClassSubject(slug, subjectKey, search), getPublicCurriculum(slug, search), getPublicManualCourses(slug, subjectKey)]);
+  if (read.status === 'error') return <ClassUnavailable what="subject" retryHref={subjectPath(slug, subjectKey, when)} />;
+  if (read.status === 'missing') {
+    // The subject has nothing in that month: say so kindly (if the subject itself exists), instead of a 404.
+    const whole = when ? await getPublicClassSubject(slug, subjectKey) : null;
+    if (!when || !whole || whole.status !== 'ok') notFound();
+    const there = whole.data;
+    return (
+      <div style={classVars(there.class.classLevel)} className="relative px-4 pb-20 pt-8 sm:px-6 sm:pt-12 lg:px-8">
+        <div className="relative mx-auto max-w-4xl">
+          <div className="mb-6">
+            <CourseBreadcrumb items={[{ label: 'Courses', href: '/classes' }, { label: there.class.title, href: classPath(there.class.slug, when) }, { label: there.subject.title }]} />
+          </div>
+          <h1 className="mb-6 text-4xl font-extrabold tracking-normal text-foreground">{there.subject.title}</h1>
+          <ScheduleEmptyState
+            place={scheduleLabel(when)}
+            what={`${there.subject.title} courses`}
+            offer={{ href: classPath(there.class.slug, when), label: `Choose another month` }}
+          />
+        </div>
+      </div>
+    );
+  }
   const { class: cls, subject } = read.data;
   const kidGamesOpen = isSectionOn(raw, 'kid-games');
   const games = kidGamesOpen ? subject.games : 0;
   const chapters = subject.chapters.filter((c) => c.slug);
-  const minutes = subject.estimatedMinutes ?? chapters.reduce((n, c) => n + (c.estimatedMinutes ?? 0), 0);
+  const chapterMinutes = chapters.reduce((n, c) => n + (c.estimatedMinutes ?? 0), 0);
+  const minutes = when ? chapterMinutes : (subject.estimatedMinutes ?? chapterMinutes);
   const signedIn = (await currentViewer()) !== 'visitor';
   const gamesPath = `/kid-games/${cls.slug}/${subject.key}`;
   const gamesHref = signedIn ? gamesPath : `${LOGIN_PATH}?from=${gamesPath}`;
@@ -65,7 +92,7 @@ export default async function ClassSubjectPage({ params }: Params) {
       <div aria-hidden className="mk-hero-glow mk-hero-fade pointer-events-none absolute inset-0" />
       <div className="relative mx-auto max-w-4xl">
         <div className="mb-6">
-          <CourseBreadcrumb items={[{ label: 'Courses', href: '/classes' }, { label: cls.title, href: classPath(cls.slug) }, { label: subject.title }]} />
+          <CourseBreadcrumb items={[{ label: 'Courses', href: '/classes' }, { label: cls.title, href: classPath(cls.slug, when) }, { label: subject.title }]} />
         </div>
 
         <header className="anim-rise flex flex-col gap-5 sm:flex-row sm:items-center">
@@ -73,7 +100,9 @@ export default async function ClassSubjectPage({ params }: Params) {
             {subject.glyph || subject.title.slice(0, 1)}
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">{cls.title} · Subject</p>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
+              {cls.title} · Subject{when ? ` · ${scheduleLabel(when)}` : ''}
+            </p>
             <h1 className="mt-1 text-4xl font-extrabold tracking-normal text-foreground sm:text-5xl">{subject.title}</h1>
             {subject.description && <p className="mt-2 text-base leading-relaxed text-foreground-soft">{subject.description}</p>}
           </div>
@@ -105,12 +134,7 @@ export default async function ClassSubjectPage({ params }: Params) {
         </ul>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          {chapters[0] && (
-            <Link href={chapterPath(cls.slug, subject.key, chapters[0].slug!)} className="mk-btn-primary btn-primary inline-flex h-12 items-center justify-center gap-2 rounded-xl px-6 text-sm font-semibold text-accent-foreground">
-              Start learning
-              <ArrowRight aria-hidden className="h-4 w-4" />
-            </Link>
-          )}
+          {chapters[0] && <SubjectStart classSlug={cls.slug} subject={subject.key} chapters={chapters.map((c) => c.slug!)} signedIn={signedIn} />}
           {/* Games are an extra, only while Kid Games is on — they never decide whether the subject opens. */}
           {games > 0 && (
             <Link href={gamesHref} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-6 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
@@ -131,7 +155,7 @@ export default async function ClassSubjectPage({ params }: Params) {
               <p className="mt-1 text-sm text-muted">
                 {games > 0 ? `Meanwhile, ${subject.title} in ${cls.title} can be learned through its games.` : `Chapters for ${subject.title} in ${cls.title} will appear here.`}
               </p>
-              <Link href={classPath(cls.slug)} className="mt-5 inline-flex h-11 items-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
+              <Link href={classPath(cls.slug, when)} className="mt-5 inline-flex h-11 items-center rounded-xl border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover">
                 See other subjects
               </Link>
             </div>
@@ -208,7 +232,7 @@ export default async function ClassSubjectPage({ params }: Params) {
         {(prevSubject || nextSubject) && (
           <nav aria-label="Subjects" className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {prevSubject ? (
-              <Link href={subjectPath(cls.slug, prevSubject.key)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 transition hover:border-(--kg)">
+              <Link href={subjectPath(cls.slug, prevSubject.key, when)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 transition hover:border-(--kg)">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
                   <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
                   Previous subject
@@ -219,7 +243,7 @@ export default async function ClassSubjectPage({ params }: Params) {
               <span className="hidden sm:block" />
             )}
             {nextSubject && (
-              <Link href={subjectPath(cls.slug, nextSubject.key)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 text-right transition hover:border-(--kg)">
+              <Link href={subjectPath(cls.slug, nextSubject.key, when)} className="flex min-h-16 flex-col justify-center rounded-2xl border border-border bg-surface px-4 py-3 text-right transition hover:border-(--kg)">
                 <span className="inline-flex items-center justify-end gap-1 text-xs font-medium text-muted">
                   Next subject
                   <ArrowRight aria-hidden className="h-3.5 w-3.5" />

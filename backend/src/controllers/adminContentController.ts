@@ -10,7 +10,9 @@ import { logActivity } from '../services/activityService';
 import { ensureCatalogSeeded, invalidateCatalog, nextOrder, siblingFilter } from '../services/contentService';
 import { classSubjectKey } from '../services/learningStructure';
 import { escapeRegex, pageMeta } from '../services/adminQueries';
-import type { BulkUpdateInput, CreateContentInput, CreateCourseInput, UpdateContentInput, UpdateCourseInput } from '../validators/contentValidators';
+import type { BulkUpdateInput, CreateContentInput, CreateCourseInput, ScheduleCoursesInput, UpdateContentInput, UpdateCourseInput } from '../validators/contentValidators';
+import { assertNoDuplicateInSlot, courseStats, scheduleFilterOf, scheduleOf } from '../services/courseSchedule';
+import { scheduleProblem } from '../services/academicCalendar';
 import { ARCHIVED_FILTER, NOT_TRASHED_FILTER, archivedState, markArchived, markRestored, restoredState } from '../services/archive';
 
 /**
@@ -530,6 +532,7 @@ export function serializeCourse(course: ICourse) {
     summary: course.summary,
     classLevel: course.classLevel ?? null,
     subject: course.subject ?? null,
+    ...scheduleOf(course),
     thumbnailUrl: course.thumbnailUrl ?? null,
     difficulty: course.difficulty ?? null,
     ageGroup: course.ageGroup ?? null,
@@ -564,11 +567,14 @@ export function auditCourse(req: Request, action: ActivityAction, course: ICours
 }
 
 export const listCourses = asyncHandler(async (req: Request, res: Response) => {
-  const { search, status, classLevel, subject, sort, page, limit } = req.query as unknown as {
+  const { search, status, classLevel, subject, academicYear, month, schedule, sort, page, limit } = req.query as unknown as {
     search?: string;
     status: Status;
     classLevel?: number;
     subject?: string;
+    academicYear?: string;
+    month?: number;
+    schedule?: 'scheduled' | 'unscheduled';
     sort: keyof typeof SORTS;
     page: number;
     limit: number;
@@ -576,6 +582,7 @@ export const listCourses = asyncHandler(async (req: Request, res: Response) => {
   const clauses: FilterQuery<ICourse>[] = [statusFilter(status)];
   if (classLevel !== undefined) clauses.push({ classLevel });
   if (subject) clauses.push({ subject });
+  clauses.push(scheduleFilterOf({ academicYear, month, schedule }));
   if (search) {
     const text = { $regex: escapeRegex(search), $options: 'i' };
     clauses.push({ $or: [{ title: text }, { slug: text }, { summary: text }] });
@@ -597,6 +604,9 @@ export const getCourse = asyncHandler(async (req: Request, res: Response) => {
 export const createCourse = asyncHandler(async (req: Request, res: Response) => {
   const input = req.body as CreateCourseInput;
   await assertClassOffersSubject(input.classLevel, input.subject);
+  const academicYear = input.academicYear ?? null;
+  const month = input.month ?? null;
+  await assertNoDuplicateInSlot({ classLevel: input.classLevel, subject: input.subject, academicYear, month, title: input.title });
 
   let slug = input.slug ?? slugify(input.title);
   if (await Course.exists({ slug })) {
@@ -612,6 +622,8 @@ export const createCourse = asyncHandler(async (req: Request, res: Response) => 
     summary: input.summary,
     classLevel: input.classLevel,
     subject: input.subject,
+    academicYear,
+    month,
     thumbnailUrl: input.thumbnailUrl ?? null,
     difficulty: input.difficulty ?? null,
     ageGroup: input.ageGroup ?? null,
@@ -652,6 +664,15 @@ export const updateCourse = asyncHandler(async (req: Request, res: Response) => 
   if (input.slug && input.slug !== course.slug && (await Course.exists({ slug: input.slug }))) {
     throw AppError.conflict(`A course with the address “${input.slug}” already exists`);
   }
+  // The schedule as it will be stored: what was sent, else what is there. A month always needs its year.
+  const academicYear = input.academicYear !== undefined ? input.academicYear : (course.academicYear ?? null);
+  const month = input.month !== undefined ? input.month : academicYear === null ? null : (course.month ?? null);
+  const problem = scheduleProblem(academicYear, month);
+  if (problem) throw AppError.badRequest(problem, [{ path: month != null && academicYear == null ? 'academicYear' : 'month', message: problem }]);
+  const scheduleChanged = academicYear !== (course.academicYear ?? null) || month !== (course.month ?? null);
+  if (scheduleChanged || input.title !== undefined || input.classLevel !== undefined || input.subject !== undefined) {
+    await assertNoDuplicateInSlot({ classLevel, subject, academicYear, month, title: input.title ?? course.title, id: course._id });
+  }
 
   const before = { isEnabled: course.isEnabled, isVisible: course.isVisible };
   const edited: string[] = [];
@@ -660,6 +681,11 @@ export const updateCourse = asyncHandler(async (req: Request, res: Response) => 
       edited.push(field);
       (course as unknown as Record<string, unknown>)[field] = input[field];
     }
+  }
+  if (scheduleChanged) {
+    edited.push('schedule');
+    course.academicYear = academicYear;
+    course.month = month;
   }
   if (input.lessons !== undefined) {
     edited.push('lessons');
@@ -675,6 +701,61 @@ export const updateCourse = asyncHandler(async (req: Request, res: Response) => 
   if (course.isEnabled !== before.isEnabled) await auditCourse(req, course.isEnabled ? 'course_enabled' : 'course_disabled', course, course.isEnabled ? 'Enabled' : 'Disabled');
   if (course.isVisible !== before.isVisible) await auditCourse(req, course.isVisible ? 'course_shown' : 'course_hidden', course, course.isVisible ? 'Showed' : 'Hid');
   sendSuccess(res, serializeCourse(course), 200, undefined, 'Saved');
+});
+
+/**
+ * POST /api/admin/content/courses/schedule — puts several chapters in one academic year / month (or
+ * clears it). This is how chapters written before scheduling existed get their place: nothing is
+ * guessed, an administrator says where each belongs. All or none: a conflict changes nothing.
+ */
+export const scheduleCourses = asyncHandler(async (req: Request, res: Response) => {
+  const { ids, academicYear, month } = req.body as ScheduleCoursesInput;
+  const courses = await Course.find({ _id: { $in: ids }, archivedAt: null });
+  if (courses.length !== new Set(ids).size) throw AppError.notFound('Some of these courses no longer exist or are archived');
+  if (academicYear) {
+    for (const c of courses) {
+      if (c.classLevel == null || c.subject == null) continue;
+      await assertNoDuplicateInSlot({ classLevel: c.classLevel, subject: c.subject, academicYear, month, title: c.title, id: c._id }, ids);
+    }
+    // Two of the chapters being moved must not land on each other either.
+    const landing = new Set<string>();
+    for (const c of courses) {
+      const key = `${c.classLevel}|${c.subject}|${c.title.trim().toLowerCase()}`;
+      if (landing.has(key)) throw AppError.conflict(`Two selected courses are both called “${c.title}” in the same subject — schedule them separately`);
+      landing.add(key);
+    }
+  }
+  const by = new Types.ObjectId(req.user!.id);
+  await Course.updateMany({ _id: { $in: courses.map((c) => c._id) } }, { $set: { academicYear: academicYear ?? null, month: academicYear ? month : null, updatedBy: by } });
+  invalidateCatalog();
+  for (const c of courses) await auditCourse(req, 'course_updated', c, 'Scheduled', { fields: ['schedule'], academicYear: academicYear ?? null, month: academicYear ? month : null });
+  sendSuccess(res, { changed: courses.length }, 200, undefined, academicYear ? `Scheduled ${courses.length} course${courses.length === 1 ? '' : 's'}` : `Cleared the schedule of ${courses.length} course${courses.length === 1 ? '' : 's'}`);
+});
+
+/** GET /api/admin/content/courses/stats — learners per chapter for a year, month, class and subject, and how many chapters still need a schedule. */
+export const courseLearningStats = asyncHandler(async (req: Request, res: Response) => {
+  const q = req.query as unknown as { classLevel?: number; subject?: string; academicYear?: string; month?: number; schedule?: 'scheduled' | 'unscheduled' };
+  const where: FilterQuery<ICourse> = { ...(q.classLevel !== undefined ? { classLevel: q.classLevel } : {}), ...(q.subject ? { subject: q.subject } : {}), ...scheduleFilterOf(q) };
+  const [courses, unscheduled] = await Promise.all([courseStats(where), Course.countDocuments({ archivedAt: null, academicYear: null, ...(q.classLevel !== undefined ? { classLevel: q.classLevel } : {}), ...(q.subject ? { subject: q.subject } : {}) })]);
+  const learners = courses.reduce((n, c) => n + c.started, 0);
+  const weighted = (pick: (c: (typeof courses)[number]) => number | null) => {
+    const rows = courses.filter((c) => c.started > 0 && pick(c) !== null);
+    const weight = rows.reduce((n, c) => n + c.started, 0);
+    return weight ? Math.round(rows.reduce((n, c) => n + pick(c)! * c.started, 0) / weight) : null;
+  };
+  sendSuccess(res, {
+    unscheduled,
+    totals: {
+      courses: courses.length,
+      // A learner counts once per chapter they touched (the same learner in two chapters is two rows).
+      started: learners,
+      inProgress: courses.reduce((n, c) => n + c.inProgress, 0),
+      completed: courses.reduce((n, c) => n + c.completed, 0),
+      averageProgress: weighted((c) => c.averageProgress) ?? 0,
+      averageScore: weighted((c) => c.averageScore),
+    },
+    courses,
+  });
 });
 
 export const moveCourse = asyncHandler(async (req: Request, res: Response) => {
