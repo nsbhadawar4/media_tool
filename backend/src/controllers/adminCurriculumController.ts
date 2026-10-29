@@ -313,10 +313,15 @@ const publicClassFields = (cls: IContentItem) => ({
 });
 
 /** /api/content/classes/:slug/curriculum — a published, visible class as visitors read it. */
+export async function loadPublicCurriculum(slug: string, query?: ScheduleQuery) {
+  const cls = await findPublicClass(slug);
+  return { class: publicClassFields(cls), subjects: await curriculumOf(cls, 'public', undefined, query) };
+}
+
 export const publicClassCurriculum = asyncHandler(async (req: Request, res: Response) => {
-  const cls = await findPublicClass(String(req.params.slug));
+  const data = await loadPublicCurriculum(String(req.params.slug), req.query as ScheduleQuery);
   res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, { class: publicClassFields(cls), subjects: await curriculumOf(cls, 'public', undefined, req.query as ScheduleQuery) });
+  sendSuccess(res, data);
 });
 
 /**
@@ -324,8 +329,8 @@ export const publicClassCurriculum = asyncHandler(async (req: Request, res: Resp
  * class, with what each holds (subjects, chapters, lessons, minutes), and what is not scheduled yet.
  * Counts only: it is what the year / month picker is drawn from, so it never offers an empty month.
  */
-export const publicClassSchedule = asyncHandler(async (req: Request, res: Response) => {
-  const cls = await findPublicClass(String(req.params.slug));
+export async function loadPublicSchedule(slug: string) {
+  const cls = await findPublicClass(slug);
   const subjects = await curriculumOf(cls, 'public');
   const slots = new Map<string, { academicYear: string | null; month: number | null; subjects: Set<string>; chapters: number; lessons: number; minutes: number }>();
   for (const s of subjects) {
@@ -341,8 +346,7 @@ export const publicClassSchedule = asyncHandler(async (req: Request, res: Respon
   }
   const row = (x: { subjects: Set<string>; chapters: number; lessons: number; minutes: number }) => ({ subjects: x.subjects.size, chapters: x.chapters, lessons: x.lessons, minutes: x.minutes });
   const years = [...new Set([...slots.values()].map((x) => x.academicYear).filter((y): y is string => Boolean(y)))].sort();
-  res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, {
+  return {
     currentYear: academicYearOf(new Date()),
     currentMonth: new Date().getMonth() + 1,
     // The class as a whole (every chapter, scheduled or not), so its page needs no second read for its headline figures.
@@ -363,7 +367,13 @@ export const publicClassSchedule = asyncHandler(async (req: Request, res: Respon
       const open = [...slots.values()].filter((x) => !x.academicYear);
       return row({ subjects: new Set(open.flatMap((x) => [...x.subjects])), chapters: open.reduce((n, x) => n + x.chapters, 0), lessons: open.reduce((n, x) => n + x.lessons, 0), minutes: open.reduce((n, x) => n + x.minutes, 0) });
     })(),
-  });
+  };
+}
+
+export const publicClassSchedule = asyncHandler(async (req: Request, res: Response) => {
+  const data = await loadPublicSchedule(String(req.params.slug));
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, data);
 });
 
 /**
@@ -372,12 +382,17 @@ export const publicClassSchedule = asyncHandler(async (req: Request, res: Respon
  * from the address, so the pair is checked here: a subject the class doesn't offer, or one that is
  * hidden or switched off in it, is a 404 — never another class's subject of the same name.
  */
-export const publicClassSubject = asyncHandler(async (req: Request, res: Response) => {
-  const cls = await findPublicClass(String(req.params.slug));
-  const [subject] = await curriculumOf(cls, 'public', String(req.params.subject), req.query as ScheduleQuery);
+export async function loadPublicSubject(slug: string, subjectKey: string, query?: ScheduleQuery) {
+  const cls = await findPublicClass(slug);
+  const [subject] = await curriculumOf(cls, 'public', subjectKey, query);
   if (!subject) throw AppError.notFound('Subject not found in this class');
+  return { class: publicClassFields(cls), subject };
+}
+
+export const publicClassSubject = asyncHandler(async (req: Request, res: Response) => {
+  const data = await loadPublicSubject(String(req.params.slug), String(req.params.subject), req.query as ScheduleQuery);
   res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, { class: publicClassFields(cls), subject });
+  sendSuccess(res, data);
 });
 
 /**
@@ -395,14 +410,19 @@ export async function findPublicChapter(slug: string, subjectKey: string, chapte
   return { cls, subject, course };
 }
 
-export const publicChapter = asyncHandler(async (req: Request, res: Response) => {
-  const { cls, subject, course } = await findPublicChapter(String(req.params.slug), String(req.params.subject), String(req.params.chapter));
-  res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, {
+export async function loadPublicChapter(slug: string, subjectKey: string, chapterSlug: string) {
+  const { cls, subject, course } = await findPublicChapter(slug, subjectKey, chapterSlug);
+  return {
     class: publicClassFields(cls),
     subject: { key: subject.key, title: subject.title, glyph: subject.glyph },
     chapter: serializeChapter(course, 'public'),
     // Previous / next and "chapter N of M" stay inside the month this chapter is taught in.
     chapters: subject.chapters.filter((c) => sameSlot(c, course)).map((c) => ({ slug: c.slug, title: c.title })),
-  });
+  };
+}
+
+export const publicChapter = asyncHandler(async (req: Request, res: Response) => {
+  const data = await loadPublicChapter(String(req.params.slug), String(req.params.subject), String(req.params.chapter));
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, data);
 });

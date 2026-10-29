@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ContentUnavailableError } from '@/lib/server/contentErrors';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
@@ -6,7 +7,6 @@ import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Clock, ListChecks, Penci
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { Resources } from '@/components/courses/CurriculumView';
-import { ClassUnavailable } from '@/components/courses/ClassStates';
 import { ChapterQuiz, ProgressMark, StudyQuestions } from '@/components/courses/LearnWidgets';
 import { getPublicChapter } from '@/lib/server/contentCatalog';
 import { chapterPath, classPath, formatMinutes, lessonPath, subjectPath } from '@/lib/content/learnPaths';
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ClassChapterPage({ params }: Params) {
   const { slug, subject: subjectKey, chapter: chapterSlug } = await params;
   const read = await getPublicChapter(slug, subjectKey, chapterSlug);
-  if (read.status === 'error') return <ClassUnavailable what="chapter" retryHref={chapterPath(slug, subjectKey, chapterSlug)} />;
+  if (read.status === 'error') throw new ContentUnavailableError('chapter');
   if (read.status === 'missing') notFound();
   const { class: cls, subject, chapter, chapters } = read.data;
   // The month the database says this chapter is taught in: the way back to the subject and class keeps it.

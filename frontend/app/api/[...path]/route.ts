@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import { after } from 'next/server';
 import { handleWithExpress } from '@/lib/server/expressBridge';
+import { loadBackend } from '@/lib/server/backend';
 
 /**
  * The entire backend API, as one Vercel Function.
@@ -78,10 +79,8 @@ function getApp(): Promise<Express> {
  * module and the app it returns are both cached above.
  */
 async function startApp(): Promise<Express> {
-  const [{ createApp, setBackgroundRunner, runTracked }, database] = await Promise.all([
-    import('media-tool-backend'),
-    import('media-tool-backend/database'),
-  ]);
+  // Shared with the server-rendered pages (lib/server/backend.ts): one backend instance per process.
+  const { createApp, setBackgroundRunner, runTracked, ensureDatabase: connect } = await loadBackend();
 
   /**
    * Work the backend defers until after its response (today: password-reset emails) must not
@@ -97,7 +96,7 @@ async function startApp(): Promise<Express> {
     }
   });
 
-  ensureDatabase = database.connectDatabaseOnce;
+  ensureDatabase = connect;
   await ensureDatabase();
   return createApp();
 }

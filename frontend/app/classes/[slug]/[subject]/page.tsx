@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ContentUnavailableError } from '@/lib/server/contentErrors';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { notFound } from 'next/navigation';
@@ -7,7 +8,7 @@ import { currentViewer } from '@/components/marketing/MarketingShell';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
 import { Resources } from '@/components/courses/CurriculumView';
 import { ProgressMark } from '@/components/courses/LearnWidgets';
-import { ClassUnavailable, ScheduleEmptyState } from '@/components/courses/ClassStates';
+import { ScheduleEmptyState } from '@/components/courses/ClassStates';
 import { SubjectStart } from '@/components/courses/learn/ProgressPieces';
 import { parseSchedule, scheduleApiSearch, scheduleLabel } from '@/lib/content/academicCalendar';
 import { getPublicClassSubject, getPublicCurriculum, getPublicManualCourses, getServerCatalog } from '@/lib/server/contentCatalog';
@@ -49,7 +50,7 @@ export default async function ClassSubjectPage({ params, searchParams }: Params)
   const search = scheduleApiSearch(when);
   // The class's other subjects too, for previous / next (the same public data as the class page).
   const [raw, read, curriculum, manual] = await Promise.all([getServerCatalog(), getPublicClassSubject(slug, subjectKey, search), getPublicCurriculum(slug, search), getPublicManualCourses(slug, subjectKey)]);
-  if (read.status === 'error') return <ClassUnavailable what="subject" retryHref={subjectPath(slug, subjectKey, when)} />;
+  if (read.status === 'error') throw new ContentUnavailableError('subject');
   if (read.status === 'missing') {
     // The subject has nothing in that month: say so kindly (if the subject itself exists), instead of a 404.
     const whole = when ? await getPublicClassSubject(slug, subjectKey) : null;

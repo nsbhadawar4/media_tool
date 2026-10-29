@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ContentUnavailableError } from '@/lib/server/contentErrors';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -9,7 +10,7 @@ import { getPublicCurriculum, getPublicSchedule, getServerCatalog } from '@/lib/
 import { SubjectCards } from '@/components/courses/SubjectCards';
 import { SchedulePicker } from '@/components/courses/SchedulePicker';
 import { hasCalendar, parseSchedule, resolveSchedule, scheduleApiSearch, scheduleLabel } from '@/lib/content/academicCalendar';
-import { ClassUnavailable, ScheduleEmptyState } from '@/components/courses/ClassStates';
+import { ScheduleEmptyState } from '@/components/courses/ClassStates';
 import { ClassProgressBar } from '@/components/courses/LearnWidgets';
 import { ThemedPlaceholder } from '@/components/courses/ThemedPlaceholder';
 import { resolveCatalog } from '@/lib/content/catalog';
@@ -48,7 +49,7 @@ export default async function PublicClassPage({ params, searchParams }: Params) 
   const { slug } = await params;
   const asked = parseSchedule(await searchParams);
   const [raw, calendar] = await Promise.all([getServerCatalog(), getPublicSchedule(slug)]);
-  if (!raw) return <ClassUnavailable what="class" retryHref={classPath(slug)} />;
+  if (!raw) throw new ContentUnavailableError('class');
   // The class may have a calendar (chapters an administrator scheduled): the year and month in the address, or the
   // current ones, decide which subjects and chapters are read from the database. Without one — or if the calendar
   // cannot be read — everything shows as it always has.
@@ -58,7 +59,7 @@ export default async function PublicClassPage({ params, searchParams }: Params) 
   // link shows the same month tomorrow as today.
   if (schedule && selected && asked && asked !== 'invalid' && asked.month === null && selected.month !== null) redirect(classPath(slug, selected));
   const curriculum = await getPublicCurriculum(slug, scheduleApiSearch(selected));
-  if (curriculum.status === 'error') return <ClassUnavailable what="class" retryHref={classPath(slug, selected)} />;
+  if (curriculum.status === 'error') throw new ContentUnavailableError('class');
   const catalog = resolveCatalog(raw);
   // Published, visible classes only (drafts and hidden classes are previewed in Manage Courses).
   // The Kid Games switch doesn't matter here; it only decides whether the class's games can be played.

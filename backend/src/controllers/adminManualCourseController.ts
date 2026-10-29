@@ -520,15 +520,13 @@ function publicCourse(course: IManualCourse) {
 }
 
 /** GET /api/content/classes/:slug/subjects/:subject/manual-courses — that subject's manual courses. */
-export const publicManualCourses = asyncHandler(async (req: Request, res: Response) => {
-  const cls = await findPublicClass(String(req.params.slug));
-  await publicSubject(cls.classLevel!, String(req.params.subject));
-  const courses = await ManualCourse.find({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': String(req.params.subject) })
+export async function loadPublicManualCourses(slug: string, subjectKey: string) {
+  const cls = await findPublicClass(slug);
+  await publicSubject(cls.classLevel!, subjectKey);
+  const courses = await ManualCourse.find({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': subjectKey })
     .sort({ publishedAt: -1, _id: -1 })
     .limit(50);
-  res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(
-    res,
+  return (
     courses
       .map(publicCourse)
       .filter((c) => c.chapters.length > 0)
@@ -538,17 +536,28 @@ export const publicManualCourses = asyncHandler(async (req: Request, res: Respon
         description: c.description,
         chapters: c.chapters.length,
         lessons: c.chapters.reduce((n, ch) => n + ch.lessons.length, 0),
-      })),
+      }))
   );
+}
+
+export const publicManualCourses = asyncHandler(async (req: Request, res: Response) => {
+  const data = await loadPublicManualCourses(String(req.params.slug), String(req.params.subject));
+  res.setHeader('Cache-Control', 'no-cache');
+  sendSuccess(res, data);
 });
 
 /** GET /api/content/classes/:slug/subjects/:subject/manual-courses/:course — one in full. */
-export const publicManualCourse = asyncHandler(async (req: Request, res: Response) => {
-  const cls = await findPublicClass(String(req.params.slug));
-  const subject = await publicSubject(cls.classLevel!, String(req.params.subject));
-  const course = await ManualCourse.findOne({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': subject.key, slug: String(req.params.course) });
+export async function loadPublicManualCourse(slug: string, subjectKey: string, courseSlug: string) {
+  const cls = await findPublicClass(slug);
+  const subject = await publicSubject(cls.classLevel!, subjectKey);
+  const course = await ManualCourse.findOne({ ...PUBLIC, 'live.classLevel': cls.classLevel, 'live.subjectKey': subject.key, slug: courseSlug });
   const view = course && publicCourse(course);
   if (!view || !view.chapters.length) throw AppError.notFound('Course not found');
+  return { class: { slug: cls.key, title: cls.title, classLevel: cls.classLevel }, subject: { key: subject.key, title: subject.title }, course: view };
+}
+
+export const publicManualCourse = asyncHandler(async (req: Request, res: Response) => {
+  const data = await loadPublicManualCourse(String(req.params.slug), String(req.params.subject), String(req.params.course));
   res.setHeader('Cache-Control', 'no-cache');
-  sendSuccess(res, { class: { slug: cls.key, title: cls.title, classLevel: cls.classLevel }, subject: { key: subject.key, title: subject.title }, course: view });
+  sendSuccess(res, data);
 });

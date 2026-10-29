@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
+import { ContentUnavailableError } from '@/lib/server/contentErrors';
 import { notFound } from 'next/navigation';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
-import { ClassUnavailable } from '@/components/courses/ClassStates';
 import { CourseBreadcrumb } from '@/components/courses/CourseBreadcrumb';
 import { ManualCourseView } from '@/components/courses/ManualCourseView';
 import { getPublicManualCourse } from '@/lib/server/contentCatalog';
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function ManualCoursePage({ params }: Params) {
   const { slug, subject, course } = await params;
   const read = await getPublicManualCourse(slug, subject, course);
-  if (read.status === 'error') return <ClassUnavailable what="subject" retryHref={`${subjectPath(slug, subject)}/manual/${encodeURIComponent(course)}`} />;
+  if (read.status === 'error') throw new ContentUnavailableError('subject');
   if (read.status === 'missing') notFound();
   const { class: cls, subject: sub, course: c } = read.data;
 

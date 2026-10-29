@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
+import { ContentUnavailableError } from '@/lib/server/contentErrors';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { classVars } from '@/components/kid-games/cards/ClassCourseCard';
-import { ClassUnavailable } from '@/components/courses/ClassStates';
 import { KidLesson } from '@/components/courses/learn/KidLesson';
 import { getPublicChapter } from '@/lib/server/contentCatalog';
 import { chapterPath, classPath, lessonPath, parseLessonParam, subjectPath } from '@/lib/content/learnPaths';
@@ -41,7 +41,7 @@ export default async function LessonPage({ params }: Params) {
   const n = lessonNumber(raw);
   if (!Number.isInteger(n) || n < 1) notFound();
   const read = await getPublicChapter(slug, subjectKey, chapterSlug);
-  if (read.status === 'error') return <ClassUnavailable what="chapter" retryHref={`${chapterPath(slug, subjectKey, chapterSlug)}/${raw}`} />;
+  if (read.status === 'error') throw new ContentUnavailableError('chapter');
   if (read.status === 'missing') notFound();
   const { class: cls, subject, chapter, chapters } = read.data;
   // The month the database says this chapter is taught in: the way back to the subject and class keeps it.
