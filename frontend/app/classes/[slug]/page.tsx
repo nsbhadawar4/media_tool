@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, BookOpen, Gamepad2 } from 'lucide-react';
 import { currentViewer } from '@/components/marketing/MarketingShell';
 import { builtInSubtitle, classPicture, classVars } from '@/components/kid-games/cards/ClassCourseCard';
@@ -54,6 +54,9 @@ export default async function PublicClassPage({ params, searchParams }: Params) 
   // cannot be read — everything shows as it always has.
   const schedule = calendar.status === 'ok' && hasCalendar(calendar.data) ? calendar.data : null;
   const { selected } = schedule ? resolveSchedule(schedule, asked) : { selected: null };
+  // A year without a month (the year selector) opens on one: make that month the address, so a refresh or a shared
+  // link shows the same month tomorrow as today.
+  if (schedule && selected && asked && asked !== 'invalid' && asked.month === null && selected.month !== null) redirect(classPath(slug, selected));
   const curriculum = await getPublicCurriculum(slug, scheduleApiSearch(selected));
   if (curriculum.status === 'error') return <ClassUnavailable what="class" retryHref={classPath(slug, selected)} />;
   const catalog = resolveCatalog(raw);

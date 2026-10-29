@@ -19,11 +19,49 @@ const RETRY_TIMEOUT_MS = 6000;
 export async function apiOrigin(): Promise<string | null> {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '').replace(/\/api$/, '');
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   const site = configuredSiteUrl();
+  // Production: the public domain. VERCEL_URL is this deployment's own address, which Vercel's Deployment
+  // Protection answers with 401 for server-to-server calls — every page's API read then failed ("Unable to
+  // load this subject") while the browser, on the public domain, worked.
+  if (process.env.VERCEL_ENV === 'production') return site ? site.replace(/\/+$/, '') : null;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   if (site) return site.replace(/\/+$/, '');
   const host = (await headers()).get('host');
   return host && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? `http://${host}` : null;
+}
+
+/** An answer from the API that wasn't a success: its status is kept so a log can tell a 401 from a 500. */
+class ApiStatusError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
+/**
+ * Why a read failed, for the log only (never shown to visitors): 401/403 is Deployment Protection or a wrong
+ * origin, 5xx the API (503 is the database), the rest are network failures and timeouts.
+ */
+function failureReason(err: unknown): string {
+  if (err instanceof ApiStatusError) {
+    if (err.status === 401 || err.status === 403) return `HTTP ${err.status} (blocked — deployment protection or wrong API origin)`;
+    if (err.status === 503) return 'HTTP 503 (API or database unavailable)';
+    return `HTTP ${err.status}${err.status >= 500 ? ' (backend failure)' : ''}`;
+  }
+  if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) return 'timeout';
+  return err instanceof Error ? `network error: ${err.message}` : 'unknown error';
+}
+
+/** A retry is only for a transient failure (network, timeout); an answer of any status is final. */
+const retryable = (err: unknown) => !(err instanceof ApiStatusError);
+
+/**
+ * Headers for this server's own API calls. On a protected preview deployment Vercel supplies a bypass secret
+ * (VERCEL_AUTOMATION_BYPASS_SECRET, when Protection Bypass for Automation is on); without it the call is 401.
+ * Server-side only: the secret never reaches a browser.
+ */
+export function apiHeaders(): Record<string, string> {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  return secret ? { 'x-vercel-protection-bypass': secret } : {};
 }
 
 /**
@@ -42,15 +80,18 @@ export const getServerCatalog = cache(async (): Promise<PublicCatalog | null> =>
     const origin = await apiOrigin();
     if (!origin) throw new Error('no trusted API origin configured (set NEXT_PUBLIC_SITE_URL)');
     const read = async (timeout: number) => {
-      const res = await fetch(`${origin}/api/content/catalog`, { cache: 'no-store', signal: AbortSignal.timeout(timeout) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`${origin}/api/content/catalog`, { cache: 'no-store', headers: apiHeaders(), signal: AbortSignal.timeout(timeout) });
+      if (!res.ok) throw new ApiStatusError(res.status);
       return ((await res.json()) as { data: PublicCatalog }).data;
     };
     // A cold start (database connecting, catalog seeding) can miss the first window: try once more.
-    return await read(TIMEOUT_MS).catch(() => read(RETRY_TIMEOUT_MS));
+    return await read(TIMEOUT_MS).catch((err) => {
+      if (!retryable(err)) throw err;
+      return read(RETRY_TIMEOUT_MS);
+    });
   } catch (err) {
     // The page still renders (code defaults); say why, so a broken catalog isn't silent.
-    console.warn(`[content] catalog unavailable, using the code defaults: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[content] catalog unavailable, using the code defaults (${await apiOrigin().catch(() => '?')}): ${failureReason(err)}`);
     return null;
   }
 });
@@ -74,16 +115,19 @@ async function readPublicClass<T>(path: string, what: string): Promise<PublicRea
   try {
     const origin = await apiOrigin();
     if (!origin) throw new Error('no trusted API origin configured (set NEXT_PUBLIC_SITE_URL)');
-    const read = () => fetch(`${origin}/api/content/classes/${path}`, { cache: 'no-store', signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) });
+    const read = () => fetch(`${origin}/api/content/classes/${path}`, { cache: 'no-store', headers: apiHeaders(), signal: AbortSignal.timeout(RETRY_TIMEOUT_MS) });
     // A request can land on a pooled keep-alive connection the API has just closed ("fetch failed:
     // read ECONNRESET"): a network error, not an answer — so it is tried once more on a fresh one.
     // An answer (404, 500…) is never retried.
-    const res = await read().catch(() => read());
+    const res = await read().catch((err) => {
+      if (!retryable(err)) throw err;
+      return read();
+    });
     if (res.status === 404 || res.status === 400) return { status: 'missing' };
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new ApiStatusError(res.status);
     return { status: 'ok', data: ((await res.json()) as { data: T }).data };
   } catch (err) {
-    console.warn(`[content] ${what} unavailable: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[content] ${what} unavailable (${await apiOrigin().catch(() => '?')}): ${failureReason(err)}`);
     return { status: 'error' };
   }
 }

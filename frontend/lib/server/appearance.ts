@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { connection } from 'next/server';
 import { parsePolicy, type ThemePolicy } from '@/lib/theme/policy';
-import { apiOrigin } from './contentCatalog';
+import { apiHeaders, apiOrigin } from './contentCatalog';
 
 /** Longest a page waits for the setting; after that the browser's own rule applies. */
 const TIMEOUT_MS = 2000;
@@ -16,7 +16,7 @@ export const getServerAppearance = cache(async (): Promise<ThemePolicy | null> =
   try {
     const origin = await apiOrigin();
     if (!origin) return null;
-    const res = await fetch(`${origin}/api/settings/appearance`, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetch(`${origin}/api/settings/appearance`, { cache: 'no-store', headers: apiHeaders(), signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) return null;
     return parsePolicy(((await res.json()) as { data: unknown }).data);
   } catch {
