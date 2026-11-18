@@ -8,8 +8,8 @@
     <mask id="fade" maskUnits="userSpaceOnUse" x="0" y="0" width="720" height="720"><rect width="720" height="720" fill="url(#fadeGrad)"/></mask>
   </defs>
   <!-- No halo of its own: the page draws a theme-aware glow behind it (.mk-hero-orb). -->
-  <g transform="translate(110 470) rotate(-38) scale(1.25)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#34d399"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g><g transform="translate(150 520) rotate(-70) scale(0.9)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#10b981"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g><g transform="translate(610 460) rotate(36) scale(1.3)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#10b981"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g><g transform="translate(585 540) rotate(72) scale(0.85)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#6ee7b7"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g>
-  <g transform="translate(140 190) rotate(-20) scale(0.55)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#6ee7b7"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g><g transform="translate(520 250) rotate(30) scale(0.45)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#34d399"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g>
+  <g transform="translate(110 470) rotate(-38) scale(1.25)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#34d399"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g><g transform="translate(150 520) rotate(-70) scale(0.9)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#10b981"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g>
+  <g transform="translate(140 190) rotate(-20) scale(0.55)"><path d="M0 0 Q40 -46 0 -110 Q-40 -46 0 0Z" fill="#6ee7b7"/><path d="M0 -4 L0 -100" stroke="#ffffff" stroke-opacity="0.45" stroke-width="3"/></g>
   <g transform="translate(36 120) scale(0.88)" mask="url(#fade)">
     <!-- backpack behind the shoulders -->
     <path d="M250 420 Q240 320 300 300 L500 300 Q560 320 550 420 L550 600 L250 600Z" fill="#065f46" filter="url(#shadow)"/>
@@ -35,9 +35,6 @@
     <path d="M320 352 Q400 400 480 352" stroke="#047857" stroke-width="16" fill="none" stroke-linecap="round"/>
     <g filter="url(#shadow)"><rect x="300" y="450" width="200" height="34" rx="7" fill="#f59e0b"/><rect x="310" y="460" width="180" height="5" rx="2.5" fill="#ffffff" opacity="0.7"/><rect x="312" y="418" width="176" height="34" rx="7" fill="#0ea5e9"/><rect x="322" y="428" width="156" height="5" rx="2.5" fill="#ffffff" opacity="0.7"/><rect x="296" y="386" width="208" height="34" rx="7" fill="#10b981"/><rect x="306" y="396" width="188" height="5" rx="2.5" fill="#ffffff" opacity="0.7"/></g>
     <circle cx="304" cy="470" r="20" fill="#d79c74"/><circle cx="496" cy="470" r="20" fill="#d79c74"/>
-  </g>
-  <g transform="translate(560 120) rotate(-8)" font-family="'Segoe Script', 'Comic Sans MS', cursive" font-weight="700" fill="#10b981">
-    <text x="0" y="0" font-size="40">Learn</text><text x="18" y="48" font-size="40">Play</text><text x="6" y="96" font-size="40">Grow</text>
   </g>
   <path d="M90 316 Q92.52 327.48 104 330 Q92.52 332.52 90 344 Q87.48 332.52 76 330 Q87.48 327.48 90 316Z" fill="#10b981" opacity="0.75"/><path d="M660 318 Q662.16 327.84 672 330 Q662.16 332.16 660 342 Q657.84 332.16 648 330 Q657.84 327.84 660 318Z" fill="#34d399" opacity="0.75"/><path d="M470 61 Q471.62 68.38 479 70 Q471.62 71.62 470 79 Q468.38 71.62 461 70 Q468.38 68.38 470 61Z" fill="#10b981" opacity="0.75"/>
 </svg>

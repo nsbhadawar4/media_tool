@@ -2094,6 +2094,11 @@ html:has(.mk-root) {
   border: 1px solid var(--mk-panel-border);
   box-shadow: var(--mk-panel-shadow);
 }
+/* The hero's full-width banner: the panel surface, edge to edge, with a line underneath. */
+.mk-panel-banner {
+  background: var(--mk-panel-bg);
+  border-bottom: 1px solid var(--mk-panel-border);
+}
 .mk-panel-band {
   background: var(--mk-panel-bg);
   border-top: 1px solid var(--mk-panel-border);

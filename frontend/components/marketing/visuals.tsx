@@ -161,3 +161,31 @@ export function NightSkyArt({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** Green and violet northern lights over a dark ridge and a still lake. */
+export function AuroraArt({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" className={cn(SCENE_SVG, className)}>
+      <defs>
+        <linearGradient id="hl-aurora-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#0b1026" />
+          <stop offset="1" stopColor="#1e1b4b" />
+        </linearGradient>
+        <linearGradient id="hl-aurora-band" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#a78bfa" stopOpacity="0" />
+          <stop offset="0.45" stopColor="#34d399" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#34d399" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="320" height="180" fill="url(#hl-aurora-sky)" />
+      {[[30, 14], [80, 30], [140, 10], [200, 24], [260, 12], [300, 40], [110, 52], [240, 60]].map(([x, y]) => (
+        <circle key={`${x}-${y}`} cx={x} cy={y} r="1" fill="#ffffff" opacity="0.85" />
+      ))}
+      <path d="M-10 110 C 40 40, 90 70, 130 30 C 170 -5, 220 60, 260 20 C 290 0, 310 30, 330 20 L330 70 C 300 80, 280 60, 250 90 C 210 120, 170 70, 130 100 C 90 130, 40 90, -10 140 Z" fill="url(#hl-aurora-band)" />
+      <path d="M40 120 C 80 70, 120 90, 160 60 C 200 30, 240 80, 300 50" stroke="#6ee7b7" strokeWidth="3" opacity="0.5" fill="none" />
+      <path d="M0 140 L40 120 L70 132 L110 112 L150 130 L190 116 L230 132 L270 118 L320 134 L320 150 L0 150 Z" fill="#0f172a" />
+      <rect y="150" width="320" height="30" fill="#111c3a" />
+      <path d="M40 160 C 80 156, 120 164, 160 158 C 200 154, 240 162, 280 158" stroke="#34d399" strokeWidth="2" opacity="0.35" fill="none" />
+    </svg>
+  );
+}
