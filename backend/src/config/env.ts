@@ -2,7 +2,19 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+/**
+ * The backend's .env, wherever the process was started from. `npm run dev` in backend/ finds it in
+ * the working directory; the Next.js app (frontend/) loads this same backend in-process — for the
+ * /api bridge and for server-rendered pages — and its working directory is frontend/, which has no
+ * such file. Without the second path every in-process read failed locally with "MONGODB_URI is
+ * required", and the landing page showed "Unable to load classes".
+ *
+ * dotenv never overrides a variable that is already set, so real environment variables (Vercel)
+ * always win, and of the two files the first one found takes precedence.
+ */
+for (const file of [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '..', 'backend', '.env')]) {
+  dotenv.config({ path: file });
+}
 
 /**
  * True when this process is a Vercel Function (Vercel sets VERCEL=1 during both build

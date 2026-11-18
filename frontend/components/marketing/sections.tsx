@@ -4,12 +4,17 @@ import { Suspense, type CSSProperties, type ReactNode } from "react";
 import { ClassSubjectPicker } from "@/components/courses/ClassSubjectPicker";
 import {
   ArrowRight,
+  BookOpen,
   Check,
   ChevronDown,
-  Download,
-  Eye,
+  ChevronRight,
+  CirclePlay,
+  Crown,
+  CloudUpload,
   FileSpreadsheet,
+  File as FileIcon,
   FileText,
+  Files,
   Flame,
   FolderClosed,
   FolderOpen,
@@ -18,6 +23,8 @@ import {
   GraduationCap,
   Image as ImageIcon,
   KeyRound,
+  Layers,
+  LayoutGrid,
   LibraryBig,
   Lock,
   LogIn,
@@ -33,18 +40,19 @@ import {
   Trash2,
   Trophy,
   TrendingUp,
-  Upload,
   UserPlus,
+  Users,
   Video,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import type { GameMeta } from "@/components/games/games";
 import type { ClassView } from "@/lib/content/catalog";
-import { ClassCourseCard, classVars } from "@/components/kid-games/cards/ClassCourseCard";
+import { builtInSubtitle, classPicture, classVars } from "@/components/kid-games/cards/ClassCourseCard";
 import { LOGIN_PATH } from "@/lib/auth/routes";
 import { PricingCards } from "@/components/billing/PricingCards";
 import { cn } from "@/utils/cn";
-import { PhotoArt } from "./visuals";
+import { GreenHillsArt, MountainSunsetArt, NightSkyArt, PhotoArt, WaterfallArt } from "./visuals";
 
 /*
  * The public home page's sections. Server components only: the page ships no JavaScript for
@@ -171,24 +179,6 @@ function IconTile({
   );
 }
 
-function CheckList({ items }: { items: readonly string[] }) {
-  return (
-    <ul className="mt-7 space-y-3.5">
-      {items.map((item) => (
-        <li
-          key={item}
-          className="flex items-start gap-3 text-[15px] text-foreground-soft"
-        >
-          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent-2 ring-1 ring-accent/25">
-            <Check className="h-3 w-3" strokeWidth={3} />
-          </span>
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
@@ -251,11 +241,113 @@ const TRUST = [
 
 /** What the platform offers, in four words each — every one of them true of the app. */
 const HERO_FEATURES = [
-  { icon: Sparkles, label: "Interactive Learning" },
+  { icon: BookOpen, label: "Interactive Learning" },
   { icon: Gamepad2, label: "Fun Games & Activities" },
   { icon: TrendingUp, label: "Progress Tracking" },
   { icon: ShieldCheck, label: "Safe & Secure Platform" },
 ] as const;
+
+/** A class under the hero: its picture, name and line, in a glowing frame (the first wears a crown). */
+function HeroClassCard({ c, index }: { c: ClassView; index: number }) {
+  const picture = classPicture(c.level, c.thumbnailUrl, c.title, c.isCode);
+  const subtitle = c.subtitle || builtInSubtitle(c.level);
+  return (
+    <Link
+      href={`/classes/${c.key}`}
+      aria-label={`Explore ${c.title}`}
+      className={cn(
+        "group relative block rounded-[1.75rem] border-2 border-accent-2/80 bg-surface-elevated p-1.5 shadow-[0_0_0_4px_rgba(74,222,128,0.12),0_0_36px_-4px_rgba(74,222,128,0.55)] transition-transform duration-300 hover:-translate-y-1",
+        focusRing,
+      )}
+    >
+      {index === 0 && (
+        <Crown aria-hidden className="absolute -right-5 -top-6 z-10 h-10 w-10 rotate-[18deg] text-[#facc15] drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]" strokeWidth={2.2} />
+      )}
+      <span className="relative block aspect-[16/10] overflow-hidden rounded-[1.4rem] bg-gradient-to-br from-[#14532d] to-[#052e16]">
+        {picture ? (
+          <Image
+            src={picture.src}
+            alt={picture.alt}
+            fill
+            unoptimized={!picture.local}
+            sizes="(min-width: 1024px) 300px, 70vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            style={picture.focus ? { objectPosition: picture.focus } : undefined}
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center text-accent-2">
+            <GraduationCap className="h-12 w-12" />
+          </span>
+        )}
+        {/* Fades the picture into the card's caption. */}
+        <span aria-hidden className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-surface-elevated to-transparent" />
+      </span>
+      <span className="flex items-center justify-between gap-3 px-4 pb-3 pt-2">
+        <span className="min-w-0">
+          <span className="block truncate text-2xl font-bold text-foreground">{c.title}</span>
+          {subtitle && <span className="block truncate text-[15px] text-foreground-soft">{subtitle}</span>}
+        </span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-2 to-accent text-accent-foreground shadow-[0_0_18px_rgba(74,222,128,0.6)] transition-transform group-hover:translate-x-0.5">
+          <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+/** Graduation cap on two books between leaves, drawn in glowing emerald lines (decorative). */
+function HeroLearnIllustration({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 420 260" className={className} aria-hidden fill="none">
+      <defs>
+        <linearGradient id="hl-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#16a34a" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#14532d" stopOpacity="0.35" />
+        </linearGradient>
+        <linearGradient id="hl-leaf" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#22c55e" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#14532d" stopOpacity="0.15" />
+        </linearGradient>
+        <filter id="hl-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      {/* Leaves */}
+      <path d="M70 250 C 40 200, 50 150, 90 120 C 110 170, 100 220, 70 250 Z" fill="url(#hl-leaf)" />
+      <path d="M60 252 C 20 240, 0 200, 10 170 C 50 185, 70 220, 60 252 Z" fill="url(#hl-leaf)" />
+      <path d="M350 250 C 380 200, 370 150, 330 120 C 310 170, 320 220, 350 250 Z" fill="url(#hl-leaf)" />
+      <path d="M362 252 C 400 240, 420 200, 410 168 C 372 184, 352 220, 362 252 Z" fill="url(#hl-leaf)" />
+      <g stroke="#4ade80" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" filter="url(#hl-glow)">
+        {/* Bottom book */}
+        <path d="M96 214 L320 214 Q332 214 332 226 L332 238 Q332 250 320 250 L96 250 Z" fill="url(#hl-fill)" />
+        <path d="M150 224 L310 224 M150 240 L310 240" opacity="0.7" />
+        {/* Top book */}
+        <path d="M110 170 L300 170 Q312 170 312 182 L312 196 Q312 208 300 208 L110 208 Z" fill="url(#hl-fill)" />
+        <path d="M160 180 L292 180 M160 198 L292 198" opacity="0.7" />
+        {/* Cap crown */}
+        <path d="M150 92 L150 132 Q210 160 270 132 L270 92" fill="url(#hl-fill)" />
+        {/* Cap board */}
+        <path d="M210 30 L330 76 L210 122 L90 76 Z" fill="url(#hl-fill)" />
+        {/* Tassel */}
+        <path d="M210 76 L300 92 L300 132" />
+        <path d="M292 132 L308 132 L312 150 L288 150 Z" fill="#4ade80" fillOpacity="0.6" />
+      </g>
+    </svg>
+  );
+}
+
+/** A four-pointed sparkle. */
+function Sparkle({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={className} fill="currentColor">
+      <path d="M12 0 C 13 8, 16 11, 24 12 C 16 13, 13 16, 12 24 C 11 16, 8 13, 0 12 C 8 11, 11 8, 12 0 Z" />
+    </svg>
+  );
+}
 
 /**
  * The home page's first screen, education first (the Emerald Mint reference): "Learn by Class /
@@ -366,45 +458,48 @@ export function Hero({ featuresLink = true, classes = [] }: { featuresLink?: boo
           </div>
         </div>
 
-        {/* The classes, straight away: the shared card, compact. */}
-        {hasClasses && (
-          <ul
-            aria-label="Classes"
-            style={{ "--i": 5 } as CSSProperties}
-            className="anim-rise -mx-4 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-5"
-          >
-            {classes.map((c, i) => (
-              <li key={c.key} className="w-[44%] min-w-[150px] shrink-0 snap-start sm:w-auto sm:min-w-0">
-                <ClassCourseCard
-                  variant="compact"
-                  level={c.level}
-                  builtIn={c.isCode}
-                  title={c.title}
-                  subtitle={c.subtitle || undefined}
-                  image={c.thumbnailUrl}
-                  href={`/classes/${c.key}`}
-                  linkLabel={`Explore ${c.title}`}
-                  index={i}
-                />
+        {/* The classes and what the platform offers, on one dark emerald panel (dark in both themes). */}
+        <div
+          style={{ "--i": 5 } as CSSProperties}
+          className="anim-rise mk-panel relative mt-12 overflow-hidden rounded-[2rem] px-5 py-8 sm:px-8 sm:py-10"
+        >
+          {hasClasses && (
+            <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+              <ul
+                aria-label="Classes"
+                className="-mx-5 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-2 pt-6 sm:mx-0 sm:grid sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] sm:overflow-visible sm:px-2 sm:pb-0"
+              >
+                {classes.map((c, i) => (
+                  <li key={c.key} className="w-[75%] min-w-[220px] shrink-0 snap-start sm:w-auto sm:min-w-0">
+                    <HeroClassCard c={c} index={i} />
+                  </li>
+                ))}
+              </ul>
+              <div aria-hidden className="relative hidden lg:block">
+                <Sparkle className="absolute left-[4%] top-[38%] h-5 w-5 text-accent-2" />
+                <Sparkle className="absolute right-[8%] top-[2%] h-6 w-6 text-accent-2" />
+                <HeroLearnIllustration className="mx-auto w-full max-w-md" />
+              </div>
+            </div>
+          )}
+
+          <ul className={cn("grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4", hasClasses && "mt-10")}>
+            {HERO_FEATURES.map(({ icon: Icon, label }, i) => (
+              <li
+                key={label}
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl px-4 py-4 sm:gap-4 sm:px-6 sm:py-5",
+                  i === 0
+                    ? "bg-gradient-to-br from-accent-2 to-accent text-accent-foreground shadow-[0_0_30px_-6px_var(--glow)]"
+                    : "border border-accent-2/25 bg-surface-elevated/60 text-foreground",
+                )}
+              >
+                <Icon className={cn("h-7 w-7 shrink-0", i === 0 ? "text-accent-foreground" : "text-accent-2")} strokeWidth={1.9} />
+                <span className="text-[15px] font-semibold leading-snug sm:text-base">{label}</span>
               </li>
             ))}
           </ul>
-        )}
-
-        {/* What the platform offers, on one glass strip. */}
-        <ul
-          style={{ "--i": 6 } as CSSProperties}
-          className="anim-rise mk-glass-strip mt-8 grid grid-cols-2 gap-x-4 gap-y-4 rounded-3xl px-5 py-5 sm:px-7 lg:grid-cols-4"
-        >
-          {HERO_FEATURES.map(({ icon: Icon, label }) => (
-            <li key={label} className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
-                <Icon className="h-5 w-5" strokeWidth={1.9} />
-              </span>
-              <span className="text-sm font-semibold leading-tight text-foreground">{label}</span>
-            </li>
-          ))}
-        </ul>
+        </div>
       </div>
     </section>
   );
@@ -609,95 +704,144 @@ export function Highlights() {
  * Features — a single bordered matrix, one lead feature and the rest around it
  * ---------------------------------------------------------------------------------------- */
 
-const FEATURES: readonly {
-  icon: LucideIcon;
-  title: string;
-  body: string;
-  color: string;
-}[] = [
+/** Everything listed here is true of the app today. */
+const FEATURES: readonly { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Lock,
     title: "Private media library",
     body: "Every file belongs to one account and is checked on every request. Nobody else can open your library.",
-    color: "#34d399",
   },
   {
-    icon: FolderTree,
+    icon: FolderClosed,
     title: "Folders & organisation",
     body: "Nested folders, renaming, moving and bulk actions — plus search across everything by name.",
-    color: "#22d3ee",
   },
   {
     icon: FileText,
     title: "Document management",
     body: "PDF, Word, Excel and text files beside your media. PDFs and text open right in the app.",
-    color: "#f59e0b",
   },
   {
     icon: MonitorSmartphone,
     title: "Browser-based access",
     body: "Nothing to install. Use it on desktop or phone, or add it to your home screen like an app.",
-    color: "#60a5fa",
   },
   {
-    icon: Eye,
+    icon: CirclePlay,
     title: "Previews & viewer",
     body: "Thumbnails for photos and videos, a full-screen viewer and a built-in player — no downloading to take a look.",
-    color: "#f472b6",
   },
   {
     icon: Trash2,
     title: "Trash & restore",
     body: "Deleted files and folders go to Trash first. Restore them any time, or remove them for good.",
-    color: "#34d399",
   },
 ];
 
+/** Each small tile's own tilt, so the ring looks scattered rather than drawn with a compass. */
+const FEATURE_TILE_TILT = ["-6deg", "8deg", "-8deg", "6deg", "5deg"] as const;
+
+/**
+ * The big folder with the other features' icons round it (decorative), always gently moving
+ * (globals.css, "Features illustration"): the tiles orbit the folder — each turning back the other
+ * way, so it stays upright — and pop in turn, the folder bobs and the rings ripple outwards.
+ * Still for anyone who asked for reduced motion.
+ */
+function FeaturesIllustration() {
+  const around = FEATURES.filter((f) => f.icon !== FolderClosed);
+  return (
+    <div aria-hidden className="relative mx-auto aspect-square w-full max-w-[340px]">
+      {/* Rings, rippling outwards in turn */}
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="mk-ripple absolute inset-[8%] rounded-full border border-accent-2/30" style={{ animationDelay: `${i * 1.6}s` }} />
+      ))}
+      <span className="absolute inset-[18%] rounded-full border border-accent-2/15" />
+      <span className="mk-glow-pulse absolute inset-[22%] rounded-full bg-[radial-gradient(circle,var(--glow),transparent_70%)]" />
+
+      {/* The folder, bobbing */}
+      <span className="mk-bob absolute inset-0 flex items-center justify-center">
+        <span className="flex h-[38%] w-[38%] rotate-[-4deg] items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-accent-2 to-accent text-accent-foreground shadow-[0_24px_40px_-14px_var(--glow),0_10px_0_-2px_color-mix(in_srgb,var(--accent)_60%,black)]">
+          <FolderClosed className="h-1/2 w-1/2" strokeWidth={1.6} />
+        </span>
+      </span>
+
+      {/* The tiles, evenly round a circle, orbiting */}
+      <div className="mk-orbit absolute inset-0">
+        {around.map(({ icon: Icon, title }, i) => {
+          const angle = (i / around.length) * 2 * Math.PI - Math.PI / 2;
+          const left = 50 + 38 * Math.cos(angle) - 10.5;
+          const top = 50 + 38 * Math.sin(angle) - 10.5;
+          return (
+            <span key={title} className="absolute h-[21%] w-[21%]" style={{ left: `${left}%`, top: `${top}%` }}>
+              <span
+                className="mk-orbit-tile flex h-full w-full items-center justify-center rounded-2xl border border-border bg-surface-elevated text-accent shadow-[var(--shadow-lift)]"
+                style={{ transform: `rotate(${FEATURE_TILE_TILT[i % FEATURE_TILE_TILT.length]})`, animationDelay: `0s, ${i * 0.7}s` }}
+              >
+                <Icon className="h-1/2 w-1/2" strokeWidth={2} />
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Features, on the shared emerald panel (it follows the theme): the heading and a way on, the
+ * features round a folder, and the list of them — each opens to say what it means, one at a time
+ * (`name` makes the rows an exclusive accordion).
+ */
 export function Features() {
   return (
     <Section id="features">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-end lg:gap-16">
-        <SectionHeading
-          align="left"
-          eyebrow="Features"
-          title={
-            <>
-              Built for the way you <Highlight>actually keep things</Highlight>
-            </>
-          }
-        />
-        <p className="mk-reveal max-w-xl text-pretty text-[15px] leading-relaxed text-muted sm:text-[17px] lg:pb-1">
-          media_tool brings your files together — organised, searchable and
-          private to you, with nothing to install.
-        </p>
-      </div>
-
-      <div className="mk-reveal mk-matrix mt-14 grid overflow-hidden rounded-3xl sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((feature) => (
-          <article
-            key={feature.title}
-            className="mk-matrix-cell group relative p-7 sm:p-8"
-          >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-              style={{
-                background: `radial-gradient(70% 60% at 0% 0%, color-mix(in srgb, ${feature.color} 14%, transparent), transparent 70%)`,
-              }}
-            />
-            <IconTile
-              icon={feature.icon}
-              color={feature.color}
-              className="relative transition-transform duration-300 group-hover:-translate-y-0.5"
-            />
-            <h3 className="relative mt-6 text-lg font-semibold tracking-tight text-foreground">
-              {feature.title}
-            </h3>
-            <p className="relative mt-2 text-sm leading-relaxed text-muted">
-              {feature.body}
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-12 lg:px-10">
+        <div className="relative grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)] lg:gap-8">
+          <div className="mk-reveal">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-accent">
+              <span aria-hidden className="h-0.5 w-5 rounded-full bg-accent" /> Features
             </p>
-          </article>
-        ))}
+            <h2 className="mt-4 text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[40px]">
+              Built for the way you <span className="text-accent">actually keep things</span>
+            </h2>
+            <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-foreground-soft">
+              media_tool brings your files together — organised, searchable and private to you, with nothing to install.
+            </p>
+            <Link
+              href="/#media"
+              className={cn(
+                "mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-accent to-accent-hover px-6 py-3 text-[15px] font-semibold text-accent-foreground shadow-[0_12px_24px_-10px_var(--glow)] transition-transform hover:-translate-y-0.5",
+                focusRing,
+              )}
+            >
+              Explore Features <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          <div className="mk-reveal hidden sm:block">
+            <FeaturesIllustration />
+          </div>
+
+          <ul className="mk-reveal space-y-2.5">
+            {FEATURES.map(({ icon: Icon, title, body }) => (
+              <li key={title}>
+                <details name="features" className="group rounded-xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong">
+                  <summary
+                    className={cn(
+                      "flex cursor-pointer list-none items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-semibold text-foreground transition-colors hover:text-accent [&::-webkit-details-marker]:hidden",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60",
+                    )}
+                  >
+                    <Icon className="h-5 w-5 shrink-0 text-accent" strokeWidth={2} />
+                    <span className="flex-1">{title}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-foreground-soft transition-transform duration-300 group-open:rotate-90 group-open:text-accent" />
+                  </summary>
+                  <p className="mk-faq-answer px-4 pb-3.5 pl-[2.9rem] text-sm leading-relaxed text-muted">{body}</p>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </Section>
   );
@@ -707,66 +851,88 @@ export function Features() {
  * Media and Documents
  * ---------------------------------------------------------------------------------------- */
 
+const MEDIA_POINTS = [
+  "JPEG, PNG, WebP, GIF and HEIC photos; MP4, MOV, WebM and MKV videos",
+  "Drag-and-drop uploads with live progress for every file",
+  "Full-screen image viewer and built-in video player",
+  "Select many at once to move, delete or download",
+] as const;
+
+/** One corner of the collage's frame: an L-shaped bracket. */
+function FrameCorner({ className }: { className: string }) {
+  return <span aria-hidden className={cn("pointer-events-none absolute h-10 w-10 sm:h-12 sm:w-12", className)} style={{ borderColor: "color-mix(in srgb, var(--accent-2) 85%, transparent)" }} />;
+}
+
+/**
+ * Media: a dark green panel in both themes (like the footer, the brand's own surface) — the copy and
+ * a checklist on the left, a framed photo collage with an upload in progress on the right.
+ */
 export function MediaSection() {
   return (
-    <Section className="overflow-hidden">
-      <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-        <div>
-          <SectionHeading
-            align="left"
-            eyebrow="Media"
-            title={
-              <>
-                Photos and videos, <Highlight>beautifully kept</Highlight>
-              </>
-            }
-            description="Drop in a batch of files and media_tool takes care of the rest — thumbnails for your photos, poster frames for your videos, and one gallery for all of it."
-          />
+    <Section id="media" className="overflow-hidden">
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-12 lg:px-12 lg:py-14">
+        <div className="relative grid items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-14">
           <div className="mk-reveal">
-            <CheckList
-              items={[
-                "JPEG, PNG, WebP, GIF and HEIC photos; MP4, MOV, WebM and MKV videos",
-                "Drag-and-drop uploads with live progress for every file",
-                "Full-screen image viewer and built-in video player",
-                "Select many at once to move, delete or download",
-              ]}
-            />
+            <span className="inline-flex items-center gap-2 rounded-full border border-accent-2/40 bg-accent/15 px-4 py-2 text-sm font-bold tracking-wide text-foreground">
+              <LayoutGrid className="h-4 w-4 text-accent-2" fill="currentColor" /> MEDIA
+            </span>
+            <h2 className="mt-5 text-[36px] font-extrabold leading-[1.08] tracking-[-0.02em] text-foreground sm:text-[48px]">
+              Photos and videos,
+              <br />
+              <span className="text-accent-2">beautifully kept</span>
+            </h2>
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-foreground-soft sm:text-[17px]">
+              Drop in a batch of files and media_tool takes care of the rest — thumbnails for your photos, poster frames for your
+              videos, and one gallery for all of it.
+            </p>
+            <ul className="mt-7 space-y-3.5">
+              {MEDIA_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-3 text-[15px] text-foreground-soft">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-2 text-accent-foreground">
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                  {point}
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
 
-        <div aria-hidden className="mk-reveal relative">
-          <div className="mk-preview-light pointer-events-none absolute -inset-8 -z-10" />
-          <div
-            className="mk-window grid grid-cols-6 grid-rows-[repeat(4,minmax(0,1fr))] gap-2.5 rounded-3xl p-3 sm:gap-3 sm:p-4"
-            style={{ aspectRatio: "6 / 5" }}
-          >
-            <div className="mk-tile relative col-span-4 row-span-3 overflow-hidden rounded-2xl">
-              <PhotoArt scene={4} />
-              <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-black/40 px-2 py-1 text-[11px] font-medium text-white backdrop-blur">
-                <ImageIcon className="h-3.5 w-3.5" /> sunset.heic
-              </span>
-            </div>
-            <div className="mk-tile relative col-span-2 row-span-2 overflow-hidden rounded-2xl">
-              <PhotoArt scene={1} />
-              <span className="absolute inset-0 flex items-center justify-center">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white ring-1 ring-white/25 backdrop-blur">
-                  <Play className="ml-0.5 h-4 w-4" fill="currentColor" />
+          <div aria-hidden className="mk-reveal relative px-4 pb-14 pt-4 sm:px-6 sm:pb-12 sm:pt-6">
+            <FrameCorner className="left-0 top-0 rounded-tl-2xl border-l-[3px] border-t-[3px]" />
+            <FrameCorner className="right-0 top-0 rounded-tr-2xl border-r-[3px] border-t-[3px]" />
+            <FrameCorner className="bottom-6 left-0 rounded-bl-2xl border-b-[3px] border-l-[3px]" />
+            <FrameCorner className="bottom-6 right-0 rounded-br-2xl border-b-[3px] border-r-[3px]" />
+
+            <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] grid-rows-[auto_auto] gap-3 sm:gap-4">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl ring-2 ring-white/70 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
+                <MountainSunsetArt />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/45 text-white ring-2 ring-white/80 backdrop-blur sm:h-16 sm:w-16">
+                    <Play className="ml-1 h-6 w-6 sm:h-7 sm:w-7" fill="currentColor" />
+                  </span>
                 </span>
-              </span>
+              </div>
+              <div className="relative overflow-hidden rounded-2xl ring-1 ring-accent-2/50 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
+                <WaterfallArt className="absolute inset-0" />
+              </div>
+              <div className="aspect-[16/7] overflow-hidden rounded-2xl ring-1 ring-accent-2/50 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
+                <GreenHillsArt />
+              </div>
+              <div className="relative overflow-hidden rounded-2xl ring-1 ring-[#c084fc]/50 shadow-[0_18px_40px_-16px_rgba(0,0,0,0.7)]">
+                <NightSkyArt className="absolute inset-0" />
+              </div>
             </div>
-            <div className="mk-tile col-span-2 row-span-1 overflow-hidden rounded-2xl">
-              <PhotoArt scene={5} />
-            </div>
-            <div className="col-span-6 row-span-1 flex items-center gap-3 rounded-2xl border border-(--mk-hairline) bg-(--mk-faint) px-4">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent-2">
-                <Upload className="h-4 w-4" />
-              </span>
+
+            {/* The upload in progress, overlapping the bottom of the collage. */}
+            <div className="absolute bottom-0 right-6 flex w-[min(78%,22rem)] items-center gap-4 rounded-2xl border border-accent-2/50 bg-surface-elevated/90 px-5 py-4 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur sm:right-10">
+              <CloudUpload className="h-9 w-9 shrink-0 text-accent-2" strokeWidth={1.75} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-foreground">
-                  beach-day.mp4
+                <p className="flex items-center justify-between text-sm font-semibold text-foreground">
+                  <span>Uploading files...</span>
+                  <span>68%</span>
                 </p>
-                <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-(--mk-track)">
-                  <span className="mk-progress block h-full rounded-full bg-linear-to-r from-accent to-[#22d3ee]" />
+                <span className="mt-2.5 block h-2 overflow-hidden rounded-full bg-border">
+                  <span className="block h-full w-[68%] rounded-full bg-linear-to-r from-accent to-accent-2" />
                 </span>
               </div>
             </div>
@@ -777,128 +943,127 @@ export function MediaSection() {
   );
 }
 
-const DOC_POINTS: readonly { icon: LucideIcon; title: string; body: string }[] =
-  [
-    {
-      icon: Eye,
-      title: "Preview in place",
-      body: "PDFs and text files open inside the app — no download needed to check what you saved.",
-    },
-    {
-      icon: FolderClosed,
-      title: "Filed with everything else",
-      body: "Documents live in the same folders as your photos, so a trip, a project or a year stays together.",
-    },
-    {
-      icon: Search,
-      title: "Find it fast",
-      body: "Search across folders and files by name from anywhere in the app.",
-    },
-    {
-      icon: Trash2,
-      title: "Undo mistakes",
-      body: "Deleted items go to Trash first, and can be restored until you empty it.",
-    },
-  ];
+/** What documents get, in the words of the checklist — every one true of the app. */
+const DOC_POINTS = ["Preview in place", "Filed with everything else", "Find it fast", "Undo mistakes"] as const;
+
+/** The mock library's sidebar: the file-type filters, All Files selected. */
+const DOC_FILTERS: readonly { icon: LucideIcon; label: string }[] = [
+  { icon: Files, label: "All Files" },
+  { icon: FileText, label: "PDFs" },
+  { icon: FileText, label: "Word" },
+  { icon: FileSpreadsheet, label: "Excel" },
+  { icon: FileIcon, label: "Text" },
+  { icon: Trash2, label: "Trash" },
+];
 
 const DOC_ROWS = [
-  {
-    icon: FileText,
-    color: "#f87171",
-    name: "Rental agreement.pdf",
-    kind: "PDF",
-    meta: "2.1 MB",
-  },
-  {
-    icon: FileText,
-    color: "#60a5fa",
-    name: "Cover letter.docx",
-    kind: "DOCX",
-    meta: "48 KB",
-  },
-  {
-    icon: FileSpreadsheet,
-    color: "#34d399",
-    name: "Monthly budget.xlsx",
-    kind: "XLSX",
-    meta: "96 KB",
-  },
-  {
-    icon: FileText,
-    color: "#a1a1aa",
-    name: "Packing list.txt",
-    kind: "TXT",
-    meta: "2 KB",
-  },
+  { icon: FileText, color: "#dc2626", name: "Rental agreement.pdf", kind: "PDF", meta: "2.1 MB" },
+  { icon: FileText, color: "#2563eb", name: "Cover letter.docx", kind: "DOCX", meta: "48 KB" },
+  { icon: FileSpreadsheet, color: "#16a34a", name: "Monthly budget.xlsx", kind: "XLSX", meta: "96 KB" },
+  { icon: FileIcon, color: "#6b7280", name: "Packing list.txt", kind: "TXT", meta: "2 KB" },
 ] as const;
 
-export function DocumentsSection() {
+/** A laptop showing the Documents library (decorative: names and sizes are examples). */
+function DocsLaptop() {
   return (
-    <Section className="mk-band">
-      <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-        <div aria-hidden className="mk-reveal order-last lg:order-first">
-          <div className="mk-window overflow-hidden rounded-3xl">
-            <div className="flex items-center justify-between border-b border-(--mk-hairline) px-5 py-3.5">
-              <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <FolderOpen className="h-4 w-4 text-accent-2" /> Documents
+    <div aria-hidden className="relative mx-auto w-full max-w-[600px] lg:[transform:perspective(1800px)_rotateY(-10deg)]">
+      {/* Lid: aluminium edge, black bezel, the screen. */}
+      <div className="rounded-t-[1.4rem] bg-gradient-to-b from-[#e5e7eb] to-[#9ca3af] p-[3px] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.8)]">
+        <div className="rounded-t-[1.25rem] bg-[#0a0f0d] p-2.5 sm:p-3.5">
+          <div className="aspect-[16/10] overflow-hidden rounded-lg bg-[linear-gradient(160deg,#0f2a20,#0a1a14)] text-white">
+            {/* Top bar */}
+            <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3 sm:px-5 sm:pt-4">
+              <span className="flex items-center gap-2 text-sm font-bold sm:text-base">
+                <FolderClosed className="h-4 w-4 text-[#4ade80] sm:h-5 sm:w-5" /> Documents
               </span>
-              <span className="flex items-center gap-1.5 rounded-lg border border-(--mk-hairline) px-2 py-1 text-[10px] text-subtle">
-                <Search className="h-3 w-3" /> Search
+              <span className="flex w-2/5 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-[9px] text-white/50 sm:text-[11px]">
+                <Search className="h-3 w-3" /> Search files...
               </span>
             </div>
-            {DOC_ROWS.map(({ icon: Icon, color, name, kind, meta }, i) => (
-              <div
-                key={name}
-                className={cn(
-                  "flex items-center gap-3 border-b border-(--mk-hairline) px-5 py-3.5 last:border-b-0",
-                  i === 0 && "bg-accent/[0.06]",
-                )}
-              >
-                <IconTile icon={Icon} color={color} className="h-9 w-9" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-foreground">
-                    {name}
-                  </p>
-                  <p className="text-[11px] text-subtle">{meta}</p>
-                </div>
-                <span className="hidden rounded-md border border-(--mk-hairline) px-1.5 py-0.5 text-[10px] font-semibold text-muted sm:inline">
-                  {kind}
-                </span>
-                {i === 0 ? (
-                  <span className="flex items-center gap-1 rounded-lg bg-accent/15 px-2 py-1 text-[10px] font-semibold text-accent-2">
-                    <Eye className="h-3 w-3" /> Preview
-                  </span>
-                ) : (
-                  <Download className="h-4 w-4 text-subtle" />
-                )}
-              </div>
-            ))}
+            <div className="grid h-[calc(100%-3.25rem)] grid-cols-[30%_1fr] gap-2 px-2 pb-2 sm:gap-3 sm:px-3 sm:pb-3">
+              {/* Sidebar */}
+              <ul className="space-y-0.5 rounded-lg border border-white/5 bg-white/[0.03] p-1.5 sm:space-y-1 sm:p-2">
+                {DOC_FILTERS.map(({ icon: Icon, label }, i) => (
+                  <li
+                    key={label}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2 py-1 text-[9px] font-medium sm:gap-2 sm:py-1.5 sm:text-[11px]",
+                      i === 0 ? "bg-gradient-to-r from-[#22c55e] to-[#4ade80] text-[#052e16]" : "text-white/75",
+                    )}
+                  >
+                    <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {label}
+                  </li>
+                ))}
+              </ul>
+              {/* Files */}
+              <ul className="space-y-1.5 sm:space-y-2">
+                {DOC_ROWS.map(({ icon: Icon, color, name, kind, meta }) => (
+                  <li key={name} className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.04] px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white sm:h-8 sm:w-8" style={{ backgroundColor: color }}>
+                      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[9px] font-semibold sm:text-xs">{name}</span>
+                      <span className="block text-[8px] text-white/50 sm:text-[10px]">{meta}</span>
+                    </span>
+                    <span className="rounded-md border border-white/15 bg-white/5 px-1.5 py-0.5 text-[8px] font-bold text-white/85 sm:text-[10px]">{kind}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
+      </div>
+      {/* Base: the hinge, the deck and its thumb notch. */}
+      <div className="relative -mx-[7%] h-3 rounded-b-[1.2rem] bg-gradient-to-b from-[#f3f4f6] via-[#d1d5db] to-[#6b7280] shadow-[0_18px_30px_-10px_rgba(0,0,0,0.8)] sm:h-4">
+        <span className="absolute left-1/2 top-0 h-1.5 w-1/5 -translate-x-1/2 rounded-b-lg bg-[#9ca3af]" />
+      </div>
+    </div>
+  );
+}
 
-        <div>
-          <SectionHeading
-            align="left"
-            eyebrow="Documents"
-            title={
-              <>
-                Your paperwork, <Highlight>finally in order</Highlight>
-              </>
-            }
-            description="Keep PDFs, Word documents, Excel spreadsheets and plain-text files right next to the photos and videos they belong with."
-          />
-          <div className="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2">
-            {DOC_POINTS.map((point) => (
-              <div key={point.title} className="mk-reveal">
-                <IconTile icon={point.icon} className="h-10 w-10" />
-                <h3 className="mt-3.5 text-[15px] font-semibold text-foreground">
-                  {point.title}
-                </h3>
-                <p className="mt-1 text-sm leading-relaxed text-muted">
-                  {point.body}
-                </p>
-              </div>
-            ))}
+/**
+ * Documents: a dark emerald panel in both themes (like Media) — the copy and a checklist on the
+ * left, the Documents library on a laptop on the right.
+ */
+export function DocumentsSection() {
+  return (
+    <Section>
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-12 lg:px-12 lg:py-14">
+        {/* A soft green wave along the bottom right. */}
+        <svg aria-hidden viewBox="0 0 800 160" preserveAspectRatio="none" className="pointer-events-none absolute bottom-0 right-0 h-28 w-[70%] text-accent-2">
+          <path d="M0 160 C 250 150, 450 60, 800 40 L800 160 Z" fill="currentColor" opacity="0.18" />
+          <path d="M120 160 C 350 150, 550 100, 800 90 L800 160 Z" fill="currentColor" opacity="0.14" />
+        </svg>
+
+        <div className="relative grid items-center gap-12 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:gap-10">
+          <div className="mk-reveal">
+            <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-accent-2">
+              <span aria-hidden className="h-0.5 w-5 rounded-full bg-accent-2" /> Documents
+            </p>
+            <h2 className="mt-4 text-[36px] font-extrabold leading-[1.08] tracking-[-0.02em] text-foreground sm:text-[48px]">
+              Your paperwork,
+              <br />
+              <span className="text-accent-2">finally in order</span>
+            </h2>
+            <p className="mt-5 max-w-lg text-[15px] leading-relaxed text-foreground-soft sm:text-[17px]">
+              Keep PDFs, Word documents, Excel spreadsheets and plain-text files right next to the photos and videos they belong
+              with.
+            </p>
+            <ul className="mt-7 space-y-4">
+              {DOC_POINTS.map((point) => (
+                <li key={point} className="flex items-center gap-3 text-base font-semibold text-foreground">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-2 text-accent-foreground">
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                  </span>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mk-reveal px-[4%]">
+            <DocsLaptop />
           </div>
         </div>
       </div>
@@ -1412,58 +1577,137 @@ export function Pricing() {
  * ---------------------------------------------------------------------------------------- */
 
 /** Every answer describes what the app does today — nothing planned or assumed. */
-export const FAQ_ITEMS: readonly { q: string; a: string }[] = [
+export const FAQ_ITEMS: readonly { q: string; a: string; icon: LucideIcon }[] = [
   {
     q: "What kinds of files can I store?",
     a: "Photos (JPEG, PNG, WebP, GIF, HEIC/HEIF), videos (MP4, MOV, WebM, MKV) and documents (PDF, Word .doc/.docx, Excel .xls/.xlsx and plain text). Files are checked when they are uploaded, so a file that isn’t really one of these types is refused.",
+    icon: FolderClosed,
   },
   {
     q: "Who can see my files?",
     a: "Only you. Every library is private to its account, and files are delivered through short-lived signed links rather than public URLs. Administrators can see how many files an account holds and how much space it uses, but not the files themselves.",
+    icon: Users,
   },
   {
     q: "How do I organise everything?",
     a: "Create folders inside folders, then rename, move and delete files individually or select several at once. Search finds folders and files by name from anywhere in the app.",
+    icon: Layers,
   },
   {
     q: "What happens if I delete something by mistake?",
     a: "Deleted files and folders go to Trash first. You can restore them from there, and they are only removed for good when you delete them from Trash.",
+    icon: Trash2,
   },
   {
     q: "Can I open documents without downloading them?",
     a: "Yes for PDFs and plain-text files, which preview inside the app. Word and Excel files can be stored, organised and downloaded to open in your usual software.",
+    icon: FileText,
   },
   {
     q: "Are there games too?",
     a: "Yes — signed-in accounts include browser games for a quick break and Kid Games, learning games for younger children with stars, streaks and saved progress. Sign in, then open Games or Kid Games from your dashboard.",
+    icon: Gamepad2,
   },
   {
     q: "Do I need to install anything?",
     a: "No. media_tool runs in any modern browser on desktop or mobile. If you like, you can also install it to your phone or computer’s home screen so it opens like an app.",
+    icon: MonitorSmartphone,
   },
   {
     q: "I forgot my password. What now?",
     a: "Choose “Forgot password?” on the sign-in page and enter your email. We’ll send a 4-digit code; enter it and choose a new password. Resetting signs you out on your other devices.",
+    icon: KeyRound,
   },
   {
     q: "Does it cost anything?",
     a: "The Free plan costs nothing and includes everything described on this page — no card needed. Pro (₹49/month) and Premium (₹119/month) can be reserved, but online payments aren’t live yet, so nothing is charged and they aren’t activated until payment is completed.",
+    icon: Wallet,
   },
 ];
+
+/** A laptop showing a question mark, between two plants, with a stack of books (decorative). */
+function FaqIllustration({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 320 200" className={className} aria-hidden fill="none">
+      <defs>
+        <linearGradient id="faq-screen" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#22c55e" />
+          <stop offset="1" stopColor="#15803d" />
+        </linearGradient>
+        <linearGradient id="faq-body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#e5e7eb" />
+          <stop offset="1" stopColor="#9ca3af" />
+        </linearGradient>
+        <linearGradient id="faq-leaf" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#86efac" />
+          <stop offset="1" stopColor="#16a34a" />
+        </linearGradient>
+        <radialGradient id="faq-shadow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#16a34a" stopOpacity="0.3" />
+          <stop offset="1" stopColor="#16a34a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="160" cy="186" rx="150" ry="14" fill="url(#faq-shadow)" />
+
+      {/* Left plant */}
+      <g>
+        <path d="M58 182 C 56 150, 52 120, 40 92" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M40 92 C 22 96, 14 116, 20 128 C 34 124, 44 108, 40 92 Z" fill="url(#faq-leaf)" />
+        <path d="M46 118 C 64 104, 82 110, 86 122 C 72 132, 54 130, 46 118 Z" fill="url(#faq-leaf)" />
+        <path d="M50 140 C 30 136, 14 148, 14 160 C 30 164, 46 156, 50 140 Z" fill="url(#faq-leaf)" />
+        <path d="M54 156 C 70 146, 88 152, 90 164 C 76 172, 60 170, 54 156 Z" fill="url(#faq-leaf)" />
+        <path d="M40 92 C 44 76, 58 68, 70 70 C 68 84, 54 94, 40 92 Z" fill="url(#faq-leaf)" />
+      </g>
+
+      {/* Laptop */}
+      <path d="M92 52 Q92 44 100 44 L212 44 Q220 44 220 52 L220 150 L92 150 Z" fill="#d1d5db" />
+      <rect x="99" y="51" width="114" height="92" rx="4" fill="url(#faq-screen)" />
+      <text x="156" y="118" textAnchor="middle" fontSize="54" fontWeight="800" fill="#ffffff" fontFamily="system-ui, sans-serif">?</text>
+      <path d="M70 150 L242 150 L256 172 Q256 176 252 176 L60 176 Q56 176 56 172 Z" fill="url(#faq-body)" />
+      <path d="M92 156 L220 156 L226 166 L86 166 Z" fill="#6b7280" opacity="0.55" />
+      <rect x="138" y="168" width="36" height="4" rx="2" fill="#6b7280" opacity="0.5" />
+
+      {/* Books */}
+      <rect x="226" y="160" width="62" height="16" rx="3" fill="#15803d" />
+      <rect x="230" y="163" width="56" height="4" rx="1" fill="#f0fdf4" opacity="0.9" />
+      <rect x="230" y="146" width="56" height="14" rx="3" fill="#0ea5e9" />
+      <rect x="234" y="149" width="50" height="3" rx="1" fill="#f0fdf4" opacity="0.9" />
+      <rect x="234" y="132" width="50" height="14" rx="3" fill="#d6b98c" />
+      <rect x="238" y="135" width="44" height="3" rx="1" fill="#fffbeb" opacity="0.9" />
+
+      {/* Right plant, behind the books */}
+      <g>
+        <path d="M262 132 C 262 108, 266 84, 276 62" stroke="#15803d" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M276 62 C 292 64, 302 82, 298 96 C 284 94, 274 80, 276 62 Z" fill="url(#faq-leaf)" />
+        <path d="M268 88 C 252 76, 236 82, 232 94 C 246 104, 262 100, 268 88 Z" fill="url(#faq-leaf)" />
+        <path d="M266 108 C 284 102, 300 112, 302 124 C 288 130, 272 124, 266 108 Z" fill="url(#faq-leaf)" />
+        <path d="M264 120 C 248 112, 234 118, 232 128 C 244 136, 258 132, 264 120 Z" fill="url(#faq-leaf)" />
+      </g>
+    </svg>
+  );
+}
 
 export function Faq({ contactLink = true }: { contactLink?: boolean }) {
   return (
     <Section id="faq">
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-24 lg:self-start">
-          <SectionHeading
-            align="left"
-            eyebrow="FAQ"
-            title="Questions, answered"
-            description="The short version of how media_tool works."
-          />
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-5 py-10 sm:px-10 sm:py-12 lg:px-12">
+        {/* Soft green waves along the bottom. */}
+        <svg aria-hidden viewBox="0 0 1200 120" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 h-20 w-full text-accent-2">
+          <path d="M0 80 C 250 40, 450 120, 700 80 S 1050 40, 1200 70 L1200 120 L0 120 Z" fill="currentColor" opacity="0.10" />
+          <path d="M0 100 C 300 70, 500 125, 800 95 S 1100 80, 1200 95 L1200 120 L0 120 Z" fill="currentColor" opacity="0.10" />
+        </svg>
+
+        <div className="relative grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-14">
+        <div className="mk-reveal lg:pt-2">
+          <span className="inline-flex rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-card)]">FAQ</span>
+          <h2 className="mt-5 text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em] text-foreground sm:text-[56px]">
+            Questions,
+            <br />
+            <span className="text-accent-2">Answered</span>
+          </h2>
+          <p className="mt-5 max-w-xs text-lg leading-relaxed text-foreground-soft">The short version of how media_tool works.</p>
           {contactLink && (
-            <p className="mk-reveal mt-6 text-sm text-muted">
+            <p className="mt-4 text-sm text-muted">
               Still wondering?{" "}
               <Link
                 href="/contact"
@@ -1476,26 +1720,28 @@ export function Faq({ contactLink = true }: { contactLink?: boolean }) {
               </Link>
             </p>
           )}
+          <FaqIllustration className="mt-8 hidden w-full max-w-sm sm:block" />
         </div>
-        <div className="mk-faq overflow-hidden rounded-3xl">
-          {FAQ_ITEMS.map((item) => (
-            <details key={item.q} className="mk-faq-item group">
+        <div className="space-y-3.5">
+          {FAQ_ITEMS.map(({ q, a, icon: Icon }) => (
+            <details
+              key={q}
+              className="group rounded-2xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong"
+            >
               <summary
                 className={cn(
-                  "flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-5 text-left text-[15px] font-medium text-foreground transition-colors hover:text-accent-2 sm:px-7 [&::-webkit-details-marker]:hidden",
+                  "flex cursor-pointer list-none items-center gap-4 rounded-2xl px-5 py-4 text-left text-[15px] font-semibold text-foreground transition-colors hover:text-accent-2 sm:px-6 sm:py-5 [&::-webkit-details-marker]:hidden",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60",
                 )}
               >
-                {item.q}
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-all duration-300 group-open:rotate-180 group-open:border-accent/40 group-open:text-accent-2">
-                  <ChevronDown className="h-4 w-4" />
-                </span>
+                <Icon className="h-6 w-6 shrink-0 text-accent" strokeWidth={1.75} />
+                <span className="flex-1">{q}</span>
+                <ChevronDown className="h-5 w-5 shrink-0 text-foreground-soft transition-transform duration-300 group-open:rotate-180 group-open:text-accent-2" />
               </summary>
-              <p className="mk-faq-answer px-5 pb-6 text-sm leading-relaxed text-muted sm:px-7">
-                {item.a}
-              </p>
+              <p className="mk-faq-answer px-5 pb-5 pl-[3.75rem] text-sm leading-relaxed text-muted sm:px-6 sm:pl-[4.25rem]">{a}</p>
             </details>
           ))}
+        </div>
         </div>
       </div>
     </Section>

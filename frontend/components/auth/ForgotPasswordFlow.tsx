@@ -12,13 +12,6 @@ type Step =
   | { name: 'otp'; email: string }
   | { name: 'password'; resetToken: string };
 
-/**
- * The three-step forgot-password flow, kept as one client component with in-memory step
- * state rather than three routed pages. There is no link in the reset email anymore —
- * just a 4-digit code — so there is nothing to deep-link into: the `resetToken` that
- * authorizes the final step only ever exists as this component's state, never in a URL,
- * never in browser history.
- */
 export function ForgotPasswordFlow() {
   const router = useNavigationRouter();
   const [step, setStep] = useState<Step>({ name: 'email' });
