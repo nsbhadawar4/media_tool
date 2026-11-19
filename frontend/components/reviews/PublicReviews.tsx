@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BadgeCheck, ChevronLeft, ChevronRight, MessageSquareQuote, Quote } from 'lucide-react';
+import { BadgeCheck, ChevronLeft, ChevronRight, MessageSquareQuote, Quote, Star } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { formatDateShort } from '@/utils/format';
 import { REVIEW_CATEGORY_LABEL, reviewsApi, type PublicReview, type PublicReviewStats } from '@/lib/api/reviews';
@@ -70,49 +70,107 @@ export function PublicReviews({ hideWhenEmpty = false, className }: { hideWhenEm
   );
 }
 
+/**
+ * The section's frame, on the home page's shared emerald panel (it follows the theme): the heading
+ * on the left, a quote bubble with a star on the right, and the content below.
+ */
 function PublicShell({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <section aria-labelledby="public-reviews-title" className={cn('w-full', className)}>
-      <div className="mb-10 text-center">
-        <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-accent-2">
-          <span aria-hidden className="h-px w-6 bg-linear-to-r from-transparent to-accent-2" />
-          Reviews
-        </p>
-        <h2 id="public-reviews-title" className="mt-4 text-balance text-[32px] font-semibold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[44px]">
-          What Our Users Say
-        </h2>
-        <p className="mt-4 text-[15px] text-muted sm:text-[17px]">Real feedback from people using Media Tool — approved reviews only.</p>
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-5 py-9 sm:px-10 sm:py-11 lg:px-12">
+        <ReviewsArt className="pointer-events-none absolute right-6 top-6 hidden h-44 w-56 lg:right-14 lg:top-8 lg:block lg:h-56 lg:w-72" />
+        <div className="relative max-w-2xl">
+          <p className="inline-flex items-center gap-2 rounded-full border border-accent-2/40 bg-accent/15 px-3.5 py-1.5 text-sm font-bold uppercase tracking-wide text-foreground">
+            <Star aria-hidden className="h-4 w-4 fill-accent-2 text-accent-2" /> Reviews
+          </p>
+          <h2 id="public-reviews-title" className="mt-4 text-balance text-[32px] font-extrabold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[44px]">
+            What Our <span className="text-accent-2">Users Say</span>
+          </h2>
+          <p className="mt-3 text-[15px] text-foreground-soft sm:text-[17px]">Real feedback from people using Media Tool — approved reviews only.</p>
+        </div>
+        <div className="relative mt-8">{children}</div>
       </div>
-      {children}
     </section>
+  );
+}
+
+/** A laurel branch (one side of the wreath round the average); `flip` mirrors it for the right. */
+function Laurel({ flip = false }: { flip?: boolean }) {
+  const leaves = [0, 1, 2, 3, 4, 5];
+  return (
+    <svg aria-hidden viewBox="0 0 40 110" className={cn('h-24 w-9 shrink-0 text-accent-2', flip && '-scale-x-100')} fill="currentColor">
+      <path d="M32 106 C 10 90, 6 50, 22 6" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      {leaves.map((i) => {
+        const y = 96 - i * 16;
+        const x = 26 - Math.sin((i / 5) * Math.PI) * 14 + i * 1.2;
+        return (
+          <g key={i}>
+            <ellipse cx={x - 7} cy={y - 4} rx="7" ry="3.4" transform={`rotate(-35 ${x - 7} ${y - 4})`} />
+            <ellipse cx={x + 6} cy={y - 7} rx="6.5" ry="3.2" transform={`rotate(-70 ${x + 6} ${y - 7})`} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** A glossy quote bubble with a star on its corner, on an orbit ring (decorative). */
+function ReviewsArt({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 300 230" className={className} fill="none">
+      <defs>
+        <linearGradient id="rv-bubble" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--accent-2)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--accent)' }} />
+        </linearGradient>
+        <linearGradient id="rv-star" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fde047" />
+          <stop offset="1" stopColor="#f59e0b" />
+        </linearGradient>
+      </defs>
+      {/* Orbit, behind and in front of the bubble */}
+      <ellipse cx="150" cy="168" rx="128" ry="34" style={{ stroke: 'var(--accent-2)' }} strokeWidth="3" opacity="0.35" />
+      {/* Bubble */}
+      <path d="M86 40 Q86 22 104 22 L206 22 Q224 22 224 40 L224 132 Q224 150 206 150 L132 150 L100 182 L106 150 L104 150 Q86 150 86 132 Z" fill="url(#rv-bubble)" />
+      <path d="M96 34 Q96 30 104 30 L196 30" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="5" strokeLinecap="round" />
+      {/* The quote marks */}
+      <path d="M122 74 Q122 62 136 60 L136 70 Q130 72 130 80 L140 80 L140 102 L120 102 Z M160 74 Q160 62 174 60 L174 70 Q168 72 168 80 L178 80 L178 102 L158 102 Z" fill="#ffffff" />
+      {/* Star */}
+      <path d="M232 6 L242 28 L266 30 L248 46 L254 70 L232 58 L210 70 L216 46 L198 30 L222 28 Z" fill="url(#rv-star)" stroke="#fef3c7" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M150 202 C 230 200, 278 186, 278 168" style={{ stroke: 'var(--accent-2)' }} strokeWidth="3.5" strokeLinecap="round" />
+    </svg>
   );
 }
 
 function RatingSummary({ stats }: { stats: PublicReviewStats }) {
   return (
-    <div className="gradient-border flex flex-col gap-6 rounded-3xl border border-border bg-surface p-5 shadow-card sm:flex-row sm:items-center sm:gap-10 sm:p-6">
-      <div className="flex shrink-0 items-center gap-5">
-        <span className="text-5xl font-semibold tabular-nums tracking-tight text-foreground">{stats.averageRating.toFixed(1)}</span>
-        <div>
-          <StarDisplay value={stats.averageRating} size="md" />
-          <p className="mt-1 text-sm text-muted">
-            Average from <span className="font-semibold text-foreground">{stats.total}</span> public{' '}
-            {stats.total === 1 ? 'review' : 'reviews'}
+    <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-10 lg:max-w-3xl">
+      <div className="flex shrink-0 items-center justify-center gap-1 rounded-3xl border border-border-strong bg-surface-elevated/60 px-5 py-4 shadow-[var(--shadow-card)]">
+        <Laurel />
+        <div className="flex flex-col items-center text-center">
+          <span className="text-5xl font-extrabold tabular-nums tracking-tight text-foreground">{stats.averageRating.toFixed(1)}</span>
+          <StarDisplay value={stats.averageRating} size="md" className="mt-1" />
+          <p className="mt-2 text-sm text-foreground-soft">
+            Average from
+            <br />
+            <span className="font-semibold text-foreground">{stats.total.toLocaleString('en-IN')}</span> {stats.total === 1 ? 'review' : 'reviews'}
           </p>
         </div>
+        <Laurel flip />
       </div>
-      <ul className="min-w-0 flex-1 space-y-1.5 sm:max-w-md sm:border-l sm:border-border sm:pl-10" aria-label="Rating distribution">
+      <ul className="min-w-0 flex-1 space-y-2.5 sm:border-l sm:border-border-strong sm:pl-10" aria-label="Rating distribution">
         {([5, 4, 3, 2, 1] as const).map((star) => {
           const count = stats.distribution[String(star) as '1'] ?? 0;
-          const pct = stats.total ? (count / stats.total) * 100 : 0;
+          const pct = stats.total ? Math.round((count / stats.total) * 100) : 0;
           return (
-            <li key={star} className="flex items-center gap-2 text-xs" aria-label={`${star} stars: ${count}`}>
-              <span className="w-3 text-right tabular-nums text-muted">{star}</span>
-              <span aria-hidden className="text-amber-400">★</span>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-hover">
-                <span className="block h-full rounded-full bg-amber-400 transition-[width] duration-700" style={{ width: `${pct}%` }} />
+            <li key={star} className="flex items-center gap-3 text-sm" aria-label={`${star} stars: ${count} (${pct}%)`}>
+              <span className="w-3 text-right font-semibold tabular-nums text-foreground">{star}</span>
+              <Star aria-hidden className="h-4 w-4 fill-amber-400 text-amber-400" />
+              <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-border">
+                {/* At least a sliver, so an empty row still reads as a bar. */}
+                <span className="block h-full rounded-full bg-gradient-to-r from-accent to-accent-2 transition-[width] duration-700" style={{ width: `${Math.max(pct, 2)}%` }} />
               </span>
-              <span className="w-6 text-right tabular-nums text-muted">{count}</span>
+              <span className="w-10 text-right font-medium tabular-nums text-foreground-soft">{pct}%</span>
             </li>
           );
         })}
@@ -170,7 +228,7 @@ function ReviewCarousel({ reviews }: { reviews: PublicReview[] }) {
 /** One testimonial. The text is rendered as text: whatever a reviewer typed can never become markup. */
 export function ReviewCard({ review }: { review: PublicReview }) {
   return (
-    <article className="rv-card anim-rise-scale flex h-full flex-col gap-4 rounded-3xl border border-border bg-surface p-5 shadow-card">
+    <article className="rv-card anim-rise-scale flex h-full flex-col gap-4 rounded-3xl border border-border-strong bg-surface-elevated/80 p-5 shadow-card">
       <div className="flex items-center justify-between">
         <StarDisplay value={review.rating} />
         <Quote aria-hidden className="h-6 w-6 text-accent/40" />

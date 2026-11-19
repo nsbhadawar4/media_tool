@@ -18,6 +18,7 @@ import {
   Files,
   Flame,
   FolderClosed,
+  FolderSearch,
   Gamepad2,
   GraduationCap,
   KeyRound,
@@ -50,7 +51,7 @@ import { builtInSubtitle, classPicture, classVars } from "@/components/kid-games
 import { LOGIN_PATH } from "@/lib/auth/routes";
 import { PricingCards } from "@/components/billing/PricingCards";
 import { cn } from "@/utils/cn";
-import { AuroraArt, GreenHillsArt, MountainSunsetArt, NightSkyArt, WaterfallArt } from "./visuals";
+import { AuroraArt, GradCapBooksArt, GreenHillsArt, MountainSunsetArt, NightSkyArt, WaterfallArt } from "./visuals";
 
 /*
  * The public home page's sections. Server components only: the page ships no JavaScript for
@@ -80,7 +81,9 @@ function Section({
       id={id}
       className={cn(
         // mk-section: a header link lands on the heading, not on this padding (globals.css).
-        "mk-section relative px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[88px]",
+        // One rhythm for every section: each is a self-contained panel, so the gap between two is
+        // simply twice this padding (globals.css .mk-section relies on these values).
+        "mk-section relative px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8",
         className,
       )}
     >
@@ -373,7 +376,7 @@ export function Hero({ featuresLink = true, classes = [] }: { featuresLink?: boo
   return (
     <section
       id="home"
-      className="relative overflow-hidden pb-16 sm:pb-20 lg:pb-24"
+      className="relative overflow-hidden pb-5 sm:pb-6 lg:pb-8"
     >
       {/* The headline and the student: a full-width banner on the shared emerald surface (it follows
           the theme), its content kept to the page width. */}
@@ -490,7 +493,7 @@ export function Hero({ featuresLink = true, classes = [] }: { featuresLink?: boo
         {/* The classes and what the platform offers, on one dark emerald panel (dark in both themes). */}
         <div
           style={{ "--i": 5 } as CSSProperties}
-          className="anim-rise mk-panel relative mt-12 overflow-hidden rounded-[2rem] px-5 py-8 sm:px-8 sm:py-10"
+          className="anim-rise mk-panel relative mt-10 overflow-hidden rounded-[2rem] px-5 py-8 sm:mt-12 sm:px-8 sm:py-10 lg:mt-16"
         >
           {hasClasses && (
             <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
@@ -555,7 +558,7 @@ const HL_TILE = "relative overflow-hidden rounded-2xl ring-1 ring-accent-2/40 sh
  */
 export function Highlights() {
   return (
-    <Section id="highlights" className="pt-6 sm:pt-10 lg:pt-12">
+    <Section id="highlights">
       <div className="mk-panel relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-12 lg:px-12">
         {/* A green hill rising along the bottom left. */}
         <svg aria-hidden viewBox="0 0 600 160" preserveAspectRatio="none" className="pointer-events-none absolute bottom-0 left-0 h-28 w-[60%] text-accent-2">
@@ -769,7 +772,7 @@ export function Features() {
           <ul className="mk-reveal space-y-2.5">
             {FEATURES.map(({ icon: Icon, title, body }) => (
               <li key={title}>
-                <details name="features" className="group rounded-xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong">
+                <details name="features" className="mk-accordion group rounded-xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong">
                   <summary
                     className={cn(
                       "flex cursor-pointer list-none items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-semibold text-foreground transition-colors hover:text-accent [&::-webkit-details-marker]:hidden",
@@ -1313,35 +1316,55 @@ export interface LandingClass extends ClassView {
   marks?: string[];
 }
 
+/**
+ * Courses: class first, then that class's subjects, on the shared emerald panel — the heading on the
+ * left, a cap on books top right, and the picker in its landing look.
+ */
 export function LearnByClassSection({ classes, kidGamesOn, status = 'ready', retryHref = '/#kid-games' }: { classes: readonly LandingClass[]; kidGamesOn: boolean; status?: 'ready' | 'error'; retryHref?: string }) {
   return (
     // #kid-games: the header's "Kid Games" link lands on these classes.
     <Section id="kid-games">
-      <SectionHeading
-        eyebrow="Courses"
-        title={
-          <>
-            Choose Your <Highlight>Class</Highlight>
-          </>
-        }
-        description="Pick your class first — then only that class's subjects appear. Each opens its chapters, lessons and questions."
-      />
-      {status === 'error' ? (
-        <div className="mx-auto mt-12 max-w-md rounded-3xl border border-border bg-surface/70 p-8 text-center shadow-card sm:mt-14">
-          <p className="text-base font-semibold text-foreground">Unable to load classes</p>
-          <p className="mt-1.5 text-sm text-muted">Please try again in a moment.</p>
-          <a href={retryHref} className="btn-primary mt-5 inline-flex h-11 items-center rounded-xl px-5 text-sm font-semibold text-accent-foreground">
-            Try Again
-          </a>
+      <div className="mk-panel relative overflow-hidden rounded-[2rem] px-5 py-9 sm:px-10 sm:py-11 lg:px-12">
+        {/* A green swoosh under the illustration. */}
+        <svg aria-hidden viewBox="0 0 600 220" preserveAspectRatio="none" className="pointer-events-none absolute right-0 top-[8%] h-56 w-[55%] text-accent-2">
+          <path d="M0 200 C 180 200, 300 120, 420 150 C 500 170, 560 120, 600 100" stroke="currentColor" strokeWidth="3" opacity="0.55" fill="none" />
+        </svg>
+        <div aria-hidden className="pointer-events-none absolute right-6 top-6 hidden sm:block lg:right-14">
+          <Sparkle className="absolute -left-10 top-6 h-5 w-5 text-accent-2" />
+          <Sparkle className="absolute -right-4 top-24 h-4 w-4 text-accent-2" />
+          <GradCapBooksArt className="h-36 w-44 lg:h-44 lg:w-56" />
         </div>
-      ) : (
-        <div className="mt-12 sm:mt-14">
-          {/* Class first, then only that class's subjects (the choice is kept in the address: ?class=class-7). */}
-          <Suspense fallback={<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{classes.map((c) => <div key={c.key} className="h-[4.5rem] animate-pulse rounded-2xl border border-border bg-surface-hover" />)}</div>}>
-            <ClassSubjectPicker classes={classes} kidGamesOn={kidGamesOn} idPrefix="landing" />
-          </Suspense>
+
+        <div className="relative max-w-xl">
+          <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-accent-2">
+            <span aria-hidden className="h-0.5 w-5 rounded-full bg-accent-2" /> Courses
+          </p>
+          <h2 className="mt-3 text-[34px] font-extrabold leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[46px]">
+            Choose Your <span className="text-accent-2">Class</span>
+          </h2>
+          <p className="mt-3 max-w-md text-[15px] leading-relaxed text-foreground-soft">
+            Pick your class first — then only that class&apos;s subjects appear. Each opens its chapters, lessons and questions.
+          </p>
         </div>
-      )}
+
+        {status === 'error' ? (
+          <div className="relative mt-8 flex flex-col items-center rounded-3xl border border-border bg-surface/50 px-6 py-10 text-center">
+            <FolderSearch aria-hidden className="h-12 w-12 text-accent-2" strokeWidth={1.5} />
+            <p className="mt-3 text-base font-semibold text-foreground">Unable to load classes</p>
+            <p className="mt-1 text-sm text-muted">Please try again in a moment.</p>
+            <a href={retryHref} className={cn("btn-primary mt-5 inline-flex h-11 items-center rounded-full px-6 text-sm font-semibold text-accent-foreground", focusRing)}>
+              Try Again
+            </a>
+          </div>
+        ) : (
+          <div className="relative mt-8">
+            {/* Class first, then only that class's subjects (the choice is kept in the address: ?class=class-7). */}
+            <Suspense fallback={<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{classes.map((c) => <div key={c.key} className="h-[4.5rem] animate-pulse rounded-2xl border border-border bg-surface-hover" />)}</div>}>
+              <ClassSubjectPicker classes={classes} kidGamesOn={kidGamesOn} idPrefix="landing" landing />
+            </Suspense>
+          </div>
+        )}
+      </div>
     </Section>
   );
 }
@@ -1668,9 +1691,11 @@ export function Faq({ contactLink = true }: { contactLink?: boolean }) {
         </div>
         <div className="space-y-3.5">
           {FAQ_ITEMS.map(({ q, a, icon: Icon }) => (
+            // One question open at a time (`name`), opening and closing smoothly (.mk-accordion).
             <details
               key={q}
-              className="group rounded-2xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong"
+              name="faq"
+              className="mk-accordion group rounded-2xl border border-border bg-surface-elevated shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)] open:border-border-strong"
             >
               <summary
                 className={cn(
@@ -1698,7 +1723,7 @@ export function Faq({ contactLink = true }: { contactLink?: boolean }) {
 
 export function FinalCta() {
   return (
-    <Section className="pt-6 sm:pt-8">
+    <Section>
       <div className="mk-reveal mk-cta relative overflow-hidden rounded-[2rem] px-6 py-16 text-center sm:rounded-[2.5rem] sm:px-12 sm:py-24">
         <div
           aria-hidden

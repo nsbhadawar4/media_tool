@@ -35,9 +35,22 @@ export function createApp(): Express {
    * hosted API) still get the credentialed allow-list they need.
    */
   if (!env.isSameOrigin) {
+    /**
+     * FRONTEND_URL's origins; in development also any localhost / 127.0.0.1 port, because Next
+     * moves to the next free port (3001, 3002 …) when 3000 is taken — and a page on a port missing
+     * from FRONTEND_URL then had every browser call blocked ("Unable to load the subjects").
+     * Production keeps the exact list.
+     */
+    const corsOrigin = (origin: string | undefined, done: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return done(null, true);
+      const normalised = origin.replace(/\/$/, '');
+      if (env.allowedOrigins.includes(normalised)) return done(null, true);
+      if (env.isDevelopment && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalised)) return done(null, true);
+      return done(null, false);
+    };
     app.use(
       cors({
-        origin: env.allowedOrigins,
+        origin: corsOrigin,
         credentials: true,
       }),
     );

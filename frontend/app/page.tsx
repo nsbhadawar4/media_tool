@@ -131,8 +131,8 @@ const SECTION: Record<string, (ctx: Ctx) => React.ReactNode> = {
   security: () => <SecuritySection />,
   // Approved, published reviews only (the server decides); a polished empty state otherwise.
   reviews: () => (
-    <section id="reviews" className="mk-band relative px-4 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
-      <PublicReviews className="mx-auto max-w-6xl" />
+    <section id="reviews" className="mk-section relative px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+      <PublicReviews className="mx-auto max-w-7xl" />
     </section>
   ),
   pricing: () => <Pricing />,

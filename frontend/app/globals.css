@@ -1779,9 +1779,9 @@ html:has(.mk-root) {
  * steady 1.5rem below the header instead of behind a band of empty padding. The values are the
  * padding of Section (sections.tsx) minus that gap, per breakpoint.
  */
-.mk-section { scroll-margin-top: -2.5rem; }
-@media (min-width: 640px) { .mk-section { scroll-margin-top: -3.5rem; } }
-@media (min-width: 1024px) { .mk-section { scroll-margin-top: -4rem; } }
+.mk-section { scroll-margin-top: 0.25rem; }
+@media (min-width: 640px) { .mk-section { scroll-margin-top: 0; } }
+@media (min-width: 1024px) { .mk-section { scroll-margin-top: -0.5rem; } }
 
 .mk-safe-top {
   padding-top: env(safe-area-inset-top, 0px);
@@ -2369,6 +2369,32 @@ html:has(.mk-root) {
   from { opacity: 0; transform: translateY(6px) scale(0.99); }
   to { opacity: 1; transform: none; }
 }
+/*
+ * Accordions (FAQ, Features): the answer's box grows from nothing to its height and back, on both
+ * opening and closing — `::details-content` is the part a <details> hides, and `interpolate-size`
+ * lets a transition run to `height: auto`. Browsers without them simply open and close at once.
+ */
+.mk-accordion {
+  interpolate-size: allow-keywords;
+}
+.mk-accordion::details-content {
+  block-size: 0;
+  overflow: hidden;
+}
+.mk-accordion[open]::details-content {
+  block-size: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion='reduce']) .mk-accordion::details-content {
+    transition:
+      block-size 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      content-visibility 0.35s allow-discrete;
+  }
+  :root:not([data-motion='reduce']) .mk-accordion {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+}
+
 @keyframes mk-faq-in {
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: none; }

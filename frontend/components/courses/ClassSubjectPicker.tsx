@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, Check, GraduationCap, MousePointerClick, RefreshCw } from 'lucide-react';
+import { ArrowRight, Check, FolderSearch, GraduationCap, MousePointerClick, RefreshCw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { contentApi } from '@/lib/api/content';
 import { ApiError } from '@/lib/api/client';
@@ -27,8 +27,12 @@ export type PickerClass = ClassView & { subjects?: number };
  * of a published, visible class). Each subject opens /classes/<class>/<subject>, where the server
  * checks the pair again. Changing class clears the subjects at once and loads the new class's —
  * they are a separate query per class, so another class's subjects never show, even for a moment.
+ *
+ * `landing`: the home page's look (on its emerald panel) — the chosen class glows in the accent with
+ * its photo shown plainly, and a failed load gets an illustration and a pill button. The app keeps the
+ * class-coloured look.
  */
-export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = 'pick' }: { classes: readonly PickerClass[]; kidGamesOn: boolean; progress?: ReadonlyMap<string, number>; idPrefix?: string }) {
+export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = 'pick', landing = false }: { classes: readonly PickerClass[]; kidGamesOn: boolean; progress?: ReadonlyMap<string, number>; idPrefix?: string; landing?: boolean }) {
   const params = useSearchParams();
   const pathname = usePathname();
   const requested = params.get(CLASS_PARAM);
@@ -66,7 +70,7 @@ export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = '
         <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-[11px] text-accent-foreground">1</span>
         Step 1 · Choose your class
       </p>
-      <div role="radiogroup" aria-label="Choose your class" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div role="radiogroup" aria-label="Choose your class" className={cn('grid grid-cols-2 gap-3 sm:grid-cols-3', landing ? 'lg:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]' : 'lg:grid-cols-4 xl:grid-cols-5')}>
         {classes.map((c, i) => {
           const on = c.key === selected?.key;
           const picture = classPicture(c.level, c.thumbnailUrl, c.title, c.isCode);
@@ -81,22 +85,29 @@ export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = '
               onClick={() => choose(c.key)}
               style={{ ...classVars(c.level), '--i': i } as CSSProperties}
               className={cn(
-                'anim-rise group relative flex min-h-[4.5rem] min-w-0 items-center gap-3 rounded-2xl border bg-surface p-2.5 pr-3 text-left shadow-card transition duration-200 hover:-translate-y-0.5 hover:border-(--kg) hover:shadow-lift focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--kg)',
-                on ? 'border-(--kg) ring-2 ring-(--kg)/40' : 'border-border',
+                'anim-rise group relative flex min-h-[4.5rem] min-w-0 items-center gap-3 rounded-2xl border p-2.5 pr-3 text-left transition duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2',
+                landing ? 'focus-visible:outline-accent-2' : 'bg-surface shadow-card hover:border-(--kg) hover:shadow-lift focus-visible:outline-(--kg)',
+                landing
+                  ? on
+                    ? 'border-2 border-accent-2 bg-surface-elevated shadow-[0_0_0_3px_var(--glow),0_0_28px_-6px_var(--accent-2)]'
+                    : 'border-border bg-surface-elevated/70 hover:border-accent-2'
+                  : on
+                    ? 'border-(--kg) ring-2 ring-(--kg)/40'
+                    : 'border-border',
               )}
             >
               <span className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-(--kg) to-(--kg-2) text-lg font-bold text-white">
                 {picture &&
                   (picture.local ? (
-                    <Image src={picture.src} alt="" fill sizes="56px" className="object-cover opacity-70" style={picture.focus ? { objectPosition: picture.focus } : undefined} />
+                    <Image src={picture.src} alt="" fill sizes="56px" className={cn('object-cover', landing ? 'opacity-100' : 'opacity-70')} style={picture.focus ? { objectPosition: picture.focus } : undefined} />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element -- an uploaded or linked picture
                     <img src={picture.src} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" loading="lazy" referrerPolicy="no-referrer" />
                   ))}
-                <span className="relative [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{c.level}</span>
+                {!(landing && picture) && <span className="relative [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{c.level}</span>}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-foreground">{c.title}</span>
+                <span className={cn('block truncate font-semibold text-foreground', landing ? 'text-base' : 'text-sm')}>{c.title}</span>
                 <span className="block truncate text-xs text-muted">
                   {c.subtitle || (typeof c.subjects === 'number' ? `${c.subjects} ${c.subjects === 1 ? 'subject' : 'subjects'}` : 'Open subjects')}
                 </span>
@@ -107,7 +118,13 @@ export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = '
                 )}
               </span>
               {on && (
-                <span aria-hidden className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-(--kg) text-white shadow-card">
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute flex h-5 w-5 items-center justify-center rounded-full shadow-card',
+                    landing ? 'right-2.5 top-2.5 bg-accent-2 text-accent-foreground' : '-right-1.5 -top-1.5 bg-(--kg) text-white',
+                  )}
+                >
                   <Check className="h-3 w-3" strokeWidth={3} />
                 </span>
               )}
@@ -127,16 +144,16 @@ export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = '
             <p className="text-sm text-muted">Choose your class first — only its subjects appear here.</p>
           </div>
         ) : (
-          <div key={selected.key} className="space-y-5 rounded-3xl border border-border bg-surface/60 p-4 shadow-card sm:p-6">
+          <div key={selected.key} className={cn('space-y-5 rounded-3xl border p-4 shadow-card sm:p-6', landing ? 'border-border-strong bg-surface/40' : 'border-border bg-surface/60')}>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
-                  <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full bg-(--kg) text-[11px] text-white">2</span>
+                <p className={cn('inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em]', landing ? 'text-accent-2' : 'text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]')}>
+                  <span aria-hidden className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[11px]', landing ? 'bg-accent-2 text-accent-foreground' : 'bg-(--kg) text-white')}>2</span>
                   Step 2 · {selected.title}
                 </p>
                 <h3 className="mt-1 text-lg font-semibold tracking-tight text-foreground sm:text-xl">Choose a subject to continue</h3>
               </div>
-              <Link href={classPath(selected.key)} className="group inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]">
+              <Link href={classPath(selected.key)} className={cn('group inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold', landing ? 'text-accent-2' : 'text-[color-mix(in_srgb,var(--kg)_70%,var(--foreground))]')}>
                 Open {selected.title}
                 <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
@@ -146,10 +163,11 @@ export function ClassSubjectPicker({ classes, kidGamesOn, progress, idPrefix = '
                 <SubjectCardsSkeleton />
               </div>
             ) : subjects.isError ? (
-              <div className="rounded-2xl border border-border bg-surface px-5 py-8 text-center">
+              <div className={cn('flex flex-col items-center rounded-2xl border px-5 py-8 text-center', landing ? 'border-border-strong bg-surface/40' : 'border-border bg-surface')}>
+                {landing && <FolderSearch aria-hidden className="mb-3 h-12 w-12 text-accent-2" strokeWidth={1.5} />}
                 <p className="font-semibold text-foreground">{subjects.error instanceof ApiError && subjects.error.status === 404 ? `${selected.title} is not available right now` : 'Unable to load the subjects'}</p>
                 {!(subjects.error instanceof ApiError && subjects.error.status === 404) && (
-                  <button type="button" onClick={() => void subjects.refetch()} className="btn-primary mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-accent-foreground">
+                  <button type="button" onClick={() => void subjects.refetch()} className={cn('btn-primary mt-4 inline-flex h-10 items-center gap-2 px-4 text-sm font-semibold text-accent-foreground', landing ? 'rounded-full px-6' : 'rounded-xl')}>
                     <RefreshCw aria-hidden className="h-4 w-4" />
                     Try Again
                   </button>

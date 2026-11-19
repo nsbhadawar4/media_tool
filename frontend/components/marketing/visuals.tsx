@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { cn } from '@/utils/cn';
 
 /**
@@ -186,6 +187,59 @@ export function AuroraArt({ className }: { className?: string }) {
       <path d="M0 140 L40 120 L70 132 L110 112 L150 130 L190 116 L230 132 L270 118 L320 134 L320 150 L0 150 Z" fill="#0f172a" />
       <rect y="150" width="320" height="30" fill="#111c3a" />
       <path d="M40 160 C 80 156, 120 164, 160 158 C 200 154, 240 162, 280 158" stroke="#34d399" strokeWidth="2" opacity="0.35" fill="none" />
+    </svg>
+  );
+}
+
+/** Graduation cap resting on a stack of books (decorative): the footer and the Courses panel. Its ids are
+ * per-instance, so it can appear twice on a page. */
+export function GradCapBooksArt({ className }: { className?: string }) {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const id = (name: string) => `${name}-${uid}`;
+  return (
+    <svg viewBox="0 0 200 170" className={className} aria-hidden fill="none">
+      <defs>
+        <linearGradient id={id("ft-book")} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#15803d" />
+          <stop offset="1" stopColor="#22c55e" />
+        </linearGradient>
+        <linearGradient id={id("ft-book-top")} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#4ade80" />
+          <stop offset="1" stopColor="#16a34a" />
+        </linearGradient>
+        <linearGradient id={id("ft-cap")} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#4ade80" />
+          <stop offset="1" stopColor="#15803d" />
+        </linearGradient>
+        <linearGradient id={id("ft-cap-side")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#16a34a" />
+          <stop offset="1" stopColor="#14532d" />
+        </linearGradient>
+        <radialGradient id={id("ft-glow")} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#22c55e" stopOpacity="0.45" />
+          <stop offset="1" stopColor="#22c55e" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="100" cy="150" rx="88" ry="16" fill={`url(#${id("ft-glow")})`} />
+      {/* Bottom book */}
+      <path d="M22 128 L100 146 L178 128 L178 142 L100 160 L22 142 Z" fill="#14532d" />
+      <path d="M22 128 L100 146 L100 160 L22 142 Z" fill={`url(#${id("ft-book")})`} />
+      <path d="M30 131 L100 147 L100 155 L30 139 Z" fill="#f0fdf4" opacity="0.92" />
+      <path d="M22 128 L100 110 L178 128 L100 146 Z" fill={`url(#${id("ft-book-top")})`} />
+      {/* Middle book */}
+      <path d="M32 108 L100 124 L168 108 L168 121 L100 137 L32 121 Z" fill="#14532d" />
+      <path d="M32 108 L100 124 L100 137 L32 121 Z" fill={`url(#${id("ft-book")})`} />
+      <path d="M40 111 L100 125 L100 132 L40 118 Z" fill="#f0fdf4" opacity="0.92" />
+      <path d="M32 108 L100 92 L168 108 L100 124 Z" fill={`url(#${id("ft-book-top")})`} />
+      {/* Cap: crown */}
+      <path d="M62 72 L62 94 Q100 112 138 94 L138 72 Z" fill={`url(#${id("ft-cap-side")})`} />
+      {/* Cap: board */}
+      <path d="M100 30 L180 60 L100 90 L20 60 Z" fill={`url(#${id("ft-cap")})`} />
+      <path d="M20 60 L100 90 L180 60 L180 64 L100 94 L20 64 Z" fill="#166534" />
+      {/* Tassel */}
+      <circle cx="100" cy="60" r="5" fill="#bbf7d0" />
+      <path d="M100 60 L160 70 L160 98" stroke="#bbf7d0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="155" y="96" width="10" height="20" rx="4" fill="#86efac" />
     </svg>
   );
 }
